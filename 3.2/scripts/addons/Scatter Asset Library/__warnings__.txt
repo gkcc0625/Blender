@@ -1,0 +1,33 @@
+
+This is a little guide on how to use this asset manager.
+
+##################################################################################################################
+icon:
+##################################################################################################################
+
+please choose an 250x250 .jpg format for your preview. (if you don't like the default one)
+anything above will not be worth it as template_preview will make your image blurry anyway.
+
+".jpg" extension is mandatory
+having a preview for each of your name.py and vice versa is mandatory.
+
+
+
+###########################################################################################################
+refresh:
+##################################################################################################################
+
+you will NEED to hit the refresh icon after any changes in the __assets__ folder 
+same for the import/export folder or __textures__ folder, if you change things in the scatter directory hit refresh.)
+
+
+##################################################################################################################
+warnings:
+##################################################################################################################
+
+DO NOT delete any "__example__" files nor folders in the scatter directory EVER
+
+
+
+
+

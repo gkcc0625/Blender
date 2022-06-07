@@ -1,0 +1,127 @@
+{
+  "version": "1.16.0", 
+  "menus": [
+    [
+      "Curve Control Point Radius Property", 
+      "Window", 
+      "", 
+      [
+        [
+          "GET", 
+          "COMMAND", 
+          "", 
+          "import functools; selected_points = [p for p in C.object.data.splines.active.bezier_points if p.select_control_point]; sum = functools.reduce(lambda x, y: x + y.radius, selected_points, 0); mean_radius = sum / len(selected_points); return mean_radius"
+        ], 
+        [
+          "SET", 
+          "COMMAND", 
+          "", 
+          "[setattr(p, \"radius\", value) for p in C.object.data.splines.active.bezier_points if p.select_control_point]"
+        ], 
+        [
+          "min", 
+          "", 
+          "0.0"
+        ], 
+        [
+          "precision", 
+          "", 
+          "3"
+        ], 
+        [
+          "max", 
+          "", 
+          "100.0"
+        ]
+      ], 
+      "PROPERTY", 
+      "prop?", 
+      "PRESS", 
+      "FLOAT", 
+      ""
+    ], 
+    [
+      "Curve Control Point Weight Property", 
+      "Window", 
+      "", 
+      [
+        [
+          "GET", 
+          "COMMAND", 
+          "", 
+          "import functools; selected_points = [p for p in C.object.data.splines.active.bezier_points if p.select_control_point]; sum = functools.reduce(lambda x, y: x + y.weight_softbody, selected_points, 0); mean_weight = sum / len(selected_points); return mean_weight"
+        ], 
+        [
+          "SET", 
+          "COMMAND", 
+          "", 
+          "[setattr(p, \"weight_softbody\", value) for p in C.object.data.splines.active.bezier_points if p.select_control_point]"
+        ], 
+        [
+          "min", 
+          "", 
+          "0.0"
+        ], 
+        [
+          "precision", 
+          "", 
+          "3"
+        ], 
+        [
+          "max", 
+          "", 
+          "1.0"
+        ]
+      ], 
+      "PROPERTY", 
+      "prop?", 
+      "PRESS", 
+      "FLOAT", 
+      ""
+    ], 
+    [
+      "Curve Control Point Tilt Property", 
+      "Window", 
+      "", 
+      [
+        [
+          "GET", 
+          "COMMAND", 
+          "", 
+          "import functools; selected_points = [p for p in C.object.data.splines.active.bezier_points if p.select_control_point]; sum = functools.reduce(lambda x, y: x + y.tilt, selected_points, 0); mean_tilt = sum / len(selected_points); return mean_tilt"
+        ], 
+        [
+          "SET", 
+          "COMMAND", 
+          "", 
+          "[setattr(p, \"tilt\", value) for p in C.object.data.splines.active.bezier_points if p.select_control_point]"
+        ], 
+        [
+          "precision", 
+          "", 
+          "3"
+        ], 
+        [
+          "subtype", 
+          "", 
+          "'ANGLE'"
+        ], 
+        [
+          "max", 
+          "", 
+          "376.9911193847656"
+        ], 
+        [
+          "min", 
+          "", 
+          "-376.9911193847656"
+        ]
+      ], 
+      "PROPERTY", 
+      "prop?", 
+      "PRESS", 
+      "FLOAT", 
+      ""
+    ]
+  ]
+}

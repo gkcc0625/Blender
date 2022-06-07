@@ -1,0 +1,57 @@
+{
+ "show_in_object_context_menu": false,
+ "show_in_mesh_context_menu": false,
+ "show_looptools_wrappers": false,
+ "show_mesh_split": false,
+ "show_delete": false,
+ "modal_hud_scale": 2.0,
+ "modal_hud_color": [
+  1.0,
+  1.0,
+  1.0
+ ],
+ "modal_hud_hints": true,
+ "modal_hud_follow_mouse": true,
+ "modal_hud_timeout": 1.0,
+ "stashes_hud_offset": 0,
+ "symmetrize_flick_distance": 75,
+ "matcap": "toon.exr",
+ "experimental": false,
+ "assetspath": "/Users/giuseppe/Library/Application Support/Blender/3.1/scripts/addons/MESHmachine/assets/Plugs",
+ "pluglibsCOL": [
+  {
+   "name": "Examples",
+   "isvisible": true,
+   "islocked": true
+  },
+  {
+   "name": "MyPlugs",
+   "isvisible": true,
+   "islocked": false
+  }
+ ],
+ "pluglibsIDX": 1,
+ "newpluglibraryname": "",
+ "reverseplugsorting": false,
+ "libraryscale": 4,
+ "plugsinlibraryscale": 4,
+ "showplugcount": true,
+ "showplugbutton": true,
+ "showplugbuttonname": false,
+ "showplugnames": false,
+ "plugxraypreview": true,
+ "plugfadingwire": false,
+ "plugcreator": "MACHIN3 - machin3.io, @machin3io",
+ "use_legacy_line_smoothing": false,
+ "tabs": "GENERAL",
+ "plugmode": "INSERT",
+ "plugremovemode": false,
+ "update_available": false,
+ "addons_MESHmachine": true,
+ "addons_MACHIN3tools": true,
+ "addons_GrouPro": false,
+ "addons_BatchOps": true,
+ "addons_HardOps": true,
+ "addons_BoxCutter": true,
+ "avoid_update": false
+}

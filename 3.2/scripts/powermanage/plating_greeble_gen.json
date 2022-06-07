@@ -1,0 +1,39 @@
+{
+ "catalogue": {
+  "name": "",
+  "categories": [
+   {
+    "name": "",
+    "category_name": "Defaults",
+    "greebles": [],
+    "folder_path": "C:\\Users\\giuseppe\\Library\\Application Support\\Blender\\3.0\\scripts\\addons\\plating_greeble_gen\\Defaults"
+   },
+   {
+    "name": "",
+    "category_name": "Custom Greebles",
+    "greebles": [],
+    "folder_path": "C:\\Users\\giuseppe\\Documents\\Blender\\Addons\\Greeble Libraries\\Custom Greebles"
+   },
+   {
+    "name": "",
+    "category_name": "Hull Details",
+    "greebles": [],
+    "folder_path": "C:\\Users\\giuseppe\\Documents\\Blender\\Addons\\Greeble Libraries\\Hull Details"
+   },
+   {
+    "name": "",
+    "category_name": "Panels",
+    "greebles": [],
+    "folder_path": "C:\\Users\\giuseppe\\Documents\\Blender\\Addons\\Greeble Libraries\\Panels"
+   }
+  ],
+  "default_category": "Defaults"
+ },
+ "presets_folders": [
+  {
+   "name": "",
+   "presets_category_name": "Presets",
+   "presets_folder_path": "/Users/giuseppe/Documents/Blender/Addons/Plating Generator Greebles/Presets/"
+  }
+ ]
+}

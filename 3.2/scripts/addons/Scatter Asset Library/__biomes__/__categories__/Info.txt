@@ -1,0 +1,54 @@
+
+
+#################################################################################
+# BIOME ICON NAMING SYSTEM
+#################################################################################
+
+
+
+the categories and other settings of biomes inside the __biomes__ folder can be changed via renaming the icon file name, 
+see this example file-name below.
+
+
+        biome_name#keyword#another_keyword#banana@author@my_category.jpg
+          a           b           b           b     c        d        e
+         
+
+a) -> biome name          (first )
+b) -> some keywords, all  (second, after "#" typo)
+c) -> the author name     (third , after first  "@" typo)
+d) -> the category name   (last  , after second "@" typo)
+e) -> the file extension, always ".jpg" under any circompstance !
+
+note)
+   -> there's no spaces ! all spaces must be replaced by "_" if possible
+   -> there's only lower caps used, try to stick to it please
+   -> if you'd like to hide a biome, just change the extension to ".hide" or anything else then refresh
+  
+
+
+
+
+
+#################################################################################
+# ADD YOUR OWN CATEGORIES
+#################################################################################
+
+
+
+
+you can add your own categories to the biome manager, by creating a fake file (copy and paste one of the existing files)
+inside __biomes__/__categories__. the file will have a naming system, see this example below. 
+
+        
+           00#@my_category#My_Custom_Category#BLANK1
+            0    1                     2         3
+
+0) -> a number, only used for determining an order between the categories.
+1) -> the category @keyword, from the example below it's the indice "d": "@my_category"
+2) -> the name displayed 
+3) -> the reference of the icon chosen, you can enable the "Icon Viewer" internal addon to see all existing icons names (all in higher caps).
+       if you don't want any icon or just doesn't know how to get the icon reference, just enter "BLANK1" like in the example above. 
+
+note)
+   -> there's no spaces ! all spaces must be replaced by "_" if possible

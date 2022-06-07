@@ -1,0 +1,65 @@
+{
+  "version": "1.15.17", 
+  "menus": [
+    [
+      "Window Area", 
+      "Window", 
+      "ctrl+SPACE", 
+      [
+        [
+          "Tools", 
+          "HOTKEY", 
+          "PREFERENCES", 
+          "T"
+        ], 
+        [
+          "Properties", 
+          "HOTKEY", 
+          "SETTINGS", 
+          "N"
+        ], 
+        [
+          "Header", 
+          "COMMAND", 
+          "TRIA_DOWN", 
+          "r = C.area.regions[0]; visible = r.height > 1; on_top = r.y > C.area.y; bpy.ops.screen.region_flip(dict(region=r)) if on_top else None; None if on_top and visible else bpy.ops.screen.header()"
+        ], 
+        [
+          "Header", 
+          "COMMAND", 
+          "TRIA_UP", 
+          "r = C.area.regions[0]; visible = r.height > 1; on_top = r.y > C.area.y; bpy.ops.screen.region_flip(dict(region=r)) if not on_top else None; None if not on_top and visible else bpy.ops.screen.header()"
+        ], 
+        [
+          "Maximize", 
+          "COMMAND", 
+          "FULLSCREEN_ENTER", 
+          "bpy.ops.screen.screen_full_area()"
+        ], 
+        [
+          "Fullscreen", 
+          "COMMAND", 
+          "MESH_PLANE", 
+          "bpy.ops.screen.screen_full_area(use_hide_panels=True)"
+        ], 
+        [
+          "Menus", 
+          "COMMAND", 
+          "COLLAPSEMENU", 
+          "bpy.ops.screen.header_toggle_menus()"
+        ], 
+        [
+          "Render View", 
+          "COMMAND", 
+          "RENDER_RESULT", 
+          "bpy.ops.render.view_show()"
+        ]
+      ], 
+      "PMENU", 
+      "pm?", 
+      "PRESS", 
+      "", 
+      "Examples"
+    ]
+  ]
+}

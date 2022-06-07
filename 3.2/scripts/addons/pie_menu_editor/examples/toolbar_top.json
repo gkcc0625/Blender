@@ -1,0 +1,131 @@
+{
+  "version": "1.15.17", 
+  "menus": [
+    [
+      "Toolbar Top", 
+      "Window", 
+      "", 
+      [
+        [
+          "row?"
+        ], 
+        [
+          "Reload Start-Up File", 
+          "COMMAND", 
+          "#FILE_NEW", 
+          "bpy.ops.wm.read_homefile()"
+        ], 
+        [
+          "Open Blender File", 
+          "COMMAND", 
+          "#FILE_FOLDER", 
+          "bpy.ops.wm.open_mainfile()"
+        ], 
+        [
+          "Recent Files", 
+          "CUSTOM", 
+          "#SORTTIME", 
+          "operator(L, \"wm.call_menu\", text, icon=icon, icon_value=icon_value, name='TOPBAR_MT_file_open_recent')"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Save", 
+          "COMMAND", 
+          "FILE_TICK", 
+          "bpy.ops.wm.save_mainfile()"
+        ], 
+        [
+          "Save As Blender File", 
+          "COMMAND", 
+          "#FILE_TICK", 
+          "bpy.ops.wm.save_as_mainfile()"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Show Preferences", 
+          "COMMAND", 
+          "#PREFERENCES", 
+          "bpy.ops.screen.userpref_show()"
+        ], 
+        [
+          "Save User Settings", 
+          "COMMAND", 
+          "", 
+          "bpy.ops.wm.save_userpref()"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Object", 
+          "CUSTOM", 
+          "", 
+          "ao = C.active_object; L.enabled = ao and ao.mode != 'EDIT'; ao and L.template_ID(C.view_layer.objects, \"active\")"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Data", 
+          "CUSTOM", 
+          "", 
+          "ao = C.active_object; L.enabled = ao and ao.mode != 'EDIT'; ao and L.template_ID(ao, \"data\")"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Transform", 
+          "COMMAND", 
+          "#OBJECT_DATAMODE", 
+          "bpy.ops.pme.popup_panel(panel='OBJECT_PT_transform,OBJECT_PT_display,OBJECT_PT_relations', frame=True, area='PROPERTIES')"
+        ], 
+        [
+          "3D Cursor", 
+          "COMMAND", 
+          "#GRID", 
+          "bpy.ops.pme.popup_panel(panel='VIEW3D_PT_view3d_cursor,VIEW3D_PT_view3d_properties', frame=True, area='VIEW_3D')"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "spacer?hsep=ALIGNER"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Interactive Panels", 
+          "PROP", 
+          "#MOD_MULTIRES", 
+          "prefs().interactive_panels"
+        ], 
+        [
+          "Debug Mode", 
+          "PROP", 
+          "#SCRIPT", 
+          "prefs().debug_mode"
+        ], 
+        [
+          "spacer?hsep=SPACER"
+        ], 
+        [
+          "Pie Menu Editor", 
+          "COMMAND", 
+          "", 
+          "bpy.ops.pme.popup_addon_preferences(addon='pie_menu_editor', center=True)"
+        ]
+      ], 
+      "DIALOG", 
+      "pd?pd_panel=2", 
+      "PRESS", 
+      "", 
+      "Examples"
+    ]
+  ]
+}

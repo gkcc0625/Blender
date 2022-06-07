@@ -1,0 +1,4 @@
+{
+    "last_check": "2020-05-27 13:22:03.269784",
+    "release_note": "v2.5.0\r\n* Added move library\r\n* Bug fixed:\r\n   - The mesh import with the option \"import on 3D cursor\" enabled was\r\n    done on the selection if there was one, instead of the 3D cursor.\r\n* Added the possibility to choose the category where to place AM"
+}
