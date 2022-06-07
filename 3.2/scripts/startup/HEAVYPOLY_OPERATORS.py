@@ -300,13 +300,17 @@ class HP_OT_SmartScale(Operator):
         return {'RUNNING_MODAL'}
     def modal(self, context, event):
  #       if event.type == 'MOUSEMOVE':
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-
-        print('Applying Scale')
-        return {'FINISHED'}
-        if event.type in {'RIGHTMOUSE', 'ESC'}:
+        # if event.type == 'LEFTMOUSE':
+        if event.type == 'MOUSEMOVE' and event.value == 'RELEASE':
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        
+            print('Applying Scale')
+            return {'FINISHED'}
+        elif event.type in {'RIGHTMOUSE', 'ESC'}:
             return {'CANCELLED'}
-        return {'FINISHED'}
+        else:
+            return {'RUNNING_MODAL'}
+        #return {'FINISHED'}
 class HP_OT_SmartBevel(bpy.types.Operator):
     bl_idname = "view3d.smart_bevel"        # unique identifier for buttons and menu items to reference.
     bl_label = "Smart Bevel"         # display name in the interface.
@@ -370,7 +374,7 @@ class HP_OT_SeparateAndSelect(bpy.types.Operator):
             bpy.ops.gpencil.editmode_toggle()
         else:
             bpy.ops.object.editmode_toggle()
-
+            
         for b in bases:
             b.select_set(state=False)
         selected = bpy.context.selected_objects
@@ -486,9 +490,8 @@ class HP_OT_Subdivision_Toggle(bpy.types.Operator):
                 bpy.context.object.modifiers["Subsurf_Base"].render_levels = 3
                 bpy.context.object.modifiers["Subsurf_Base"].levels = 3
                 bpy.context.object.modifiers["Subsurf_Base"].show_in_editmode = True
-                bpy.context.object.modifiers["Subsurf_Base"].show_on_cage = True
+                bpy.context.object.modifiers["Subsurf_Base"].show_on_cage = False
                 bpy.context.object.modifiers["Subsurf_Base"].subdivision_type = 'CATMULL_CLARK'
-                bpy.context.object.modifiers["Subsurf_Base"].boundary_smooth = 'PRESERVE_CORNERS'
 
         return {'FINISHED'}
 
