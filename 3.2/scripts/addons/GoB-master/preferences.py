@@ -19,35 +19,92 @@
 if "bpy" in locals():
     import importlib
     importlib.reload(GoB)
+    importlib.reload(addon_updater)
 else:
     from . import GoB
+    from . import addon_updater
     
 """Addon preferences"""
 import bpy
+import os
 from bpy.types import AddonPreferences
 from bpy.props import ( StringProperty, 
                         BoolProperty, 
                         FloatProperty,
-                        PointerProperty,
                         EnumProperty)
 
 
-class GoBPreferences(AddonPreferences):
+preferences_tabs = [
+                    ("OPTIONS", "Options", ""),
+                    ("IMPORT", "Import", ""),
+                    ("EXPORT", "Export", ""),
+                    ("UPDATE", "Update", ""),
+                    ("HELP", "Troubleshooting", "")
+                    ]
+
+class GoB_Preferences(AddonPreferences):
     bl_idname = __package__
+
+    
+    tabs: EnumProperty(name="Tabs", items=preferences_tabs, default="OPTIONS")  
+
+    #       ADDON UPDATER    
+    repository_path: StringProperty(
+        name="Project", 
+        description="Github Project url example: https://github.com/JoseConseco/GoB", 
+        subtype='DIR_PATH',
+        default="https://github.com/JoseConseco/GoB") 
+    
+    zip_filename: StringProperty(
+        name="zip_filename", 
+        description="zip_filename", 
+        subtype='FILE_PATH',
+        default="blender_addon_updater.zip") 
+
+    auto_update_check: BoolProperty(
+        name="Check for updates automatically",
+        description="auto_update_check",
+        default=False)
+
+    experimental_versions: BoolProperty(
+        name="Experimental Versions",
+        description="Check for experimental versions",
+        default=False)
+    ############################################
 
     #GLOBAL
     zbrush_exec: StringProperty(
-        name="ZBrush", 
+        name="ZBrush Path", 
         description="Select Zbrush executable (C:\Program Files\Pixologic\ZBrush\ZBrush.exe). "
                     "\nIf not specified the system default for Zscript (.zsc) files will be used", 
         subtype='FILE_PATH',
         default="") 
 
+    custom_pixologoc_path: BoolProperty(
+        name="Custom Pixologic Public Path",
+        description="This will allow you to set a custom Public Pixologic Path, this is where ZBrush stores GoZ configurations",
+        default=False)
+
+    import platform
+    if platform.system() == 'Windows':
+        PATH_GOZ = os.path.join(os.environ['PUBLIC'] , "Pixologic\\")
+    elif platform.system() == 'Darwin': #osx
+        PATH_GOZ = os.path.join("/Users/Shared/Pixologic")
+    else:
+        PATH_GOZ = False
+
+    pixologoc_path: StringProperty(
+        name="Pixologic Public Path", 
+        description="Set public pixologic path, this needs to be a valid folder which zbrush accesses." 
+                    "By default this folder is on the windows system drive under C:\\Users\\Public\\Pixologic", 
+        subtype='DIR_PATH',
+        default=PATH_GOZ)   
+
     project_path: StringProperty(
         name="Project Path", 
         description="Folder where Zbrush and Blender will store the exported content", 
-        subtype='FILE_PATH',
-        default=f"{GoB.PATH_GOZ}/GoZProjects/Default/") 
+        subtype='DIR_PATH',
+        default=os.path.join(f"{GoB.PATH_GOZ}/GoZProjects/Default/"))
     
     clean_project_path: BoolProperty(
         name="Clean Project Files",
@@ -95,6 +152,10 @@ class GoBPreferences(AddonPreferences):
     performance_profiling: BoolProperty(
         name="[Dev] Debug performance",
         description="Show timing output in console, note this will slow down the GoZ transfer if enabled!",
+        default=False)        
+    debug_output: BoolProperty(
+        name="[Dev] debug_output",
+        description="Show debug output in console, note this will slow down the GoZ transfer if enabled!",
         default=False)
     """      
     texture_format: EnumProperty(
@@ -138,13 +199,43 @@ class GoBPreferences(AddonPreferences):
         name="Clear Mask",
         description="When enabled Masks will not be exported an cleared in ZBrush",
         default=False)
+        
+    export_remove_internal_faces: BoolProperty(
+        name="Delete non manifold faces",
+        description="Delete non manifold faces",
+        default=True)
+
+    export_merge: BoolProperty(
+        name="Merge Vertices of Curves, Surfaces, Fonts and Meta Objects",
+        description="Merges vertices of mesh type 'SURFACE', 'CURVE', 'FONT', 'META' that are in a given distance to each other",
+        default=True)
+
+    export_merge_distance: FloatProperty(
+        name="Vertex Merge Threshold",
+        description="Vertex Merge Threshold",
+        default=0.0001,
+        soft_min=0.0001,
+        soft_max=0.01,
+        step=0.0001,
+        precision=4,
+        subtype='DISTANCE') 
+
 
 
     # IMPORT
+    import_timer: FloatProperty(
+        name="Update interval",
+        description="Interval (in seconds) to look for changes in GoZ_ObjectList.txt",
+        default=0.5,
+        min = 0.1,
+        soft_max=2.0,
+        step=0.1,
+        precision=1,
+        subtype='FACTOR') 
     import_material: EnumProperty(
             name="Material",
             description="Create Material",
-            items=[('TEXTURES', 'from Textures', 'Create Mateial inputs from Textures'),        #TODO: fix export to zbrush
+            items=[('TEXTURES', 'from Textures', 'Create Material inputs from Textures'),        #TODO: fix export to zbrush
                    ('POLYPAINT', 'from Polypaint', 'Create Material from Polypaint'),
                    ('NONE', 'None', 'No additional material inputs are created'),
                    ],
@@ -242,42 +333,43 @@ class GoBPreferences(AddonPreferences):
                 ],
         default='Non-Color')   
     
-  
-    def draw(self, context):
-        #GLOBAL
-        layout = self.layout
-        layout.use_property_split = True
-        layout.prop(self, 'zbrush_exec') 
-        layout.prop(self, 'project_path') 
-        layout.prop(self, 'clean_project_path')    
-        layout.prop(self, 'flip_up_axis')
-        layout.prop(self, 'flip_forward_axis')   
-        layout.prop(self, 'use_scale')
-        if self.use_scale == 'MANUAL':                   
-            layout.prop(self, 'manual_scale')
-        if self.use_scale == 'ZUNITS':                   
-            layout.prop(self, 'zbrush_scale')
-        layout.prop(self, 'show_button_text')  
-        layout.prop(self, 'performance_profiling')
-        #layout.prop(self, 'texture_format')
 
-        #EXPORT
-        col = layout.column()
-        box = layout.box()
-        box.label(text='Export', icon='EXPORT')  
-        box.prop(self, 'export_modifiers')
-        box.prop(self, 'export_polygroups')    
-        if self.export_polygroups == 'VERTEX_GROUPS':  
-            box.prop(self, 'export_weight_threshold')
-        box.prop(self, 'export_clear_mask') 
+    def draw_options(self, box):
+        # GoB General Options 
+        box.use_property_split = True
+        box.label(text='GoB General Options', icon='PREFERENCES') 
+        col = box.column(align=True) 
+        col.prop(self, 'zbrush_exec')
+        col.prop(self, 'project_path') 
+
+        col.prop(self, 'custom_pixologoc_path')
+        if self.custom_pixologoc_path:
+            col.prop(self, 'pixologoc_path')
+
+        col.prop(self, 'clean_project_path')    
+        col.prop(self, 'flip_up_axis')
+        col.prop(self, 'flip_forward_axis')   
+        col.prop(self, 'use_scale')
+        if self.use_scale == 'MANUAL':                   
+            col.prop(self, 'manual_scale')
+        if self.use_scale == 'ZUNITS':                   
+            col.prop(self, 'zbrush_scale')
+        col.prop(self, 'show_button_text')  
+        col.prop(self, 'performance_profiling')
+        col.prop(self, 'debug_output')
+        #col.prop(self, 'texture_format')
         
-        # IMPORT
-        col = layout.column(align=True)
-        box = layout.box() 
-        box.label(text='Import', icon='IMPORT')
+
+    def draw_import(self, box):
+        # GoB Import Options
+        box.use_property_split = True
+        #box = layout.box() 
+        box.label(text='GoB Import Options', icon='IMPORT')  
+        col = box.column(align=True) 
         #box.prop(self, 'import_method')            #TODO: disabled: some bugs when switching
-        box.prop(self, 'import_material')  
-        col = box.column(align=True)  #TODO: add heading ="" in 2.9
+        col.prop(self, 'import_timer')           #TODO: disabled: some bugs when switching
+        col.prop(self, 'import_material')  
+        #col = box.column(align=True)  #TODO: add heading ="" in 2.9
         col.prop(self, 'import_mask')
         col.prop(self, 'import_uv')
         col.prop(self, 'import_polypaint')       
@@ -298,6 +390,86 @@ class GoBPreferences(AddonPreferences):
         col = box.column(align=True) 
         col.prop(self, 'import_uv_name') 
         col.prop(self, 'import_polypaint_name') 
+
+        
+
+    def draw_export(self, box):
+        # GoB Export Options
+        box.use_property_split = True
+        box.label(text='GoB Export Options', icon='EXPORT')   
+        col = box.column(align=True) 
+        col.prop(self, 'export_modifiers')
+        col.prop(self, 'export_polygroups')    
+        if self.export_polygroups == 'VERTEX_GROUPS':  
+            col.prop(self, 'export_weight_threshold')
+        col.prop(self, 'export_clear_mask') 
+        
+        col.prop(self, 'export_merge') 
+        if self.export_merge:
+            col.prop(self, 'export_merge_distance') 
+        col.prop(self, 'export_remove_internal_faces')         
+        
+        
+        
+
+    def draw_help(self, box):
+        # GoB Troubleshooting
+        box.use_property_split = True
+        #box = layout.box() 
+        box.label(text='GoB Troubleshooting', icon='QUESTION')   
+        import platform
+        if platform.system() == 'Windows':
+            icons = GoB.preview_collections["main"]  
+            box.operator( "gob.install_goz", text="Install GoZ", icon_value=icons["GOZ_SEND"].icon_id ) 
+            
+        
+
+        
+
+    def draw_update(self, box):
+        box.use_property_split = True
+        box.label(text='Addon Updater', icon='PREFERENCES')  
+        col  = box.column(align=False) 
+        row  = col.row(align=False)         
+        
+        row.operator("au.check_updates", text="Check for Updates", icon='ERROR', depress=False).button_input = 0
+        if addon_updater.update_available == False:
+            row.operator("au.check_updates", text="Addon is up to date", icon='IMPORT', emboss=True, depress=True).button_input = -1
+        elif addon_updater.update_available == None:
+            row.operator("au.check_updates", text="nothing to show", icon='ERROR', emboss=False, depress=True).button_input = -1
+        elif addon_updater.update_available == 'TIME':
+            row.operator("au.check_updates", text="Limit exceeded! Try again later", icon='COLORSET_01_VEC', emboss=False, depress=True).button_input = -1
+        else:
+            row.operator("au.check_updates", text="Download: " + addon_updater.update_available, icon='COLORSET_03_VEC').button_input = 1
+        
+        col  = box.column(align=False)              
+        col.prop(self, 'repository_path') 
+        #col.prop(self, 'zip_filename')
+        col.prop(self, 'experimental_versions') 
+        #col.prop(self, 'auto_update_check')
+
+
+    def draw(self, context):
+        
+        layout = self.layout
+        # TAB BAR
+        layout.use_property_split = False
+        column = layout.column(align=True)
+        row = column.row()
+        row.prop(self, "tabs", expand=True)
+        box = column.box()
+        if self.tabs == "OPTIONS":
+            self.draw_options(box)
+        elif self.tabs == "EXPORT":
+            self.draw_export(box)
+        elif self.tabs == "IMPORT":
+            self.draw_import(box)
+        elif self.tabs == "HELP":
+            self.draw_help(box)
+        elif self.tabs == "UPDATE":
+            self.draw_update(box)
+
+        
 
 
  

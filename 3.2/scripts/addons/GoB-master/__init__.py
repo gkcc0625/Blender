@@ -21,9 +21,11 @@ if "bpy" in locals():
     import importlib
     importlib.reload(GoB)
     importlib.reload(preferences)
+    importlib.reload(addon_updater)
 else:
     from . import GoB
     from . import preferences
+    from . import addon_updater
 
 import bpy
 import os
@@ -34,8 +36,8 @@ bl_info = {
     "name": "GoB",
     "description": "An unofficial GOZ-like addon for Blender",
     "author": "ODe, JoseConseco, Daniel Grauer",
-    "version": (3, 4, 13),
-    "blender": (2, 83, 0),
+    "version": (3, 5, 73),
+    "blender": (2, 93, 0),
     "location": "In the info header",
     "doc_url": "https://github.com/JoseConseco/GoB/wiki",                
     "tracker_url": "https://github.com/JoseConseco/GoB/issues/new",
@@ -45,14 +47,16 @@ bl_info = {
 classes = (
     GoB.GoB_OT_import,
     GoB.GoB_OT_export,
-    GoB.GoB_OT_OpenFilebrowser,
-    preferences.GoBPreferences,
+    GoB.GoB_OT_export_button,
+    GoB.GoB_OT_GoZ_Installer_WIN,
+    GoB.GOB_OT_Popup,
+    preferences.GoB_Preferences,
+    addon_updater.AU_OT_SearchUpdates,
     )
 
 
 def register():
-    for c in classes:
-        bpy.utils.register_class(c)
+    [bpy.utils.register_class(c) for c in classes]
 
     global icons
     icons = bpy.utils.previews.new()
@@ -62,7 +66,7 @@ def register():
     icons.load("GOZ_SYNC_DISABLED", os.path.join(icons_dir, "goz_sync_disabled.png"), 'IMAGE')
     GoB.preview_collections["main"] = icons
 
-    bpy.types.TOPBAR_HT_upper_bar.append(GoB.draw_goz_buttons)
+    bpy.types.TOPBAR_HT_upper_bar.prepend(GoB.draw_goz_buttons)
 
 
 def unregister():
