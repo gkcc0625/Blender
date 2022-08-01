@@ -7,7 +7,7 @@ from .functions import copy_collections, show_message
 # default_bokeh_tex = photographer_dir + r"\textures\bokeh\Round_01.png"
 
 # Global Variables
-clip_start = 0.002
+bokeh_clip_start = 0.002
 
 
 def enum_previews_opt_vignetting(self, context):
@@ -297,8 +297,10 @@ class PHOTOGRAPHER_OT_Bokeh_Add(bpy.types.Operator):
         context.view_layer.objects.active = bpy.data.objects[cam_obj.name]
         bpy.ops.object.parent_no_inverse_set()
 
+        clip_start = bokeh_clip_start / context.scene.unit_settings.scale_length
         # Move plane as close to the focal plane as possible
-        bokeh_plane.location[2] = -(clip_start + 0.0005)
+        offset = 0.0005 / context.scene.unit_settings.scale_length
+        bokeh_plane.location[2] = -(clip_start + offset)
         # Make sure the cam clip is lower than the plane position
         if cam.clip_start > clip_start:
             cam.clip_start = clip_start
@@ -595,6 +597,7 @@ class PHOTOGRAPHER_OT_OptVignetting_Add(bpy.types.Operator):
         # Move plane in front of the camera
         ov_box.location[2] = -0.03
         # Make sure the cam clip is lower than the plane position
+        clip_start = bokeh_clip_start / context.scene.unit_settings.scale_length
         if cam.clip_start > clip_start:
             cam.clip_start = clip_start
 

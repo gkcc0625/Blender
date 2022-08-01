@@ -92,6 +92,19 @@ def get_version_as_float(versionstring):
 
 
 
+def is_library_corrupted(libpath):
+
+    folders = [f for f in sorted(os.listdir(libpath)) if os.path.isdir(os.path.join(libpath, f))]
+
+    for folder in folders:
+        decalpath = os.path.join(libpath, folder)
+        files = os.listdir(decalpath)
+
+        if not all([f in files for f in ["decal.blend", "decal.png", "uuid"]]):
+            return True
+
+
+
 def register_classes(classlists, debug=False):
     classes = []
 
@@ -295,10 +308,17 @@ def register_decals(library="ALL", default=None, reloading=False):
 
     p.decallibsIDX = 0
 
-    savedlibs = [lib.name for lib in p.decallibsCOL if not lib.istrimsheet]
+    savedlibs = sorted([lib.name for lib in p.decallibsCOL if not lib.istrimsheet])
 
     for lib in savedlibs:
-        if os.path.exists(os.path.join(assetspath, 'Decals', lib)):
+        libpath = os.path.join(assetspath, 'Decals', lib)
+
+        if os.path.exists(libpath):
+
+            if is_library_corrupted(libpath):
+                index = p.decallibsCOL.keys().index(lib)
+                p.decallibsCOL.remove(index)
+                continue
 
             version_files = get_version_files(os.path.join(assetspath, 'Decals', lib))
 
@@ -307,14 +327,13 @@ def register_decals(library="ALL", default=None, reloading=False):
                     index = p.decallibsCOL.keys().index(lib)
                     p.decallibsCOL.remove(index)
 
-                elif len(version_files) == 1 and not os.path.exists(os.path.join(assetspath, 'Decals', lib, version_filename)):
+                elif len(version_files) == 1 and not os.path.exists(os.path.join(libpath, version_filename)):
                         index = p.decallibsCOL.keys().index(lib)
                         p.decallibsCOL.remove(index)
 
             else:
                 index = p.decallibsCOL.keys().index(lib)
                 p.decallibsCOL.remove(index)
-
 
         else:
             index = p.decallibsCOL.keys().index(lib)
@@ -328,18 +347,26 @@ def register_decals(library="ALL", default=None, reloading=False):
 
     if library == "ALL":
 
+        p.libs_corrupted = False
         p.libs_incompatible = False
         p.libs_ambiguous = False
         p.libs_invalid = False
 
         for f in sorted(os.listdir(os.path.join(assetspath, 'Decals'))):
-            if os.path.isdir(os.path.join(assetspath, 'Decals', f)):
+            libpath = os.path.join(assetspath, 'Decals', f)
 
-                version_files = get_version_files(os.path.join(assetspath, 'Decals', f))
+            if os.path.isdir(libpath):
+
+                if is_library_corrupted(libpath):
+                    print(f"WARNING: Decal Library '{f}' is corrupted, it contains non-Decal folders, ignoring!")
+                    p.libs_corrupted = True
+                    continue
+
+                version_files = get_version_files(libpath)
 
                 if version_files:
                     if len(version_files) == 1:
-                        if os.path.exists(os.path.join(assetspath, 'Decals', f, version_filename)):
+                        if os.path.exists(os.path.join(libpath, version_filename)):
 
                             decallibs.append(f)
 
@@ -347,17 +374,17 @@ def register_decals(library="ALL", default=None, reloading=False):
                                 item = p.decallibsCOL.add()
                                 item.name = f
 
-                                if os.path.exists(os.path.join(assetspath, 'Decals', f, ".ishidden")):
+                                if os.path.exists(os.path.join(libpath, ".ishidden")):
                                     p.decallibsCOL[f].isvisible = False
 
-                                if os.path.exists(os.path.join(assetspath, 'Decals', f, ".ispanelhidden")):
+                                if os.path.exists(os.path.join(libpath, ".ispanelhidden")):
                                     p.decallibsCOL[f].ispanelcycle = False
 
-                            if os.path.exists(os.path.join(assetspath, 'Decals', f, ".ispanel")):
+                            if os.path.exists(os.path.join(libpath, ".ispanel")):
                                 p.decallibsCOL[f].avoid_update = True
                                 p.decallibsCOL[f].ispanel = True
 
-                            if os.path.exists(os.path.join(assetspath, 'Decals', f, ".islocked")):
+                            if os.path.exists(os.path.join(libpath, ".islocked")):
                                 p.decallibsCOL[f].avoid_update = True
                                 p.decallibsCOL[f].islocked = True
 
@@ -576,9 +603,16 @@ def register_trims(library="ALL", default=None, reloading=False):
     savedlibs = [lib.name for lib in p.decallibsCOL if lib.istrimsheet]
 
     for lib in savedlibs:
-        if os.path.exists(os.path.join(assetspath, 'Trims', lib)) and os.path.exists(os.path.join(assetspath, 'Trims', lib, '.istrimsheet')) and os.path.exists(os.path.join(assetspath, 'Trims', lib, 'data.json')):
+        libpath = os.path.join(assetspath, 'Trims', lib)
 
-            version_files = get_version_files(os.path.join(assetspath, 'Trims', lib))
+        if os.path.exists(libpath) and os.path.exists(os.path.join(libpath, '.istrimsheet')) and os.path.exists(os.path.join(libpath, 'data.json')):
+
+            if is_library_corrupted(libpath):
+                index = p.decallibsCOL.keys().index(lib)
+                p.decallibsCOL.remove(index)
+                continue
+
+            version_files = get_version_files(libpath)
 
             if version_files:
 
@@ -586,7 +620,7 @@ def register_trims(library="ALL", default=None, reloading=False):
                     index = p.decallibsCOL.keys().index(lib)
                     p.decallibsCOL.remove(index)
 
-                elif len(version_files) == 1 and not os.path.exists(os.path.join(assetspath, 'Trims', lib, version_filename)):
+                elif len(version_files) == 1 and not os.path.exists(os.path.join(libpath, version_filename)):
                     index = p.decallibsCOL.keys().index(lib)
                     p.decallibsCOL.remove(index)
 
@@ -605,38 +639,46 @@ def register_trims(library="ALL", default=None, reloading=False):
 
     if library == "ALL":
 
+        p.trim_libs_corrupted = False
         p.trim_libs_incompatible = False
         p.trim_libs_ambiguous = False
         p.trim_libs_invalid = False
 
         for f in sorted(os.listdir(os.path.join(assetspath, 'Trims'))):
-            if os.path.isdir(os.path.join(assetspath, 'Trims', f)):
+            libpath = os.path.join(assetspath, 'Trims', f)
+
+            if os.path.isdir(libpath):
+
+                if is_library_corrupted(libpath):
+                    print(f"WARNING: Trimsheet Library '{f}' is corrupted, it contains non-Decal folders, ignoring!")
+                    p.trim_libs_corrupted = True
+                    continue
 
                 version_files = get_version_files(os.path.join(assetspath, 'Trims', f))
 
                 if version_files:
 
                     if len(version_files) == 1:
-                        if os.path.exists(os.path.join(assetspath, 'Trims', f, version_filename)) and os.path.exists(os.path.join(assetspath, 'Trims', f, '.istrimsheet')) and os.path.exists(os.path.join(assetspath, 'Trims', f, 'data.json')):
+                        if os.path.exists(os.path.join(libpath, version_filename)) and os.path.exists(os.path.join(libpath, '.istrimsheet')) and os.path.exists(os.path.join(libpath, 'data.json')):
                             trimlibs.append(f)
 
                             if f not in p.decallibsCOL:
                                 item = p.decallibsCOL.add()
                                 item.name = f
 
-                                if os.path.exists(os.path.join(assetspath, 'Trims', f, ".ishidden")):
+                                if os.path.exists(os.path.join(libpath, ".ishidden")):
                                     p.decallibsCOL[f].isvisible = False
 
-                                if os.path.exists(os.path.join(assetspath, 'Trims', f, ".ispanelhidden")):
+                                if os.path.exists(os.path.join(libpath, ".ispanelhidden")):
                                     p.decallibsCOL[f].ispanelcycle = False
 
                             p.decallibsCOL[f].istrimsheet = True
 
-                            if os.path.exists(os.path.join(assetspath, 'Trims', f, ".islocked")):
+                            if os.path.exists(os.path.join(libpath, ".islocked")):
                                 p.decallibsCOL[f].avoid_update = True
                                 p.decallibsCOL[f].islocked = True
 
-                            datapath = os.path.join(assetspath, 'Trims', f, "data.json")
+                            datapath = os.path.join(libpath, "data.json")
                             data = load_json(datapath)
 
                             name = data.get('name')
@@ -801,17 +843,21 @@ def register_atlases(reloading=False):
 
     for atlas, istrimsheet in savedatlases:
         folder = 'Trims' if istrimsheet else 'Atlases'
+        atlaspath = os.path.join(assetspath, folder, atlas)
 
-        if os.path.exists(os.path.join(assetspath, folder, atlas)) and os.path.exists(os.path.join(assetspath, folder, atlas, '.istrimsheet' if istrimsheet else '.isatlas')) and os.path.exists(os.path.join(assetspath, folder, atlas, 'data.json')):
+        if os.path.exists(atlaspath) and os.path.exists(os.path.join(atlaspath, '.istrimsheet' if istrimsheet else '.isatlas')) and os.path.exists(os.path.join(atlaspath, 'data.json')):
 
-            version_files = get_version_files(os.path.join(assetspath, folder, atlas))
+            if folder == 'Trims' and is_library_corrupted(atlaspath):
+                continue
+
+            version_files = get_version_files(atlaspath)
 
             if version_files:
                 if len(version_files) > 1:
                     index = p.atlasesCOL.keys().index(atlas)
                     p.atlasesCOL.remove(index)
 
-                elif len(version_files) == 1 and not os.path.exists(os.path.join(assetspath, folder, atlas, version_filename if istrimsheet else '.is20')):
+                elif len(version_files) == 1 and not os.path.exists(os.path.join(atlaspath, version_filename if istrimsheet else '.is20')):
                         index = p.atlasesCOL.keys().index(atlas)
                         p.atlasesCOL.remove(index)
 
@@ -829,14 +875,18 @@ def register_atlases(reloading=False):
 
     for folder in ['Atlases', 'Trims']:
         for f in sorted(os.listdir(os.path.join(assetspath, folder))):
-            if os.path.isdir(os.path.join(assetspath, folder, f)):
+            atlaspath = os.path.join(assetspath, folder, f)
 
-                version_files = get_version_files(os.path.join(assetspath, folder, f))
+            if os.path.isdir(atlaspath):
+                if folder == 'Trims' and is_library_corrupted(atlaspath):
+                    print(f"WARNING: Atlas '{f}' is corrupted, it contains non-Decal folders, ignoring!")
+                    continue
+
+                version_files = get_version_files(os.path.join(atlaspath))
 
                 if version_files:
-
                     if len(version_files) == 1:
-                        if os.path.exists(os.path.join(assetspath, folder, f, version_filename if folder == 'Trims' else '.is20')) and os.path.exists(os.path.join(assetspath, folder, f, '.istrimsheet' if folder == 'Trims' else '.isatlas')) and os.path.exists(os.path.join(assetspath, folder, f, 'data.json')):
+                        if os.path.exists(os.path.join(atlaspath, version_filename if folder == 'Trims' else '.is20')) and os.path.exists(os.path.join(atlaspath, '.istrimsheet' if folder == 'Trims' else '.isatlas')) and os.path.exists(os.path.join(atlaspath, 'data.json')):
 
                             if f not in p.atlasesCOL:
                                 item = p.atlasesCOL.add()
@@ -845,12 +895,12 @@ def register_atlases(reloading=False):
                             if folder == 'Trims':
                                 p.atlasesCOL[f].istrimsheet = True
 
-                            if os.path.exists(os.path.join(assetspath, folder, f, ".islocked")):
+                            if os.path.exists(os.path.join(atlaspath, ".islocked")):
                                 p.atlasesCOL[f].avoid_update = True
                                 p.atlasesCOL[f].islocked = True
 
                             if folder == 'Atlases':
-                                datapath = os.path.join(assetspath, folder, f, "data.json")
+                                datapath = os.path.join(atlaspath, "data.json")
                                 data = load_json(datapath)
 
                                 name = data.get('name')

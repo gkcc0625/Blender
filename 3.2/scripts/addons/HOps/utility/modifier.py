@@ -6,11 +6,12 @@ from ctypes import Structure, c_float, c_short, c_char, cast, POINTER
 ### DEVIATION FROM BC/KITOPS
 from . import addon
 def user_sort(obj):
+    ignore_weight = addon.preference().property.sort_bevel_ignore_weight
     ignore_vgroup = addon.preference().property.sort_bevel_ignore_vgroup
     ignore_verts = addon.preference().property.sort_bevel_ignore_only_verts
     sort_depth = addon.preference().property.sort_depth
     props = {'use_only_vertices': True} if bpy.app.version < (2, 90, 0) else {'affect': 'VERTICES'}
-    bevs = bevels(obj, vertex_group=ignore_vgroup, props=props if ignore_verts else {})
+    bevs = bevels(obj, weight=ignore_weight, vertex_group=ignore_vgroup, props=props if ignore_verts else {})
     sort(obj, option=addon.preference().property, ignore=bevs, sort_depth=sort_depth, ignore_flag=addon.preference().property.sort_ignore_char, stop_flag=addon.preference().property.sort_stop_char)
 
 

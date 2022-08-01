@@ -33,13 +33,14 @@ class HOPS_MT_ObjectToolsSubmenu(bpy.types.Menu):
         column.separator()
 
         column.operator("hops.edge2curve", text="Curve/Extract", icon_value=get_icon_id("Curve"))
+        column.operator("view3d.face_extract", text="Face Extract", icon_value=get_icon_id("FacePanel"))
         #column.separator()
 
         #column.operator("hops.st3_array", text="Array V2", icon_value=get_icon_id("GreyArrayX"))
         # column.separator()
 
-        column.operator("hops.apply_modifiers", text="Smart Apply", icon_value=get_icon_id("Applyall"))
         column.separator() #.modifier_types='BOOLEAN'
+        column.operator("hops.apply_modifiers", text="Smart Apply", icon_value=get_icon_id("Applyall"))
         column.operator("hops.adjust_auto_smooth", text="AutoSmooth", icon_value=get_icon_id("Diagonal"))
 
         if get_preferences().ui.expanded_menu:

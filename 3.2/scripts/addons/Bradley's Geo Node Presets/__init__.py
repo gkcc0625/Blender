@@ -10,17 +10,19 @@ from .Custom_Category import (
     NODE_MT_GEO,
     add_button,
     geo_cat_generator,
-    flatten,
 )
 from .Preset import preset_help
 from .constants import BRD_CONST_DATA
-from .Localizer import panels_helper
+from .utils import flatten
+
+# from .Localizer import panels_helper
+from . import Panels
 
 bl_info = {
     "name": "Bradley's Geo Node Presets",
     "description": "This is a geometry node preset made by Bradley's animation, and possibly ferret",
     "author": "Possibly Ferret | Bradley",
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "blender": (3, 0, 0),
     "location": "GeometryNode",
     "support": "COMMUNITY",
@@ -142,11 +144,14 @@ classes = flatten(
         NODE_OT_Add,
     ]
     + preset_help
-    + panels_helper
+    + Panels.panels
 )
 
 
 def register():
+    print("=" * 20)
+    print(__package__)
+    print("=" * 20)
     pcoll = bpy.utils.previews.new()
     icon_dir = PurePath(Path(__file__).parents[0], "icons")
 

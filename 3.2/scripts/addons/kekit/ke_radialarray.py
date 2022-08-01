@@ -1,12 +1,12 @@
 import bpy
 import blf
-from .ke_utils import get_selected, getset_transform, restore_transform, get_layer_collection, get_distance, \
+from ._utils import get_selected, getset_transform, restore_transform, get_layer_collection, get_distance, \
     average_vector, set_status_text
 from mathutils import Vector, Matrix
 from math import radians
 
 
-class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
+class KeRadialArray(bpy.types.Operator):
     bl_idname = "view3d.ke_radialarray"
     bl_label = "Radial Array"
     bl_description = "Creates a circular array, with the source object placed automatically (if toggled) \n" \
@@ -60,11 +60,10 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
                 not context.object.data.is_editmode)
 
     def draw_callback_px(self, context, pos):
-        # fs = [64, 110, 120, 68, 20, 13, 98, 13, 45, 27, 9, 9, 30, 48, 10, 66, 80, 94, 12, 45]
         val = self.radial_count
         hpos, vpos = self.fs[0], self.fs[1]
-        # title = "tit"
-        if pos: hpos = pos - self.fs[2]
+        if pos:
+            hpos = pos - self.fs[2]
         if val:
             font_id = 0
             blf.enable(font_id, 4)
@@ -112,13 +111,6 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
                 blf.draw(font_id, "Apply: Enter/Spacebar/LMB  Cancel: Esc/RMB")
                 blf.position(font_id, hpos, vpos - self.fs[16], 0)
                 blf.draw(font_id, "Navigation: Blender (MMB's) + Ind.Std (Alt-MB's)")
-                # blf.position(font_id, hpos, vpos - self.fs[17], 0)
-                # blf.draw(font_id, "(H) Toggle Help")
-            # else:
-            #     blf.size(font_id, self.fs[18], 72)
-            #     blf.color(font_id, self.scol[0], self.scol[1], self.scol[2], self.scol[3])
-            #     blf.position(font_id, hpos, vpos + self.fs[19], 0)
-            #     blf.draw(font_id, "(H) Toggle Help")
         else:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
             context.workspace.status_text_set(None)
@@ -166,9 +158,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
         if event.type == 'MOUSEMOVE':
             self.new_mx = int(event.mouse_region_x)
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # STEPVALUES OR NUMERICAL MODE
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.type == 'A' and event.value == 'RELEASE':
             self.array_input_mode = not self.array_input_mode
             context.area.tag_redraw()
@@ -216,9 +208,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             elif event.type == 'FIVE' and event.value == 'PRESS':
                 self.snapval = 1.0
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # SET ADJUSTMENT MODE
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.type in {'X', 'C'} and event.value == 'PRESS':
             if self.adj_mode_scl:
                 self.adj_mode_scl = False
@@ -243,16 +235,16 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             self.adj_mode_scl = not self.adj_mode_scl
             context.area.tag_redraw()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # HELP
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.type == 'H' and event.value == 'PRESS':
             self.help = not self.help
             context.area.tag_redraw()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # ADJUST ARRAY COUNT
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.type in {'WHEELUPMOUSE', 'WHEELDOWNMOUSE'}:
             if event.type == 'WHEELDOWNMOUSE' and self.radial_count > 2:
                 self.radial_count -= 1
@@ -261,9 +253,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             self.update_rot()
             context.area.tag_redraw()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # ADJUST SCALE
-        # -------------------------------------------------------------------------------------------------
+        #
         if self.adj_mode_scl:
             val = None
             if self.new_mx > self.prev_mx:
@@ -276,9 +268,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             self.prev_mx = self.new_mx
             # context.area.tag_redraw()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # ADJUST RADIUS
-        # -------------------------------------------------------------------------------------------------
+        #
         elif self.adj_mode_rad:
             val = None
             if self.new_mx > self.prev_mx:
@@ -291,9 +283,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             self.prev_mx = self.new_mx
             # context.area.tag_redraw()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # ADJUST Z POS
-        # -------------------------------------------------------------------------------------------------
+        #
         elif self.adj_mode_z:
             val = None
             if self.new_mx > self.prev_mx:
@@ -310,9 +302,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
         elif event.type == 'R' and event.value == 'RELEASE':
             self.bmove(Vector((0.0, 0.0, self.tot_off_z * -1)))
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # NAVIGATION
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.alt and event.type == "LEFTMOUSE" or event.type == "MIDDLEMOUSE" or \
                 event.alt and event.type == "RIGHTMOUSE" or \
                 event.alt and event.type == "MIDDLEMOUSE" or \
@@ -320,9 +312,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
                 event.shift and event.type == "MIDDLEMOUSE":
             return {'PASS_THROUGH'}
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # APPLY
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.type in {'LEFTMOUSE', 'RET', 'SPACE'}:
             context.window_manager.event_timer_remove(self._timer)
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
@@ -330,9 +322,9 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             context.workspace.status_text_set(None)
             return {'FINISHED'}
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # CANCEL
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             context.window_manager.event_timer_remove(self._timer)
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
@@ -406,13 +398,14 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
         # Setup
         self.screen_x = int(bpy.context.region.width * .5)
         self.prev_mx = self.screen_x
-        k = context.preferences.addons['kekit'].preferences
+        k = context.preferences.addons[__package__].preferences
         self.hcol = k.modal_color_header
         self.tcol = k.modal_color_text
         self.scol = k.modal_color_subtext
         scale_factor = context.preferences.view.ui_scale * k.ui_scale
         self.fs = [int(round(n * scale_factor)) for n in self.fs]
         coords = []
+        cpos = (0,0,0)
 
         if not self.adjust_mode:
             # setting active coll for empty creation - mess, should really be a oneliner:
@@ -426,7 +419,16 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             self.og_mtx = self.obj.matrix_world.copy()
 
             if self.auto_arrange:
-                bpy.ops.view3d.ke_object_to_cursor('INVOKE_DEFAULT')
+                # bpy.ops.view3d.ke_object_to_cursor('INVOKE_DEFAULT')
+                cursor = context.scene.cursor
+                c_loc = cursor.location
+                c_rot = cursor.rotation_euler
+                for obj in context.selected_objects:
+                    obj.location = c_loc
+                    og_rot_mode = str(obj.rotation_mode)
+                    obj.rotation_mode = "XYZ"
+                    obj.rotation_euler = c_rot
+                    obj.rotation_mode = og_rot_mode
 
             # Backup vert coords for restore
             verts = self.obj.data.vertices
@@ -441,7 +443,15 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
                 self.tot_off_rad = bb_diag
 
             # Set origin to center
-            bpy.ops.view3d.ke_origin_to_cursor('INVOKE_DEFAULT')
+            # bpy.ops.view3d.ke_origin_to_cursor('INVOKE_DEFAULT')
+            context.scene.tool_settings.use_transform_data_origin = True
+            bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
+            bpy.ops.transform.transform(mode='ALIGN', value=(0, 0, 0, 0), orient_type='CURSOR', mirror=True,
+                                        use_proportional_edit=False, proportional_edit_falloff='SMOOTH',
+                                        proportional_size=1, use_proportional_connected=False,
+                                        use_proportional_projected=False)
+            context.scene.tool_settings.use_transform_data_origin = False
+            bpy.ops.transform.select_orientation(orientation='LOCAL')
 
             # Make Empty (self.loc = locator)
             self.loc_scl = (bb_diag / 2, bb_diag / 2, bb_diag / 2)
@@ -485,7 +495,6 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
             self.restore_coords = [0, 0, 0] * len(verts)
             verts.foreach_get('co', self.restore_coords)
             cpos = self.obj.location
-
 
         # Set initial snap values from approx rad
         if not coords:
@@ -531,16 +540,19 @@ class VIEW3D_OT_ke_radialarray(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeRadialArray,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_ke_radialarray)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_ke_radialarray)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

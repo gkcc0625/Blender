@@ -128,7 +128,7 @@ def match_camera():
         bpy.ops.photographer.applyphotographersettings()
 
         # print (length)
-        threshold = 0.01
+        threshold = 0.001
         diffs = (
             distance,
             rotation_difference,
@@ -157,7 +157,7 @@ def match_camera():
         else:
             stop = False
 
-        # if self.timer >= 12:
+        # if self.timer >= 15:
         #     stop = True
         #     print ("Master Camera: Matching timed out. Consider increasing matching speed.")
 
@@ -366,7 +366,8 @@ class MASTERCAMERA_OT_AddCamera(bpy.types.Operator):
         bpy.ops.mastercamera.look_through(camera=new_cam_obj.name)
 
         # Set World and Frames override if another cam already has it
-        new_cam.photographer.cam_world = context.scene.world.name
+        if context.scene.world:
+            new_cam.photographer.cam_world = context.scene.world.name
         new_cam.photographer.cam_frame_start = context.scene.frame_start
         new_cam.photographer.cam_frame_end = context.scene.frame_end
 
@@ -558,6 +559,7 @@ class MASTERCAMERA_OT_SetMasterCameraKey(bpy.types.Operator):
         settings.keyframe_insert(data_path='shutter_angle', frame=(current_frame))
         settings.keyframe_insert(data_path='aperture', frame=(current_frame))
         settings.keyframe_insert(data_path='lens_shift', frame=(current_frame))
+        settings.keyframe_insert(data_path='lens_shift_x', frame=(current_frame))
         settings.keyframe_insert(data_path='color_temperature', frame=(current_frame))
         settings.keyframe_insert(data_path='tint', frame=(current_frame))
         # settings.keyframe_insert(data_path='motionblur_enabled', frame=(current_frame))

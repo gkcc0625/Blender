@@ -7,6 +7,7 @@ from bpy.props import StringProperty
 
 from .Logger import log
 from .constants import BRD_CONST_DATA
+from .utils import flatten
 
 
 def add_button(self, context):
@@ -14,16 +15,6 @@ def add_button(self, context):
         self.layout.menu(
             "NODE_MT_GEO", text="Bradley's preset", icon="KEYTYPE_JITTER_VEC"
         )
-
-
-def flatten(x):
-    result = []
-    for el in x:
-        if hasattr(el, "__iter__") and not isinstance(el, str):
-            result.extend(flatten(el))
-        else:
-            result.append(el)
-    return result
 
 
 def geo_cat_generator():
@@ -83,7 +74,10 @@ def geo_cat_generator():
 
         def generate_menu_draw(name, label):
             def draw_menu(self, context):
-                self.layout.menu(name, text=label)
+                self.layout.menu(name, text=label)            
+                if "_" in label:
+                    self.layout.separator(factor=1.0)
+
 
             return draw_menu
 
@@ -99,7 +93,10 @@ class NODE_MT_GEO(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return context.space_data.tree_type == "GeometryNodeTree"
+        return (
+            context.space_data.type == "NODE_EDITOR"
+            and context.space_data.tree_type == "GeometryNodeTree"
+        )
 
     def draw(self, context):
         pass

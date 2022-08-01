@@ -6,7 +6,7 @@ from ... utils.registration import get_prefs, get_path
 from ... utils.system import makedir, write_log, get_python_paths, install_pip, update_pip, install_wheel, install_PIL, easy_install_PIL, test_import_PIL, remove_PIL
 
 
-version = "8.3.1"
+version = "9.0.1"
 
 
 class InstallPIL(bpy.types.Operator):

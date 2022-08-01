@@ -83,6 +83,19 @@ class HOPS_OT_SolidAll(bpy.types.Operator):
                         new_obj.cycles_visibility.glossy = True
                         new_obj.cycles_visibility.transmission = True
                         new_obj.cycles_visibility.scatter = True
+
+                    if hasattr(new_obj, 'visible_camera'):
+                        new_obj.visible_camera = True
+                    if hasattr(new_obj, 'visible_diffuse'):
+                        new_obj.visible_diffuse = True
+                    if hasattr(new_obj, 'visible_glossy'):
+                        new_obj.visible_glossy = True
+                    if hasattr(new_obj, 'visible_transmission'):
+                        new_obj.visible_transmission = True
+                    if hasattr(new_obj, 'visible_volume_scatter'):
+                        new_obj.visible_volume_scatter = True
+                    if hasattr(new_obj, 'visible_shadow'):
+                        new_obj.visible_shadow = True
                     
         else:
             for obj in objs:
@@ -101,6 +114,20 @@ class HOPS_OT_SolidAll(bpy.types.Operator):
                             obj.cycles_visibility.glossy = True
                             obj.cycles_visibility.transmission = True
                             obj.cycles_visibility.scatter = True
+
+                        if hasattr(obj, 'visible_camera'):
+                            obj.visible_camera = True
+                        if hasattr(obj, 'visible_diffuse'):
+                            obj.visible_diffuse = True
+                        if hasattr(obj, 'visible_glossy'):
+                            obj.visible_glossy = True
+                        if hasattr(obj, 'visible_transmission'):
+                            obj.visible_transmission = True
+                        if hasattr(obj, 'visible_volume_scatter'):
+                            obj.visible_volume_scatter = True
+                        if hasattr(obj, 'visible_shadow'):
+                            obj.visible_shadow = True
+
                     elif obj.display_type == 'SOLID':
                         obj.display_type = 'WIRE'
 
@@ -173,6 +200,19 @@ class HOPS_OT_ReactivateWire(bpy.types.Operator):
                     obj.cycles_visibility.scatter = False
                     obj.cycles_visibility.shadow = False
 
+                if hasattr(obj, 'visible_camera'):
+                    obj.visible_camera = False
+                if hasattr(obj, 'visible_diffuse'):
+                    obj.visible_diffuse = False
+                if hasattr(obj, 'visible_glossy'):
+                    obj.visible_glossy = False
+                if hasattr(obj, 'visible_transmission'):
+                    obj.visible_transmission = False
+                if hasattr(obj, 'visible_volume_scatter'):
+                    obj.visible_volume_scatter = False
+                if hasattr(obj, 'visible_shadow'):
+                    obj.visible_shadow = False
+
             if self.realagain:
                 if hasattr(obj, 'cycles_visibility'):
                     obj.cycles_visibility.camera = True
@@ -181,6 +221,20 @@ class HOPS_OT_ReactivateWire(bpy.types.Operator):
                     obj.cycles_visibility.transmission = True
                     obj.cycles_visibility.scatter = True
                     obj.cycles_visibility.shadow = True
+
+                if hasattr(obj, 'visible_camera'):
+                    obj.visible_camera = True
+                if hasattr(obj, 'visible_diffuse'):
+                    obj.visible_diffuse = True
+                if hasattr(obj, 'visible_glossy'):
+                    obj.visible_glossy = True
+                if hasattr(obj, 'visible_transmission'):
+                    obj.visible_transmission = True
+                if hasattr(obj, 'visible_volume_scatter'):
+                    obj.visible_volume_scatter = True
+                if hasattr(obj, 'visible_shadow'):
+                    obj.visible_shadow = True
+
                 obj.display_type = 'WIRE'
                 obj.display_type = 'TEXTURED'
                 obj.show_all_edges = False
@@ -194,6 +248,19 @@ class HOPS_OT_ReactivateWire(bpy.types.Operator):
                     obj.cycles_visibility.scatter = False
                     obj.cycles_visibility.diffuse = False
                     obj.cycles_visibility.glossy = False
+
+                if hasattr(obj, 'visible_camera'):
+                    obj.visible_camera = False
+                if hasattr(obj, 'visible_diffuse'):
+                    obj.visible_diffuse = False
+                if hasattr(obj, 'visible_glossy'):
+                    obj.visible_glossy = False
+                if hasattr(obj, 'visible_transmission'):
+                    obj.visible_transmission = False
+                if hasattr(obj, 'visible_volume_scatter'):
+                    obj.visible_volume_scatter = False
+                if hasattr(obj, 'visible_shadow'):
+                    obj.visible_shadow = False
 
         # Operator UI
         if not HOPS_OT_ReactivateWire.called_ui:

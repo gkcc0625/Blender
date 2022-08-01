@@ -2,7 +2,8 @@ import bpy
 import bgl
 import blf
 from ..functions import raycast
-from ..autofocus import hide_focus_planes, hide_dof_objects
+from ..autofocus import list_focus_planes, list_dof_objects
+from ..rigs.build_rigs import get_camera_rig
 from mathutils import Vector
 from mathutils.geometry import distance_point_to_plane
 
@@ -55,7 +56,10 @@ class PHOTOGRAPHER_OT_DollyZoom(bpy.types.Operator):
                     self.dist = abs(distance_point_to_plane(cam_obj.location, location, cam_dir))
                     self.focal_length = settings.focal
                     self.focus_distance = cam.dof.focus_distance
-                    self.cam_loc = cam_obj.location
+                    if self.rig_obj:
+                        self.cam_loc = self.rig_obj.location
+                    else:
+                        self.cam_loc = cam_obj.location
                     self.left_press = True
                 else:
                     if self.cursor_set:
@@ -79,7 +83,10 @@ class PHOTOGRAPHER_OT_DollyZoom(bpy.types.Operator):
                     offset_vec = Vector((0.0, 0.0, offset_dist ))
                     rotation_matrix = cam_obj.rotation_euler.to_matrix()
                     rotation_matrix.invert()
-                    cam_obj.location = self.cam_loc + offset_vec @ rotation_matrix
+                    if self.rig_obj:
+                        self.rig_obj.location = self.cam_loc + offset_vec @ rotation_matrix
+                    else:
+                        cam_obj.location = self.cam_loc + offset_vec @ rotation_matrix
                     cam.dof.focus_distance += offset_dist
 
         if event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
@@ -90,8 +97,8 @@ class PHOTOGRAPHER_OT_DollyZoom(bpy.types.Operator):
                 # Restore Focus Planes visibility
                 for o in self.fp:
                     o.hide_viewport = False
-                for o in self.dof_objects:
-                    o.hide_viewport = False
+                # for o in self.dof_objects:
+                #     o.hide_viewport = False
 
                 bpy.types.SpaceView3D.draw_handler_remove(self._handle, 'WINDOW')
                 return {'FINISHED'}
@@ -103,13 +110,17 @@ class PHOTOGRAPHER_OT_DollyZoom(bpy.types.Operator):
             if self.focus_distance:
                 cam.dof.focus_distance = self.focus_distance
 
-            context.scene.camera.location = self.stored_cam_loc
+
+            if self.rig_obj:
+                self.rig_obj.location = self.stored_cam_loc
+            else:
+                context.scene.camera.location = self.stored_cam_loc
 
             # Restore Focus Planes visibility
             for o in self.fp:
                 o.hide_viewport = False
-            for o in self.dof_objects:
-                o.hide_viewport = False
+            # for o in self.dof_objects:
+            #     o.hide_viewport = False
 
             if self.cursor_set:
                 context.window.cursor_modal_restore()
@@ -121,6 +132,7 @@ class PHOTOGRAPHER_OT_DollyZoom(bpy.types.Operator):
 
     def invoke(self, context, event):
         if context.area.type == 'VIEW_3D':
+            cam_obj = context.scene.camera
             self.left_press = False
             self.pos = None
             self.cursor_set = True
@@ -128,12 +140,18 @@ class PHOTOGRAPHER_OT_DollyZoom(bpy.types.Operator):
             self.focal_length = None
             self.focus_distance = None
             self.cam_loc = None
-            self.stored_cam_loc = context.scene.camera.location
+            self.rig_obj = None
+            if cam_obj.get("is_rigged", False):
+                self.rig_obj = get_camera_rig(cam_obj)
+                if self.rig_obj:
+                    self.stored_cam_loc = self.rig_obj.location
+            else:
+                self.stored_cam_loc = context.scene.camera.location
             self.stored_focus_distance = context.scene.camera.data.dof.focus_distance
 
             # Hide all Focus Planes
-            self.fp = hide_focus_planes()
-            self.dof_objects = hide_dof_objects()
+            self.fp = list_focus_planes()
+            # self.dof_objects = list_dof_objects()
 
             args = (self, context)
             self._handle = bpy.types.SpaceView3D.draw_handler_add(draw_callback_px, args, 'WINDOW', 'POST_PIXEL')

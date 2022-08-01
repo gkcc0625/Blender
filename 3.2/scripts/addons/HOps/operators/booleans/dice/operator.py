@@ -82,7 +82,7 @@ class HOPS_OT_BoolDice_V2(bpy.types.Operator):
         setup_form(self, context, event)
 
         # Base Systems
-        self.master = Master(context=context)
+        self.master = Master(context)
         self.master.only_use_fast_ui = True
         self.base_controls = Base_Modal_Controls(context, event)
         self.original_tool_shelf, self.original_n_panel = collapse_3D_view_panels()

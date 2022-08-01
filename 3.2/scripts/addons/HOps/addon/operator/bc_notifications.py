@@ -249,7 +249,8 @@ def new_notification(header):
 
     if get_preferences().display.bc_extra_notifications:
         if bpy.app.version[:2] >= (2, 91):
-            draw_data.insert(1, [f'Solver: {preference.behavior.boolean_solver.capitalize()} (Alt + E)' if bpy.app.version[:2] >= (2, 91) else '', modinfo])
+            solver = 'EXACT' if preference.behavior.join_exact and mode == 'JOIN' else preference.behavior.boolean_solver
+            draw_data.insert(1, [f'Solver: {solver.capitalize()} (Alt + E)' if bpy.app.version[:2] >= (2, 91) else '', modinfo])
         draw_data.insert(2, [f'Orientation: {surface.capitalize()}{orientation}', f'{behavior.capitalize()} {mode.capitalize()} '])
 
     ui.receive_draw_data(draw_data=draw_data)

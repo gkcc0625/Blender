@@ -28,6 +28,10 @@ def operator(op, context, event):
             if event.ctrl or (event.ctrl and event.shift):
                 return {'PASS_THROUGH'}
 
+    if preference.keymap.enable_toolsettings:
+        context.space_data.show_region_tool_header = True
+        context.space_data.show_region_header = True
+
     bc.running = True
     bc_scene_type.operator = op
 
@@ -173,7 +177,7 @@ def operator(op, context, event):
     op.ngon_fit = False
     op.ngon_point_index = -1
     op.ngon_point_bevel = False
-    op.ngon_point_bevel_reset = False
+    op.ngon_point_bevel_reset = 0.0
     op.draw_line = preference.behavior.draw_line and op.shape_type !='NGON'
     op.wedge_cycle = 0
     op.bounds = [Vector((0, 0, 0)) for _ in range(8)]
@@ -211,6 +215,8 @@ def operator(op, context, event):
     op.start['view_matrix'] = context.region_data.view_matrix.copy()
     op.start['intersect'] = Vector()
     op.last['wedge_axis_map'] = {False : 'X', True : 'Y'}
+    op.last['wedge_points'] = [0, 1]
+    op.input_plane = Vector()
 
     if preference.behavior.show_wire:
         for obj in op.datablock['targets']:
@@ -500,6 +506,10 @@ def operator(op, context, event):
 
         # if op.orthographic:
         #     bpy.ops.view3d.view_persportho('INVOKE_DEFAULT')
+
+        if preference.behavior.auto_ortho and context.space_data.region_3d.is_perspective:
+            op.auto_ortho = True
+            bpy.ops.view3d.view_persportho('INVOKE_DEFAULT')
 
         context.window_manager.modal_handler_add(op)
         op.update()

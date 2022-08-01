@@ -72,10 +72,15 @@ def invoke(op, context, event):
         context.space_data.show_region_tool_header = True
         context.space_data.show_region_header = True
 
-    op.handler = snap.display_handler(context, Vector((event.mouse_region_x, event.mouse_region_y)))
     op._update = True
+    op._timer = None
+
     op._ignore_escape = False
+
     op._adaptive = preference.snap.adaptive
+
+    op.handler = None
+    op.handler = snap.display_handler(context, Vector((event.mouse_region_x, event.mouse_region_y)))
 
     preference.snap.adaptive = op._adaptive if not preference.snap.increment_lock else False
 
@@ -88,6 +93,8 @@ def invoke(op, context, event):
 def modal(op, context, event):
     preference = addon.preference()
     bc = context.scene.bc
+
+    op.handler.micro = event.shift
 
     preference.snap.adaptive = True if event.ctrl and preference.snap.increment_lock else op._adaptive
 
@@ -105,7 +112,7 @@ def modal(op, context, event):
     if event.type in {'D', 'V'}:
         op._ignore_escape = True
 
-    if not bc.running and ((event.type not in {'C', 'D', 'V', 'Z'} and event.type in pass_through_key_events or event.type in {'ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'}) or (event.type == 'ESC' and not op._ignore_escape)):
+    if not bc.running and ((event.type not in {'C', 'D', 'V', 'Z'} and event.type in pass_through_key_events or event.type in {'ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'}) or (event.type == 'ESC' and not op._ignore_escape)) or (event.type == 'SPACE' and event.ctrl):
         bc.snap.display = False
 
         op._update = False
@@ -201,11 +208,16 @@ def exit(op, context):
     bc.snap_type = ''
 
     op._update = False
-    op.handler.remove(force=True)
 
-    op.handler.area_tag_redraw(context)
+    if op.handler:
+        op.handler.remove(force=True)
+        op.handler.area_tag_redraw(context)
 
-    if bc.snap.operator == op:
+    if bc.snap.operator and bc.snap.operator != op:
+        bc.snap.operator.exit(context)
+
+    from .... utility import handled_error
+    if bc.snap.operator == op or handled_error:
         bc.snap.__class__.operator = None
         bc.snap.hit = False
         bc.snap.display = False
@@ -219,4 +231,3 @@ def exit(op, context):
     preference.snap.adaptive = op._adaptive
 
     return {'FINISHED'}
-

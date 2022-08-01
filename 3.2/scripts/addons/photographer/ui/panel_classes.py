@@ -19,6 +19,7 @@ lightmixer_panel_classes = (
     lightmixer.LIGHTMIXER_PT_ViewPanel,
     emissive_mixer.LIGHTMIXER_PT_EmissiveViewPanel,
     world_mixer.LIGHTMIXER_PT_WorldViewPanel,
+    world_mixer.LIGHTMIXER_PT_WorldProperties,
 )
 
 # image_panel_classes = (

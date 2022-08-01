@@ -9,9 +9,10 @@ sensor_types = {'Custom':[0,0],
                 'Fullframe':[36,24],
                 'Alexa 65':[54.12,25.58],
                 '6x6 MF':[56,56],
+                'IMAX 70mm':[70,48.5],
                 '6x9 MF':[84,56],
                 }
-                
+
 def sensor_type_items(self,context):
     enum = []
     for st in sensor_types:

@@ -23,12 +23,12 @@ available_mods = {
     'SIMPLE_DEFORM',
     }
 
-def popup_generator(op, mod, index):
+def popup_generator(op, mod, index, bool_tracker_mode=False):
     if mod.type not in available_mods: return "", None
     msg = "Ctrl Click : Popup menu"
     popup = form.Popup()
 
-    header(op, popup, mod, index)
+    header(op, popup, mod, index, bool_tracker_mode)
     spacer(popup)
 
     # --- Modify --- #
@@ -526,7 +526,7 @@ def spacer(popup, height=10):
     row.add_element(form.Spacer(height=height))
     popup.row_insert(row)
 
-def header(op, popup, mod, index):
+def header(op, popup, mod, index, bool_tracker_mode=False):
     row = popup.row()
 
     type_text = mod.type
@@ -538,9 +538,15 @@ def header(op, popup, mod, index):
         type_text = 'SPLIT'
 
     row.add_element(form.Label(text=f'{index} : {type_text} : {mod.name}'))
-    row.add_element(form.Button(
-        glob_img_key='eyecon_closed', tips=["Isolate modifier / Enable up to"],
-        callback=op.mod_tracker.isolate_mod, pos_args=(mod,), neg_args=(mod,)))
+
+    if bool_tracker_mode:
+        row.add_element(form.Button(
+            glob_img_key='eyecon_closed', tips=["Isolate modifier / Enable up to"],
+            callback=op.bool_tracker.isolate_mod, pos_args=(mod,), neg_args=(mod,)))
+    else:
+        row.add_element(form.Button(
+            glob_img_key='eyecon_closed', tips=["Isolate modifier / Enable up to"],
+            callback=op.mod_tracker.isolate_mod, pos_args=(mod,), neg_args=(mod,)))
     row.add_element(form.Spacer(width=10))
     row.add_element(form.Button(
         glob_img_key="eyecon_open", tips=["Toggle visibility"], obj=mod, attr="show_viewport"))

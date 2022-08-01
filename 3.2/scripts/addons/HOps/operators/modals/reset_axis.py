@@ -5,6 +5,7 @@ from ...ui_framework.master import Master
 from ...ui_framework.utils.mods_list import get_mods_list
 from . import infobar
 from ... utility.base_modal_controls import Base_Modal_Controls
+from ... utils.objects import set_active
 
 
 class HOPS_OT_Align_Objs(bpy.types.Operator):
@@ -54,7 +55,7 @@ class HOPS_OT_ResetAxisModal(bpy.types.Operator):
         self.setup(context)
 
         self.base_controls = Base_Modal_Controls(context, event)
-        self.master = Master(context=context)
+        self.master = Master(context)
         self.master.only_use_fast_ui = True
 
         context.window_manager.modal_handler_add(self)
@@ -86,6 +87,7 @@ class HOPS_OT_ResetAxisModal(bpy.types.Operator):
             return {'CANCELLED'}
 
         elif self.base_controls.confirm:
+            self.selection_exit(context)
             self.master.run_fade()
             infobar.remove(self)
             return {'FINISHED'}
@@ -145,8 +147,9 @@ class HOPS_OT_ResetAxisModal(bpy.types.Operator):
             self.axises.append("Z")
 
         elif event.type == 'A' and event.value == 'PRESS':
-            bpy.ops.hops.align_objs('INVOKE_DEFAULT')
-            self.setup(context)
+            if HOPS_OT_Align_Objs.poll(context):
+                bpy.ops.hops.align_objs('INVOKE_DEFAULT')
+                self.setup(context)
 
         elif self.base_controls.tilde and event.shift == True:
             bpy.context.space_data.overlay.show_overlays = not bpy.context.space_data.overlay.show_overlays
@@ -187,6 +190,15 @@ class HOPS_OT_ResetAxisModal(bpy.types.Operator):
         else:
             for count, obj in enumerate(bpy.context.selected_objects):
                 obj.matrix_world.translation = self.original_locations[count]
+
+
+    def selection_exit(self, context):
+        if context.active_object.mode != "OBJECT": return
+        if context.active_object == None: return
+        if len(context.selected_objects) != 2: return
+        other = [o for o in context.selected_objects if o != context.active_object][0]
+        if not other: return
+        set_active(other, select=True, only_select=True)
 
 
     def draw_master(self, context):

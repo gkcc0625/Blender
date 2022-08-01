@@ -32,8 +32,7 @@ def shape(op, context, event, dot=False):
     if preference.shape.auto_depth:
         side = back if op.inverted_extrude else front
 
-    alignment.translation = math.vector_sum([bc.shape.matrix_world @ (op.bounds[i] if op.shape_type != 'NGON' or op.ngon_fit else Vector(bc.shape.bound_box[i])) for i in side]) / 4
-
+    alignment.translation = bc.shape.matrix_world @ op.input_plane
     orig = view3d.location2d_to_origin3d(*mouse)
     ray = view3d.location2d_to_vector3d(*mouse)
 
@@ -206,10 +205,24 @@ def shape(op, context, event, dot=False):
         elif solidify and preference.shape.cyclic and not op.extruded:
             bc.shape.modifiers.remove(solidify)
 
-    weld_threshold = min(bc.shape.dimensions) * 0.001
+    weld_size(op, bc)
+
+
+def weld_size(op, bc):
+    width = op.last['modifier']['bevel_width']
+    for key, value in op.last['modifier'].items():
+        if 'bevel' in key:
+            if value < width:
+                width = value
+
+    weld_threshold = (width / op.last['modifier']['segments']) * 0.25
+    limit = max(bc.shape.dimensions) * 0.001
+    if weld_threshold > limit:
+        weld_threshold = limit
+
     for mod in bc.shape.modifiers:
         if mod.type == 'WELD':
-            mod.merge_threshold = weld_threshold if weld_threshold > 0.0001 else 0.0001
+            mod.merge_threshold = weld_threshold if weld_threshold > 0.00001 else 0.00001
 
 
 def bound_object(op, context):

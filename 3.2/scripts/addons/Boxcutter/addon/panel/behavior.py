@@ -594,6 +594,8 @@ class BC_PT_helper(Panel):
                 if layout_type == 'BEVEL' and op.shape_type == 'CIRCLE' and 'BEVEL' in modifiers:
                     q_bevel['ignore'] = preference.shape.circle_type == 'MODIFIER' or (preference.shape.circle_type == 'POLYGON' and preference.shape.circle_vertices > 12)
                     shape_flip_z['ignore'] = not q_bevel['ignore']
+                    if q_bevel['ignore']:
+                        width['prop'] = 'quad_bevel_width'
 
                     use_clamp_overlap = props[mod.type]['use_clamp_overlap'] = self._prop.copy()
                     use_clamp_overlap['path'] = F'bpy.data.objects["{bc.shape.name}"].modifiers["{mod.name}"]'
@@ -1008,6 +1010,7 @@ class BC_PT_helper(Panel):
 
         elif op.mode  == 'JOIN':
             self._label_prop(box, preference.behavior, 'join_flip_z', text='Flip Z') # , box=True)
+            self._label_prop(box, preference.behavior, 'join_exact', text='Exact') # , box=True)
 
         elif op.mode == 'KNIFE':
             if addon.hops():

@@ -2,10 +2,11 @@ import bpy
 
 from bpy.utils import register_class, unregister_class
 
-from . import helper, gizmo, property, shape, modifier, popover, tool_activate, web
+from . import error, helper, gizmo, property, shape, modifier, popover, tool_activate, web
 
 
 classes = (
+    error.BC_OT_error_log,
     helper.BC_OT_helper,
     modifier.BC_OT_modifier_remove,
     modifier.BC_OT_smart_apply,

@@ -48,10 +48,22 @@ def extract_str_flags(text, *flags):
         return ("", *ret_flags)
 
     for i, f in enumerate(flags):
-        pos = text.find(f)
-        if pos != -1:
+        if text.startswith(f):
             ret_flags[i] = True
-            text = text[:pos] + text[pos + 1:]
+            text = text[len(f):]
+
+    return (text, *ret_flags)
+
+
+def extract_str_flags_b(text, *flags):
+    ret_flags = [False] * len(flags)
+    if not text:
+        return ("", *ret_flags)
+
+    for i, f in reversed(list(enumerate(flags))):
+        if text.endswith(f):
+            ret_flags[i] = True
+            text = text[:-len(f)]
 
     return (text, *ret_flags)
 

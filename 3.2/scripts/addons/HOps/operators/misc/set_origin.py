@@ -1,8 +1,7 @@
-import bpy, bmesh
+import re
+import bpy, bmesh, enum, bgl, gpu
 from mathutils import Vector, Matrix, geometry
-import enum
 from bpy_extras.view3d_utils import region_2d_to_origin_3d, region_2d_to_vector_3d, location_3d_to_region_2d
-import bgl, gpu
 from gpu_extras.batch import batch_for_shader
 
 from ... preferences import get_preferences
@@ -14,27 +13,28 @@ from ... utility.shader import dot_handler
 from ... utils.blender_ui import get_dpi_factor
 from ... utility.object import set_origin
 from ... utility.math import coords_to_center, dimensions
-
-# Cursor Warp imports
 from ... utils.toggle_view3d_panels import collapse_3D_view_panels
-from ... utils.modal_frame_drawing import draw_modal_frame
-from ... utils.cursor_warp import mouse_warp
+from ... ui_framework import form_ui as form
 from ... addon.utility import method_handler
+
 
 class states(enum.Enum):
     origin = 0
     cursor = 1
     empty = 2
 
+
 class modes(enum.Enum):
     none = enum.auto()
     set = enum.auto()
     gizmo = enum.auto()
 
+
 class gizmo_modes(enum.Enum):
     rot = 0
     loc = 1
     locrot = 2
+
 
 class object_modes(enum.Enum):
     VISIBLE = 0
@@ -42,15 +42,18 @@ class object_modes(enum.Enum):
     DESELECTED = 2
 
 
-class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
-    bl_idname = "hops.set_origin"
-    bl_label = "Set Origin"
-    bl_options = {'REGISTER', 'UNDO'}
-    bl_description = """Set Origin
+DESC = """Set Origin
 Set origin of selected object(s) to a point or line on mesh surface \n
 Shift - Copy origin's location and rotation from active object to selection
 Ctrl + Shift - Copy origin's location from active object to selection
 """
+
+
+class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
+    bl_idname = "hops.set_origin"
+    bl_label = "Set Origin"
+    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = DESC
 
     _state = states.origin
     _median_loc = False
@@ -119,6 +122,9 @@ Ctrl + Shift - Copy origin's location from active object to selection
 
     @classmethod
     def poll(cls, context):
+        # for obj in context.selected_objects:
+        #     if obj.type and obj.type == 'EMPTY':
+        #         return False
         return context.selected_objects
 
     def invoke(self, context, event):
@@ -220,12 +226,30 @@ Ctrl + Shift - Copy origin's location from active object to selection
         self.active_dot = None
         self.origin_dot = None
 
+        # Dot UI
+        self.form_obj = None
+        if context.active_object != None:
+            if context.active_object.type == 'MESH':
+                obj = context.active_object
+                if obj in self.selected_meshes:
+                    if obj in self.visible_meshes:
+                        self.form_obj = context.active_object
+        self.form = None
+        if self.form_obj:
+            if len(self.form_obj.modifiers) > 0:
+                self.setup_form(context, event)
+        
+        self.form_obj_mod_mapping = {}
+        if self.form_obj != None:
+            for mod in self.form_obj.modifiers:
+                self.form_obj_mod_mapping[mod.name] = mod.show_viewport
+        
         # Base Systems
         self.master = Master(context=context)
         self.master.only_use_fast_ui = True
         self.base_controls = Base_Modal_Controls(context, event)
         self.original_tool_shelf, self.original_n_panel = collapse_3D_view_panels()
-        #self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_shader, (context,), 'WINDOW', 'POST_PIXEL')
+        self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_shader, (context,), 'WINDOW', 'POST_PIXEL')
 
         self.update_dots(context, event)
         redraw_areas(context)
@@ -237,9 +261,10 @@ Ctrl + Shift - Copy origin's location from active object to selection
     def modal(self, context, event):
 
         # Base Systems
-        self.master.receive_event(event=event)
+        self.master.receive_event(event)
         self.base_controls.update(context, event)
-        #mouse_warp(context, event)
+        if self.form:
+            self.form.update(context, event)
 
         if self.base_controls.pass_through or event.type.count('WHEEL'):
             return {'PASS_THROUGH'}
@@ -333,6 +358,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
 
         elif event.type == 'B' and event.value == 'PRESS':
             self.bounds_only = not self.bounds_only
+            self.object_name = ''
             if self.bounds_obj is not None: self.bounds_obj.hide_set(not self.bounds_only)
             self.update_dots(context, event)
 
@@ -487,7 +513,6 @@ Ctrl + Shift - Copy origin's location from active object to selection
                 self.report({'INFO'}, "FINISHED")
                 return {'FINISHED'}
 
-
         elif self.base_controls.cancel:
             #context.scene.cursor.matrix = self.init_cursor_matrix
             self.exit(context)
@@ -507,6 +532,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
         redraw_areas(context)
         return {'RUNNING_MODAL'}
 
+
     def exit(self, context):
         if self.bounds_obj is not None:
             me = self.bounds_obj.data
@@ -516,11 +542,20 @@ Ctrl + Shift - Copy origin's location from active object to selection
         self.dot_handler.purge()
         self.purge_gizmo()
 
-        #self.remove_shader()
         collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
         self.master.run_fade()
         redraw_areas(context)
-
+        
+        # Form
+        self.remove_shader()
+        if self.form:
+            self.form.shut_down(context)
+        if self.form_obj != None:
+            for mod_name, show in self.form_obj_mod_mapping.items():
+                if mod_name in self.form_obj.modifiers:
+                    self.form_obj.modifiers[mod_name].show_viewport = show
+    
+    
     def update_dots(self, context, event):
         vec2d = event.mouse_region_x, event.mouse_region_y
         origin = region_2d_to_origin_3d(context.region, context.space_data.region_3d, vec2d)
@@ -543,7 +578,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
                 rebuild += 1
                 self.face_index = index
 
-        if self.bounds_only:
+        if self.bounds_only and self.bounds_obj:
             rebuild = 0
             self.face_index = -1
             hit, _, _, index, object, matrix = ray_cast_objects(context, origin, direction, [self.bounds_obj], evaluated=True)
@@ -553,7 +588,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
                 object = self.bounds_obj
                 self.bounds_obj_index = index
 
-        if  rebuild:
+        if rebuild:
             self.dot_handler.clear_dots()
             self.origin_dot = None
 
@@ -608,10 +643,12 @@ Ctrl + Shift - Copy origin's location from active object to selection
 
         self.dot_handler.update(context, event)
 
+
     def set_dot_colors(self,):
         for dot in self.dot_handler.dots:
             dot.color = self.color
             dot.color_high = self.color_high
+
 
     def draw_rot_gizmo(self, context):
         if self.mode != modes.gizmo: return
@@ -642,15 +679,18 @@ Ctrl + Shift - Copy origin's location from active object to selection
         bgl.glDisable(bgl.GL_LINE_SMOOTH)
         bgl.glLineWidth(1)
 
+
     def setup_gizmo(self):
         location = self.dot_handler.active_dot.location
         for i in range(3):
             self.gizmo_origin[i] = location[i]
 
+
     def purge_gizmo(self):
         if self.gizmo_handler:
             bpy.types.SpaceView3D.draw_handler_remove(self.gizmo_handler, 'WINDOW')
             self.gizmo_handler = None
+
 
     def intersect_tri(self, context, matrix, vec2d):
         v1 = matrix @ Vector(( 0, 1, 0))
@@ -671,6 +711,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
 
         return intersect
 
+
     def create_origin_dot(self):
         if self.origin_dot is None:
 
@@ -680,6 +721,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
 
             self.origin_dot.matrices = [Matrix.Translation(self.final_matrix.translation)]
 
+
     def select_empties(self, context):
         if not self.empties: return
 
@@ -687,6 +729,7 @@ Ctrl + Shift - Copy origin's location from active object to selection
         for obj in self.empties:
             obj.select_set(True)
             context.view_layer.objects.active = obj
+
 
     def create_bounds(self, obj):
         if self.bounds_obj is None:
@@ -707,103 +750,133 @@ Ctrl + Shift - Copy origin's location from active object to selection
         self.bounds_obj.matrix_world = obj.matrix_world
         self.bounds_obj_index = -1
 
+
     def draw_ui(self, context):
 
         self.master.setup()
+        if not self.master.should_build_fast_ui(): return
 
-        # -- Fast UI -- #
-        if self.master.should_build_fast_ui():
+        # Main
+        win_list = []
 
-            # Main
-            win_list = []
+        if self.gizmo_mode == gizmo_modes.loc:
+            gmode = '[R] Location'
+            gmode_s = '[R] L'
 
-            if self.gizmo_mode == gizmo_modes.loc:
-                gmode = '[R] Location'
-                gmode_s = '[R] L'
+        elif self.gizmo_mode == gizmo_modes.rot:
+            gmode = '[R] Rotation'
+            gmode_s = '[R] R'
 
-            elif self.gizmo_mode == gizmo_modes.rot:
-                gmode = '[R] Rotation'
-                gmode_s = '[R] R'
+        else:
+            gmode = '[R] Loc & Rot'
+            gmode_s = '[R] L&R'
 
-            else:
-                gmode = '[R] Loc & Rot'
-                gmode_s = '[R] L&R'
-
-            if get_preferences().ui.Hops_modal_fast_ui_loc_options != 1:
-                win_list.append(self.state.name.capitalize()[0])
-                win_list.append(f"[S] {self.object_mode.name[0]}" if not self.object_lock else "L")
-                win_list.append(gmode_s)
-                win_list.append('F' if not self.median_loc else 'M')
-
-                if self.state == states.empty:
-                    win_list.append(f'[E] {self.parent_to_empty}')
-
-            else:
-                win_list.append(self.state.name.capitalize())
-                win_list.append(f"[S] {self.object_mode.name.capitalize()}" if not self.object_lock else self.object_name)
-                win_list.append(gmode)
-                win_list.append('[F] First' if not self.median_loc else '[F] Median')
-                win_list.append('[B] Mesh' if self.bounds_only else '[B] Bounds')
-
-                if self.state == states.empty:
-                    win_list.append(f'[E] Parent: {self.parent_to_empty}')
-
-
-            # Help
-            help_items = {"GLOBAL" : [], "STANDARD" : []}
-
-            help_items["GLOBAL"] = [
-                ("M", "Toggle mods list"),
-                ("H", "Toggle help"),
-                ("~", "Toggle UI Display Type"),
-                ("O", "Toggle viewport rendering")]
-
-            help_items["STANDARD"] = [
-                ("B", f"Toggle {'Bounds' if not self.bounds_only else 'Mesh'} mode"),
-                ("C", f"Object lock: {self.object_lock}"),
-                ("F", f"Location : {'First' if not self.median_loc else 'Median'} [Alt]"),
-                ("R", f"Gizmo Mode : {gmode}"),
-                ("S", f"Objects: {self.object_mode.name.capitalize()}"),
-                ("A", f"Change Mode {self.state.name.capitalize()}"),
-                ("Shift+LMB", "Confirm without exit"),
-                ("LMB  ", f"Set {self.state.name.capitalize()}; Hold to rotate"),
-                ("RMB  ", "Cancel"),
-                ("SPACE", "Confirm"),]
+        if get_preferences().ui.Hops_modal_fast_ui_loc_options != 1:
+            win_list.append(self.state.name.capitalize()[0])
+            win_list.append(f"[S] {self.object_mode.name[0]}" if not self.object_lock else "L")
+            win_list.append(gmode_s)
+            win_list.append('F' if not self.median_loc else 'M')
 
             if self.state == states.empty:
-                help_items["STANDARD"] = [("E", f"Parent to empty: {self.parent_to_empty}")] + help_items["STANDARD"]
+                win_list.append(f'[E] {self.parent_to_empty}')
 
-            # help_append = help_items["STANDARD"].append
+        else:
+            win_list.append(self.state.name.capitalize())
+            win_list.append(f"[S] {self.object_mode.name.capitalize()}" if not self.object_lock else self.object_name)
+            win_list.append(gmode)
+            win_list.append('[F] First' if not self.median_loc else '[F] Median')
+            win_list.append('[B] Mesh' if self.bounds_only else '[B] Bounds')
 
-            # Mods
-            mods_list = get_mods_list(mods=bpy.context.active_object.modifiers)
+            if self.state == states.empty:
+                win_list.append(f'[E] Parent: {self.parent_to_empty}')
 
-            self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image="", mods_list=mods_list)
+        # Help
+        help_items = {"GLOBAL" : [], "STANDARD" : []}
 
+        help_items["GLOBAL"] = [
+            ("M", "Toggle mods list"),
+            ("H", "Toggle help"),
+            ("~", "Toggle UI Display Type"),
+            ("O", "Toggle viewport rendering")]
+
+        help_items["STANDARD"] = [
+            ("B", f"Toggle {'Bounds' if not self.bounds_only else 'Mesh'} mode"),
+            ("C", f"Object lock: {self.object_lock}"),
+            ("F", f"Location : {'First' if not self.median_loc else 'Median'} [Alt]"),
+            ("R", f"Gizmo Mode : {gmode}"),
+            ("S", f"Objects: {self.object_mode.name.capitalize()}"),
+            ("A", f"Change Mode {self.state.name.capitalize()}"),
+            ("Shift+LMB", "Confirm without exit"),
+            ("LMB  ", f"Set {self.state.name.capitalize()}; Hold to rotate"),
+            ("RMB  ", "Cancel"),
+            ("SPACE", "Confirm"),]
+
+        if self.state == states.empty:
+            help_items["STANDARD"] = [("E", f"Parent to empty: {self.parent_to_empty}")] + help_items["STANDARD"]
+
+        # Mods
+        mods_list = get_mods_list(mods=bpy.context.active_object.modifiers)
+
+        self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image="", mods_list=mods_list)
         self.master.finished()
 
-    ####################################################
-    #   CURSOR WARP
-    ####################################################
+    # --- FORM FUNCS --- #
+
+    def setup_form(self, context, event):
+        # MAX WIDTH = 165
+        self.form = form.Form(context, event, dot_open=False)
+
+        # Mod Scroll Box
+        group = form.Scroll_Group()
+        for index, mod in enumerate(self.form_obj.modifiers):
+            row = group.row()
+            # Count
+            row.add_element(form.Label(text=str(index + 1), width=25, height=20))
+            # Mod name
+            text = form.shortened_text(mod.name, width=95, font_size=12)
+            row.add_element(form.Label(text=text, width=100, height=20))
+            # Visible
+            row.add_element(form.Button(
+                scroll_enabled=False, text="X", highlight_text="O", tips=["Toggle visibility"],
+                width=20, height=20, use_padding=False,
+                callback=self.rebuild_from_form, pos_args=(mod, context),
+                highlight_hook_obj=mod, highlight_hook_attr='show_viewport'))
+            group.row_insert(row)
+        row = self.form.row()
+        
+        box_height = 160
+        
+        if len(self.form_obj.modifiers) < 8:
+            box_height = 20 * len(self.form_obj.modifiers)
+        
+        mod_box = form.Scroll_Box(width=165, height=box_height, scroll_group=group, view_scroll_enabled=True)
+        row.add_element(mod_box)
+        self.form.row_insert(row, active=True)
+
+        self.form.build()
+
+
+    def rebuild_from_form(self, mod, context):
+        mod.show_viewport = not mod.show_viewport
+
+    # --- SHADERS --- #
 
     def safe_draw_shader(self, context):
         method_handler(self.draw_shader,
             arguments = (context,),
-            identifier = 'UI Framework',
+            identifier = 'Set Origin 2D Shader',
             exit_method = self.remove_shader)
 
 
     def remove_shader(self):
-        '''Remove shader handle.'''
-
         if self.draw_handle:
             self.draw_handle = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle, "WINDOW")
 
 
     def draw_shader(self, context):
-        '''Draw shader handle.'''
+        if self.form:
+            self.form.draw()
 
-        draw_modal_frame(context)
 
 def redraw_areas(context):
     for area in context.screen.areas:

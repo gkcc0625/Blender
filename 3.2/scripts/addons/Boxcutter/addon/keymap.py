@@ -42,25 +42,31 @@ def register():
         kmi.properties.name = 'BC_PT_surface'
         # kmi.properties.keep_open = False
 
-        # Draw shape
-        kmi = km.keymap_items.new(idname='bc.shape_draw', type='LEFTMOUSE', value='ANY')
-        kmi.map_type = 'TWEAK'
+        mouse_type = 'MOUSE' if bpy.app.version[:2] > (3, 1) else 'TWEAK'
+        value_type = 'CLICK_DRAG' if mouse_type == 'MOUSE' else 'ANY'
+        kargs = {'idname': 'bc.shape_draw', 'type': 'LEFTMOUSE', 'value': value_type}
+
+        if mouse_type == 'MOUSE':
+            kargs['direction'] = 'ANY'
 
         # Draw shape
-        kmi = km.keymap_items.new(idname='bc.shape_draw', type='LEFTMOUSE', value='ANY', alt=True)
-        kmi.map_type = 'TWEAK'
+        kmi = km.keymap_items.new(**kargs)
+        kmi.map_type = mouse_type
 
         # Draw shape
-        kmi = km.keymap_items.new(idname='bc.shape_draw', type='LEFTMOUSE', value='ANY', shift=True)
-        kmi.map_type = 'TWEAK'
+        kmi = km.keymap_items.new(**kargs, alt=True)
+        kmi.map_type = mouse_type
 
         # Draw shape
-        kmi = km.keymap_items.new(idname='bc.shape_draw', type='LEFTMOUSE', value='ANY', alt=True, shift=True)
-        kmi.map_type = 'TWEAK'
+        kmi = km.keymap_items.new(**kargs, shift=True)
+        kmi.map_type = mouse_type
+
+        # Draw shape
+        kmi = km.keymap_items.new(**kargs, alt=True, shift=True)
+        kmi.map_type = mouse_type
 
         # Draw shape
         kmi = km.keymap_items.new(idname='bc.shape_draw', type='LEFTMOUSE', value='PRESS', ctrl=True)
-
         # Draw shape
         # kmi = km.keymap_items.new(idname='bc.shape_draw', type='LEFTMOUSE', value='PRESS', ctrl=True, alt=True)
 

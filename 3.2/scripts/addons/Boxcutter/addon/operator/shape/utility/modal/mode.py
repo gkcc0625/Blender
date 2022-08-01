@@ -43,7 +43,7 @@ def change(op, context, event, to='CUT', init=False, force=False):
 
         elif value == 'JOIN':
             # op.flip_z = True
-            offset = -offset
+            offset = 0 if preference.behavior.join_exact else -offset
 
         # else:
         #     op.flip_z = False

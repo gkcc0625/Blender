@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import (BoolProperty,
+                       IntProperty,
                        FloatProperty,
                        EnumProperty,
                        FloatVectorProperty,
@@ -9,6 +10,7 @@ import math
 # import bl_math
 from . import functions
 from .white_balance import convert_temperature_to_RGB_table
+from .constants import color_temp_desc
 
 default_sunlight_unit = 'irradiance'
 default_light_unit = 'power'
@@ -102,9 +104,13 @@ SIZE_Y_DESCRIPTION = (
 )
 
 # UNIT CONVERSIONS
-def normalizebycolor(self):
+def normalizebycolor_fac(self):
     if self.normalizebycolor:
-        return functions.rgb_to_luminance(self.color)
+        x = functions.rgb_to_luminance(self.color)
+        if x != 0:
+            return x
+        else:
+            return 1
     else:
         return 1
 
@@ -168,7 +174,7 @@ def lumen_factor(self):
     if bpy.context.scene.render.engine == 'LUXCORE':
         x *= 683
 
-    return unit_scale_conversion(x) / normalizebycolor(self)
+    return unit_scale_conversion(x) / normalizebycolor_fac(self)
 
 def candela_factor(self):
     x = 1 / 683 * 4 * math.pi
@@ -207,7 +213,7 @@ def candela_factor(self):
     if bpy.context.scene.render.engine == 'LUXCORE':
         x *= 683
 
-    return unit_scale_conversion(x) / normalizebycolor(self)
+    return unit_scale_conversion(x) / normalizebycolor_fac(self)
 
 def irradiance_factor(self):
     if bpy.context.scene.render.engine == 'LUXCORE':
@@ -222,7 +228,7 @@ def illuminance_factor(self):
     else:
         x = 1 / 683
 
-    return x / normalizebycolor(self)
+    return x / normalizebycolor_fac(self)
 
 # APPLY VALUE CHANGE TO ALL UNITS TO SUPPORT LIGHT UNIT CHANGE
 def store_units(self):
@@ -403,18 +409,25 @@ def set_light_exposure(self, value):
     return None
 
 def get_power(self):
-    if bpy.context.scene.render.engine == 'LUXCORE':
-        return self.get('power', default_power)
-    else:
-        store_units(self)
-        return self.id_data.energy
+    # Before 4.5.9, using Blender Power to make sure it stays synced
+
+    # if bpy.context.scene.render.engine == 'LUXCORE':
+    #     return self.get('power', default_power)
+    # else:
+        # store_units(self)
+        # return self.id_data.energy
+
+    # From 4.5.9, using Photographer power to fix animation baking
+    return self.get('power', default_power)
 
 def set_power(self, value):
-    if bpy.context.scene.render.engine == 'LUXCORE':
-        self['power'] = value
-        update_energy(self)
-    else:
-        self.id_data.energy = value
+    # if bpy.context.scene.render.engine == 'LUXCORE':
+    #     self['power'] = value
+    #     update_energy(self)
+    # else:
+    #     self.id_data.energy = value
+    self['power'] = value
+    update_energy(self)
     return None
 
 def get_advanced_power(self):
@@ -549,7 +562,7 @@ def temp_to_rgb_linear(temperature):
     return color
 
 def get_color(self):
-    return self.id_data.color
+    return self.get('color', (1.0,1.0,1.0))
 
 def set_color(self, value):
     self['color'] = value
@@ -581,7 +594,7 @@ def set_light_temperature(self, value):
     color = temp_to_rgb_linear(value)
     if self.use_light_temperature:
         self.id_data.color = color
-    self['color'] = value
+        self['color'] = color
     update_energy(self)
     return None
 
@@ -593,7 +606,7 @@ def set_use_light_temperature(self, value):
     color = temp_to_rgb_linear(self.light_temperature)
     if value:
         self.id_data.color = color
-    self['color'] = value
+        self['color'] = color
     update_energy(self)
     return None
 
@@ -665,7 +678,7 @@ def set_elevation(self, value):
 # PROPERTIES
 class PhotographerLightSettings(bpy.types.PropertyGroup):
 
-    enable_lc_physical: bpy.props.BoolProperty(
+    enable_lc_physical: BoolProperty(
         name="Use Physical Light",
         description=("Use Photographer Physical Light properties instead of LuxCore properties.\n"
                     "Useful for switching between Cycles, EEVEE and LuxCore"
@@ -692,20 +705,20 @@ class PhotographerLightSettings(bpy.types.PropertyGroup):
     color: FloatVectorProperty(
         name="Color", description="Light Color",
         subtype='COLOR',
-        min=0.0, max=1.0, size=3,
+        min=0.0, size=3,
         default=(1.0,1.0,1.0),
         get=get_color,
         set=set_color,
     )
 
-    light_temperature : bpy.props.IntProperty(
-        name="Color Temperature", description="Color Temperature (Kelvin)",
+    light_temperature : IntProperty(
+        name="Color Temperature", description=color_temp_desc,
         min=1000, max=13000, default=6500,
         get=get_light_temperature,
         set=set_light_temperature,
     )
 
-    use_light_temperature: bpy.props.BoolProperty(
+    use_light_temperature: BoolProperty(
         name="Use Light Color Temperature",
         default=False,
         options = {'HIDDEN'},
@@ -713,7 +726,7 @@ class PhotographerLightSettings(bpy.types.PropertyGroup):
         set=set_use_light_temperature,
     )
 
-    preview_color_temp : bpy.props.FloatVectorProperty(
+    preview_color_temp : FloatVectorProperty(
         name="Preview Color", description="Color Temperature preview color",
         subtype='COLOR', min=0.0, max=1.0, size=3,
         options = {'HIDDEN'},

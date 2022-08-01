@@ -2,14 +2,12 @@ import bpy
 import math
 
 from . import bokeh, camera_sensors
-from .functions import calc_exposure_value, shutter_speed_to_angle
-from .autofocus import stop_playback, focus_continuous
+from .functions import calc_exposure_value, shutter_speed_to_angle,show_message, srgb_to_linear
+from .autofocus import stop_playback, focus_continuous, list_dof_objects
 from .white_balance import convert_RBG_to_whitebalance, convert_temperature_to_RGB_table
 from .sampling_threshold import update_light_threshold, check_light_threshold
-from .ui.library import previews_register,previews_unregister
-from .world import get_environment_tex, enum_previews_hdri_tex
 from .operators.exposure import get_exposure_node
-from .constants import base_ev
+from .constants import base_ev, color_temp_desc
 
 # Default variables
 min_color_temperature = 1800
@@ -21,6 +19,8 @@ default_tint = 0
 stored_cm_view_transform = 'Filmic'
 eevee_soft_shadows = False
 stored_lens_shift = 0
+stored_lens_shift_x = 0
+stored_dof_objects = []
 
 #Camera Exposure update functions ##############################################################
 
@@ -45,8 +45,9 @@ def update_settings(self,context):
 
         elif settings.exposure_enabled == False:
             if context.scene.photographer.comp_exposure:
-                exp = get_exposure_node(self,context)
-                exp.inputs['Exposure'] = 0
+                exp_node = get_exposure_node(self,context)
+                if exp_node:
+                    exp_node.inputs['Exposure'] = 0
             else:
                 context.scene.view_settings.exposure = 0
 
@@ -86,8 +87,9 @@ def update_ev(self,context):
 
         if context.scene.photographer.comp_exposure:
             context.scene.view_settings.exposure = 0
-            exp = get_exposure_node(self,context)
-            exp.inputs['Exposure'].default_value = bl_exposure
+            exp_node = get_exposure_node(self,context)
+            if exp_node:
+                exp_node.inputs['Exposure'].default_value = bl_exposure
         else:
             context.scene.view_settings.exposure = bl_exposure
 
@@ -273,18 +275,28 @@ def update_fisheye(self,context):
     camera = self.id_data
     if self.fisheye and context.scene.render.engine == 'CYCLES':
         camera.type = 'PANO'
+        # Polynomial is not ready yet
+        # if bpy.app.version < (3,1,0):
         camera.cycles.panorama_type == 'FISHEYE_EQUISOLID'
+        # else:
+        #     camera.cycles.panorama_type == 'FISHEYE_POLYNOMIAL'
+        #     set_fisheye_distortion(self,self.set_fisheye_distortion)
         self.fisheye_focal = camera.lens
     else:
         camera.type = 'PERSP'
 
-    # Disable lens_shift for Fisheye lens (doesn't support lens shift)
-    global stored_lens_shift
-    if self.fisheye:
-        stored_lens_shift = self.lens_shift
-        self.lens_shift = 0
-    else:
-        self.lens_shift = stored_lens_shift
+    # Disable lens_shift for Fisheye Equisolid (doesn't support lens shift)
+    if bpy.app.version < (3,1,0):
+        global stored_lens_shift
+        global stored_lens_shift_x
+        if self.fisheye:
+            stored_lens_shift = self.lens_shift
+            stored_lens_shift_x = self.lens_shift_x
+            self.lens_shift = 0
+            self.lens_shift_x = 0
+        else:
+            self.lens_shift = stored_lens_shift
+            self.lens_shift_x = stored_lens_shift_x
 
 def get_fisheye_focal(self):
     return self.get('fisheye_focal', 50)
@@ -315,20 +327,82 @@ def set_focal(self, value):
     camera.lens = value #+ (camera.dof.focus_distance * self.breathing/10)
     return None
 
-def get_lens_shift(self):
-    return self.get('lens_shift', 0)
+def update_ls_compensated(self,context):
 
-def set_lens_shift(self, value):
     camera = self.id_data
     obj = [o for o in bpy.data.objects if o.type == 'CAMERA' and o.data is camera]
-    old_rot = obj[0].rotation_euler.x
-    old_vert_shift = self.lens_shift
-    old_atan = math.atan(self.lens_shift/(camera.lens/36))
-    rot = old_rot + old_atan
-    self['lens_shift'] = value
-    atan = math.atan(value/(camera.lens/36))
-    camera.shift_y = value
-    obj[0].rotation_euler.x = rot - atan
+
+    rot = obj[0].rotation_euler.to_matrix().to_euler('XYZ')
+    new_rot = rot
+
+    rot_h = obj[0].rotation_euler.to_matrix().to_euler('YZX')
+    new_rot_h = rot_h
+
+    atan_v = math.atan(self.lens_shift/(camera.lens/36))
+    atan_h = math.atan(self.lens_shift_x/(camera.lens/36))
+
+    if not self.lens_shift_compensated:
+        new_rot.x = rot.x + atan_v
+        new_rot_h.y = rot_h.y - atan_h
+    else:
+        new_rot.x = rot.x - atan_v
+        new_rot_h.y = rot_h.y + atan_h
+
+    obj[0].rotation_euler = new_rot.to_matrix().to_euler(obj[0].rotation_mode)
+    obj[0].rotation_euler = new_rot_h.to_matrix().to_euler(obj[0].rotation_mode)
+
+
+def get_lens_shift_y(self):
+    return self.get('lens_shift', 0)
+
+def set_lens_shift_y(self, value):
+    camera = self.id_data
+    if self.lens_shift_compensated:
+        obj = [o for o in bpy.data.objects if o.type == 'CAMERA' and o.data is camera]
+        # old_rot = obj[0].rotation_euler.x
+        old_rot = obj[0].rotation_euler.to_matrix().to_euler('XYZ')
+
+        # old_vert_shift = self.lens_shift
+        old_atan = math.atan(self.lens_shift/(camera.lens/36))
+        # rot = old_rot + old_atan
+        rot = old_rot
+        rot.x = old_rot.x + old_atan
+
+        self['lens_shift'] = value
+        atan = math.atan(value/(camera.lens/36))
+        camera.shift_y = value
+        # obj[0].rotation_euler.x = rot - atan
+        new_rot = rot
+        new_rot.x = rot.x - atan
+        obj[0].rotation_euler = new_rot.to_matrix().to_euler(obj[0].rotation_mode)
+    else:
+        self['lens_shift'] = value
+        camera.shift_y = value
+
+    return None
+
+def get_lens_shift_x(self):
+    return self.get('lens_shift_x', 0)
+
+def set_lens_shift_x(self, value):
+    camera = self.id_data
+    if self.lens_shift_compensated:
+        obj = [o for o in bpy.data.objects if o.type == 'CAMERA' and o.data is camera]
+        # old_rot = obj[0].rotation_euler.y
+        old_rot = obj[0].rotation_euler.to_matrix().to_euler('YZX')
+        # old_vert_shift = self.lens_shift_x
+        old_atan = math.atan(self.lens_shift_x/(camera.lens/36))
+        rot = old_rot
+        rot.y = old_rot.y - old_atan
+        self['lens_shift_x'] = value
+        atan = math.atan(value/(camera.lens/36))
+        camera.shift_x = value
+        new_rot = rot
+        new_rot.y = rot.y + atan
+        obj[0].rotation_euler = new_rot.to_matrix().to_euler(obj[0].rotation_mode)
+    else:
+        self['lens_shift_x'] = value
+        camera.shift_x = value
 
     return None
 
@@ -383,12 +457,12 @@ def update_resolution(self,context):
         resolution_y = self.longedge/2.3864
 
     if self.resolution_rotation == 'LANDSCAPE':
-        context.scene.render.resolution_x = resolution_x
-        context.scene.render.resolution_y = resolution_y
+        context.scene.render.resolution_x = int(resolution_x)
+        context.scene.render.resolution_y = int(resolution_y)
 
     if self.resolution_rotation == 'PORTRAIT':
-        context.scene.render.resolution_x = resolution_y
-        context.scene.render.resolution_y = resolution_x
+        context.scene.render.resolution_x = int(resolution_y)
+        context.scene.render.resolution_y = int(resolution_x)
 
 def update_resolution_enabled(self,context):
     # Get Blender resolution when enabling Photographer resolution
@@ -440,8 +514,8 @@ def set_color_temperature(self, value):
 
     # if context.scene.camera == context.view_layer.objects.active:
         # Calculate Curves values from color - ignoring green which is set by the Tint
-    red = white_balance_color[0]
-    blue = white_balance_color[2]
+    red = srgb_to_linear(white_balance_color[0])
+    blue = srgb_to_linear(white_balance_color[2])
     average = (red + blue) / 2
 
     # Apply values to Red and Blue white levels
@@ -503,10 +577,16 @@ def update_wb_color(self,context):
     convert_RBG_to_whitebalance(picked_color, True)
 
 def update_af_continuous(self,context):
+    global stored_dof_objects
     if self.af_continuous_enabled:
         # Disable Focus Plane
         if self.show_focus_plane:
             self.show_focus_plane = False
+
+        # Hide DoF objects that create render refresh loop
+        stored_dof_objects = list_dof_objects()
+        for o in stored_dof_objects:
+            o.hide_viewport = True
 
         if self.id_data.dof.focus_object is not None:
             self.report({'WARNING'}, "There is an object set as focus target which will override the results of the Autofocus.")
@@ -516,6 +596,9 @@ def update_af_continuous(self,context):
         if self.af_animate:
             bpy.app.handlers.frame_change_pre.append(stop_playback)
     else:
+        for o in stored_dof_objects:
+            o.hide_viewport = False
+        stored_dof_objects = []
         self.id_data.show_limits = False
         if bpy.app.timers.is_registered(focus_continuous):
             bpy.app.timers.unregister(focus_continuous)
@@ -593,7 +676,16 @@ def set_focus_plane_color(self,value):
                 # Assign to 1st material slot
                 mat = c.data.materials[0]
                 mat.diffuse_color = value
-                mat.node_tree.nodes["Emission"].inputs[0].default_value = value
+                # New shader with Light path
+                mix_node = False
+                for node in mat.node_tree.nodes:
+                    if node.name == "Focus Plane Color":
+                        mix_node = node
+                if mix_node:
+                    mix_node.inputs[2].default_value = value
+                # Keep for old scenes
+                else:
+                    mat.node_tree.nodes["Emission"].inputs[0].default_value = value
                 mat.node_tree.nodes["Mix Shader"].inputs[0].default_value = value[3]
     return None
 
@@ -713,9 +805,14 @@ class PHOTOGRAPHER_OT_AutoLensShift(bpy.types.Operator):
     bl_description = "Calculates Lens Shift from current Camera rotation to make vertical lines parallel"
     bl_options = {'REGISTER', 'UNDO'}
 
+    camera: bpy.props.StringProperty()
+
     def execute(self, context):
-        obj = context.scene.camera
-        camera = context.scene.camera.data
+        obj = bpy.data.objects[self.camera]
+        if obj.type != 'CAMERA':
+            return{'CANCELLED'}
+
+        camera = obj.data
         photographer = camera.photographer
 
         old_rot = obj.rotation_euler.x
@@ -724,19 +821,25 @@ class PHOTOGRAPHER_OT_AutoLensShift(bpy.types.Operator):
         rot = old_rot + old_atan
 
         if rot == 0:
-            self.report({'WARNING'}, "Impossible to calculate Lens Shift, the Camera has no vertical rotation")
+            self.report({'ERROR'}, "Impossible to calculate Lens Shift, the Camera has no vertical rotation")
             return{'CANCELLED'}
         else:
             shift = -(camera.lens/36)/math.tan(rot)
             if shift > 20 or shift < -20:
-                self.report({'WARNING'}, "Camera vertical rotation is too extreme, reduce angle to calculate Lens Shift")
+                self.report({'ERROR'}, "Camera vertical rotation is too extreme, reduce angle to calculate Lens Shift")
                 return{'CANCELLED'}
             photographer.lens_shift = shift
             if rot < 0:
                 obj.rotation_euler.x = math.radians(-90)
             else:
                 obj.rotation_euler.x = math.radians(90)
+
+            if round(math.degrees(obj.rotation_euler.y)%360) != 0:
+                show_message("Consider removing any rotation Y for the Auto Lens Shift to work as expected.",
+                "Vertical lines will be parallel but not straight because the camera rotation Y is not 0.",
+                            )
             return{'FINISHED'}
+
 
 
 class PhotographerCameraSettings(bpy.types.PropertyGroup):
@@ -785,12 +888,25 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
         get = get_focal,
         set = set_focal,
     )
+    lens_shift_compensated : bpy.props.BoolProperty(
+        name = "Compensated",
+        default = True,
+        options = {'HIDDEN'},
+        update = update_ls_compensated,
+    )
     lens_shift : bpy.props.FloatProperty(
-        name = "Lens Shift", description = "Adjusts Vertical Shift while maintaining framing",
+        name = "Lens Shift V", description = "Adjusts Vertical Shift while maintaining framing",
         default = 0,
-        soft_min = -1, soft_max = 1,
-        get = get_lens_shift,
-        set = set_lens_shift,
+        soft_min = -2, soft_max = 2,
+        get = get_lens_shift_y,
+        set = set_lens_shift_y,
+    )
+    lens_shift_x : bpy.props.FloatProperty(
+        name = "Lens Shift H", description = "Adjusts Horizontal Shift while maintaining framing",
+        default = 0,
+        soft_min = -2, soft_max = 2,
+        get = get_lens_shift_x,
+        set = set_lens_shift_x,
     )
     # breathing : bpy.props.FloatProperty(
     #     name = "Focus Breathing", description = "Changing the focus distance will slightly affect the focal length."
@@ -973,7 +1089,7 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
 
     # White Balance properties
     color_temperature : bpy.props.IntProperty(
-        name="Color Temperature", description="Color Temperature (Kelvin)",
+        name="Color Temperature", description=color_temp_desc,
         min=min_color_temperature, max=max_color_temperature, default=default_color_temperature,
         get=get_color_temperature,
         set=set_color_temperature,

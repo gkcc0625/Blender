@@ -3,10 +3,20 @@ import bmesh
 from mathutils import Vector, Matrix
 from bpy.types import Operator
 from bpy_extras.view3d_utils import region_2d_to_location_3d
-from .ke_utils import average_vector, getset_transform, restore_transform, get_selected
+from ._utils import average_vector, getset_transform, restore_transform, get_selected
 
 
-class VIEW3D_OT_ke_mouse_mirror_flip(Operator):
+def bbox_minmax(coords):
+    x = [co[0] for co in coords]
+    x.sort()
+    y = [co[1] for co in coords]
+    y.sort()
+    z = [co[2] for co in coords]
+    z.sort()
+    return [x[0], y[0], z[0]], [x[-1], y[-1], z[-1]]
+
+
+class KeMouseMirrorFlip(Operator):
     bl_idname = "view3d.ke_mouse_mirror_flip"
     bl_label = "Mouse Mirror & Flip"
     bl_description = "Mirror or Flip with Mouse pointer away from center (object, element or cursor) " \
@@ -41,16 +51,6 @@ class VIEW3D_OT_ke_mouse_mirror_flip(Operator):
     @classmethod
     def poll(cls, context):
         return context.object is not None and context.space_data.type == "VIEW_3D"
-
-    @staticmethod
-    def bbox_minmax(coords):
-        x = [co[0] for co in coords]
-        x.sort()
-        y = [co[1] for co in coords]
-        y.sort()
-        z = [co[2] for co in coords]
-        z.sort()
-        return [x[0], y[0], z[0]], [x[-1], y[-1], z[-1]]
 
     @classmethod
     def get_mpos(cls, context, coord, pos):
@@ -145,7 +145,7 @@ class VIEW3D_OT_ke_mouse_mirror_flip(Operator):
             bpy.ops.transform.select_orientation(orientation="GLOBAL")
             bpy.context.scene.tool_settings.transform_pivot_point = "BOUNDING_BOX_CENTER"
 
-            bbmin, bbmax = self.bbox_minmax(bbcoords)
+            bbmin, bbmax = bbox_minmax(bbcoords)
 
             if not em:
                 bbmin = active_obj.matrix_world @ Vector(bbmin)
@@ -164,8 +164,9 @@ class VIEW3D_OT_ke_mouse_mirror_flip(Operator):
             else:
                 avg_pos = active_obj.matrix_world @ average_vector([Vector(i) for i in bbcoords])
 
-
-        # NORMAL -------------------------------------------------------------------------------------------
+        #
+        # NORMAL
+        #
         elif og[0] == "NORMAL" and em:
 
             sel_mode = bpy.context.tool_settings.mesh_select_mode[:]
@@ -236,12 +237,14 @@ class VIEW3D_OT_ke_mouse_mirror_flip(Operator):
 
             normal_mode = True
 
-        # UNSUPPORTED -------------------------------------------------------------------------------------
+        # UNSUPPORTED
         else:
             self.report({"INFO"}, "Unsupported Orientation Mode")
             return {'CANCELLED'}
 
-        # AXIS CALC ---------------------------------------------------------------------------------------
+        #
+        # AXIS CALC
+        #
         v = self.tm.inverted() @ Vector(self.startpos - avg_pos).normalized()
         x, y, z = abs(v[0]), abs(v[1]), abs(v[2])
         if normal_mode:
@@ -310,16 +313,19 @@ class VIEW3D_OT_ke_mouse_mirror_flip(Operator):
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeMouseMirrorFlip,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_ke_mouse_mirror_flip)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_ke_mouse_mirror_flip)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

@@ -2,7 +2,7 @@ bl_info = {
     "name": "Photographer",
     "description": "Adds Physical Camera and Physical Light controls, LightMixer and Render Queue",
     "author": "Fabien 'chafouin' Christin, @fabienchristin",
-    "version": (4, 5, 5),
+    "version": (4, 6, 0),
     "blender": (2, 83, 0),
     "location": "View3D > Side Panel > Photographer",
     "support": "COMMUNITY",
@@ -41,12 +41,15 @@ from .ui import (
     world_mixer,
     camera_list,
     pie_camera,
+    composition_guides_menu,
 )
 from .ui import bokeh as bokeh_ui
 from .ui.panel_classes import photographer_panel_classes, lightmixer_panel_classes
 from .properties import scene, material, node, object
 from .operators import lens, select, target, master_camera, stop_adj, expand_ui, emissive, updater, exposure
 from .operators import lightmixer as lightmixer_op
+
+from .rigs import build_rigs
 
 classes = (
     # Preferences
@@ -321,6 +324,8 @@ def register():
         physical_light_add.register()
         physical_camera_add.register()
         library.register()
+        composition_guides_menu.register()
+        build_rigs.register()
 
         # Reset Updater
         bpy.context.preferences.addons[__package__].preferences.needs_update = ""
@@ -468,6 +473,8 @@ def unregister():
     physical_camera_add.unregister()
     physical_light_add.unregister()
     library.unregister()
+    composition_guides_menu.unregister()
+    build_rigs.unregister()
 
     for cls in (classes + photographer_panel_classes + lightmixer_panel_classes):
         unregister_class(cls)
@@ -481,8 +488,6 @@ def unregister():
     del bpy.types.Material.lightmixer
     del bpy.types.ShaderNodeBsdfPrincipled.lightmixer
     del bpy.types.ShaderNodeEmission.lightmixer
-
-
 
 if __name__ == "__main__":
     register()

@@ -1,0 +1,222 @@
+{
+    "1": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "2": {
+        "Examples": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": false,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "3": {
+        "Examples": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": false,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": false,
+            "ispanelcycle": true
+        }
+    },
+    "4": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "5": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "6": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "7": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "8": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "9": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    },
+    "10": {
+        "Examples": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "Example Sheet": {
+            "isvisible": true,
+            "ispanelcycle": false
+        },
+        "Example Panels": {
+            "isvisible": false,
+            "ispanelcycle": true
+        },
+        "Aircraft": {
+            "isvisible": true,
+            "ispanelcycle": true
+        },
+        "MyDecals": {
+            "isvisible": true,
+            "ispanelcycle": true
+        }
+    }
+}

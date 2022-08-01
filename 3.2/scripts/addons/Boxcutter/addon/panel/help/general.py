@@ -22,7 +22,7 @@ class BC_PT_help_general(Panel):
         preference = addon.preference()
         bc = context.scene.bc
         op = toolbar.option()
-        snap = bc.snap.operator if hasattr(bc.snap.operator, 'handler') else None
+        snap = bc.snap.operator if bc.snap.operator and hasattr(bc.snap.operator, 'handler') else None
 
         unmodified = op.operation in {'DRAW', 'EXTRUDE'} and not tracked_states.modified
         indentation = '           '
@@ -159,9 +159,10 @@ class BC_PT_help_general(Panel):
 
             layout.label(text=F'{sep}Box Helper' if preference.keymap.d_helper else F'{sep}Pie Menu', icon='EVENT_D')
 
-            row = layout.row(align=True)
-            row.label(text='', icon='EVENT_ALT')
-            row.label(text=F'{sep}Change Shape Type', icon='MOUSE_MMB')
+            if preference.keymap.alt_scroll_shape_type:
+                row = layout.row(align=True)
+                row.label(text='', icon='EVENT_ALT')
+                row.label(text=F'{sep}Change Shape Type', icon='MOUSE_MMB')
 
             row = layout.row(align=True)
             row.label(text='', icon='EVENT_CTRL')
@@ -214,12 +215,13 @@ class BC_PT_help_general(Panel):
 
         layout.label(text=F'{sep}{nav_type} View', icon='MOUSE_MMB')
 
-        if (tracked_states.shape_type == 'NGON' or bc.operator.ngon_fit) and not bc.operator.extruded and tracked_states.operation in {'NONE', 'DRAW'}:
+        if (tracked_states.shape_type in {'NGON','BOX'} or bc.operator.ngon_fit) and not bc.operator.extruded and tracked_states.operation in {'NONE', 'DRAW'}:
             if len(bc.shape.data.vertices) > 2:
                 layout.label(text=F'{sep}{"Lock Shape" if op.operation == "DRAW" else "Adjust Point"}', icon='MOUSE_RMB')
-                layout.label(text=F'{sep}Backspace Point', icon='BACK')
+                if tracked_states.shape_type == 'NGON':
+                    layout.label(text=F'{sep}Backspace Point', icon='BACK')
 
-                if bc.shader.widgets.active and bc.shader.widgets.active.operation == 'DRAW':
+                if bc.shader and bc.shader.widgets and bc.shader.widgets.active and bc.shader.widgets.active.operation == 'DRAW':
                     row = layout.row(align=True)
                     row.alignment = 'LEFT'
                     row.label(text='', icon='EVENT_SHIFT')
@@ -294,6 +296,9 @@ class BC_PT_help_general(Panel):
             row = layout.row(align=True)
             row.label(text=F'{sep}Offset', icon='EVENT_O')
 
+        if op.operation in {'EXTRUDE','OFFSET'} and preference.keymap.alt_double_extrude:
+            layout.label(text=F'{sep}{op.operation.capitalize()} Both Ways', icon='EVENT_ALT')
+
         #if preference.shape.wedge:
         row = layout.row(align=True)
         #row.label(text='', icon='EVENT_SHIFT')
@@ -323,6 +328,11 @@ class BC_PT_help_general(Panel):
         row = layout.row(align=True)
         row.label(text='', icon='EVENT_ALT')
         row.label(text=F'{sep}Switch Solver ({preference.behavior.boolean_solver.capitalize()})', icon='EVENT_E')
+
+        if op.operation in {'NONE', 'EXTRUDE', 'OFFSET'}:
+            row = layout.row(align=True)
+            row.label(text='', icon='EVENT_SHIFT')
+            row.label(text=F'{sep}Move boolean mod', icon='MOUSE_MMB')
 
         row = layout.row(align=True)
         row.label(text='', icon='EVENT_ALT')
@@ -395,7 +405,7 @@ class BC_PT_help_general(Panel):
 
             row = layout.row(align=True)
             row.label(text='', icon='EVENT_CTRL')
-            row.label(text=F'{sep}Behavior Helper', icon='EVENT_D')
+            row.label(text=F'{sep}Box Helper' if not preference.keymap.d_helper else F'{sep}Pie Menu', icon='EVENT_D')
 
             row = layout.row(align=True)
             row.label(text='', icon='EVENT_ALT')

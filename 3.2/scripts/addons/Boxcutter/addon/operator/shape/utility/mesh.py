@@ -303,13 +303,12 @@ def draw(op, context, event):
 
                 if bc.shader and bc.shader.widgets.active and bc.shader.widgets.active.type == 'SNAP' and bc.shader.widgets.active.highlight:
                     vert.co = bc.shader.widgets.active.location
-
-                else:
+                elif op.shape_type != 'BOX' or op.ngon_fit:
                     vert.co = Vector((projection.x, projection.y, vert.co.z))
 
         # vert.co.z = 0.0 if not op.inverted_extrude else op.last['depth']
 
-        if op.ngon_fit:
+        if op.ngon_fit or op.shape_type == 'BOX':
             indices = op.geo['indices']
             sides = ('extrusion', 'offset')
             flip = op.inverted_extrude
@@ -541,11 +540,14 @@ def bevel_weight(op, context, event):
     shape.data.use_customdata_vertex_bevel = True
     shape.data.use_customdata_edge_bevel = True
 
-    if op.shape_type != 'NGON' and not op.ngon_fit:
+    ngon = op.shape_type == 'NGON' or op.ngon_fit
+    boxgon = op.shape_type == 'BOX' and not op.ngon_fit and (op.ngon_point_index != -1 or op.ngon_point_bevel)
+
+    if not ngon and not boxgon:
         for vindex in op.geo['indices']['offset']:
             vert = bc.shape.data.vertices[vindex]
 
-            vert.bevel_weight = 1.0
+            vert.bevel_weight = 1.0 if not vert.bevel_weight else vert.bevel_weight
 
         for vindex in op.geo['indices']['offset']:
             vert = bc.shape.data.vertices[vindex]
@@ -789,6 +791,7 @@ class create:
         dat.from_pydata(verts, edges, faces)
         dat.validate()
 
+        op.last['vert_weight'] = [dat.vertices[i].bevel_weight for i in op.geo['indices']['offset']]
         op.datablock['bound_box'] = bpy.data.objects.new(name=F'Bound Box', object_data=dat)
         bc.bound_object = op.datablock['bound_box']
 
@@ -799,6 +802,10 @@ class create:
 
         op.geo['indices']['top_face'] = []
         op.geo['indices']['bot_face'] = []
+
+        op.geo['indices']['bot_edge'] = []
+        op.geo['indices']['mid_edge'] = []
+        op.geo['indices']['top_edge'] = []
 
         if op.shape_type == 'BOX':
 
@@ -835,7 +842,7 @@ class create:
 
             faces = []
 
-            op.geo['indices']['top_edge'] = [0]
+            op.geo['indices']['top_edge'] = []
             op.geo['indices']['mid_edge'] = []
             op.geo['indices']['bot_edge'] = []
 
@@ -1015,6 +1022,7 @@ def bmesh_grid(bm, x=5, y=5, boundary=True, extrude=0.5, fill_bottom=False):
 
     return [v.index for v in generated_verts], z_minus_vi
 
+
 def bmesh_polygon(bm, segments=6, grid=False, boundary=True, extrude=0.5):
     z_plus_faces = []
     z_minus_faces = []
@@ -1088,3 +1096,4 @@ def bmesh_star(bm, points=5, grid=False, extrude=0.5, factor = 0.5):
         z_minus_verts = [v.index for v in z_n.verts]
 
     return z_plus_faces, z_minus_faces, z_plus_verts, z_minus_verts
+

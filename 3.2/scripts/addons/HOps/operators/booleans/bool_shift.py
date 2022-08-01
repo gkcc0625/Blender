@@ -611,10 +611,15 @@ class HOPS_OT_BoolShift(bpy.types.Operator):
         ]
 
         help_items["STANDARD"] = [
-            ("Tab / Space",  "Operation Menu"),
             ("Wheel",  "Switch Operation"),
             ("X / Z",  "Switch Operation")
         ]
+
+        if 'SPACE' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('Space', 'Open Select Menu'))
+        elif 'TAB' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('TAB', 'Open Select Menu'))
+
 
         if self.operation in ('INSET', 'OUTSET'):
             help_items["STANDARD"].append(["T",  "Thickness Adjust"]) 

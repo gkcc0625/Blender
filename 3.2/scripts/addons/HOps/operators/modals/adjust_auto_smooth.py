@@ -4,27 +4,31 @@ from math import radians, degrees
 from . import infobar
 from ... preferences import get_preferences
 from ... ui_framework.master import Master
+from ... utility import ops
 from ... utility.base_modal_controls import Base_Modal_Controls
-
-# Cursor Warp imports
 from ... utils.toggle_view3d_panels import collapse_3D_view_panels
 from ... utils.modal_frame_drawing import draw_modal_frame
 from ... utils.cursor_warp import mouse_warp
+from ... utils.objects import set_bool_tagets_on_objects_to_smooth
 from ... addon.utility import method_handler
 
 
-class HOPS_OT_AdjustAutoSmooth(bpy.types.Operator):
-    bl_idname = 'hops.adjust_auto_smooth'
-    bl_label = 'Adjust Auto Smooth'
-    bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
-    bl_description = """Interactive Autosmooth Adjustment
+DESC = """Interactive Autosmooth Adjustment
 
 LMB   - Adjust autosmoothing
 CTRL  - Start at 60°
 SHIFT - Start at 30°
 ALT   - Start at 15°
 
-Press H for help"""
+Press H for help
+"""
+
+
+class HOPS_OT_AdjustAutoSmooth(bpy.types.Operator):
+    bl_idname = 'hops.adjust_auto_smooth'
+    bl_label = 'Adjust Auto Smooth'
+    bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
+    bl_description = DESC
 
     def __init__(self):
         self.master = None
@@ -61,7 +65,7 @@ Press H for help"""
 
     def invoke(self, context, event):
 
-        bpy.ops.object.shade_smooth()
+        ops.shade_smooth()
         self.objects = [o for o in context.selected_objects if o.type == 'MESH']
         self.settings = {o: {} for o in self.objects}
 
@@ -179,7 +183,7 @@ Press H for help"""
                 if mod.type == 'BEVEL': #and mod.limit_method == 'ANGLE':
                     mod.show_viewport = not mod.show_viewport
 
-        elif event.type == "A" and event.value == "PRESS" and not event.shift and not event.alt:
+        elif event.type == "A" and event.value == 'PRESS' and not event.shift and not event.alt:
             mod = None
             obj = bpy.context.object
 
@@ -218,18 +222,23 @@ Press H for help"""
                 return {"FINISHED"}
             self.update(context)
 
-        elif event.type == "A" and event.value == "PRESS" and event.shift:
+        elif event.type == "A" and event.value == 'PRESS' and event.shift:
             bpy.context.object.data.use_auto_smooth = not bpy.context.object.data.use_auto_smooth
             self.report({'INFO'}, F'Autosmooth {bpy.context.object.data.use_auto_smooth}')
 
         elif event.type == 'S' and event.value == 'PRESS':
-            bpy.ops.hops.sharpen(behavior='SSHARP', mode='SSHARP', additive_mode=True, auto_smooth_angle=radians(self.angle), is_global=bpy.context.object.hops.is_global)
-            self.report({'INFO'}, F'Sharpen - Exit')
-            self.remove_shader()
-            collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
-            self.master.run_fade()
-            infobar.remove(self)
-            return {'FINISHED'}
+            if event.shift:
+                bpy.ops.hops.sharpen(behavior='SSHARP', mode='SSHARP', additive_mode=True, auto_smooth_angle=radians(self.angle), is_global=bpy.context.object.hops.is_global)
+                self.report({'INFO'}, F'Sharpen - Exit')
+                self.remove_shader()
+                collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
+                self.master.run_fade()
+                infobar.remove(self)
+                return {'FINISHED'}
+
+            else:
+                set_bool_tagets_on_objects_to_smooth(self.objects, smooth=True)
+                bpy.ops.hops.display_notification(info=F'Boolshapes - Set Smooth')
 
         elif event.type == 'R' and event.value == 'PRESS':
             bpy.ops.hops.sharpen(behavior='RESHARP', mode='SSHARP', additive_mode=False, auto_smooth_angle=radians(self.angle), is_global=bpy.context.object.hops.is_global)
@@ -269,63 +278,64 @@ Press H for help"""
 
     def draw_master(self, context):
         self.master.setup()
+        if not self.master.should_build_fast_ui(): return
+    
+        obj = bpy.context.object
 
-        if self.master.should_build_fast_ui():
-            obj = bpy.context.object
-
-            # Main
-            win_list = []
-            if get_preferences().ui.Hops_modal_fast_ui_loc_options != 1: #fast
-                win_list.append(f'{self.angle:.1f}')
-                win_list.append(f'{bpy.context.object.hops.is_global}')
-                win_list.append(f'{bpy.context.object.data.use_auto_smooth}')
+        # Main
+        win_list = []
+        if get_preferences().ui.Hops_modal_fast_ui_loc_options != 1: #fast
+            win_list.append(f'{self.angle:.1f}')
+            win_list.append(f'{bpy.context.object.hops.is_global}')
+            win_list.append(f'{bpy.context.object.data.use_auto_smooth}')
+        else:
+            if self.flag:
+                win_list.append('Auto Smooth Scan') #not fast
             else:
-                if self.flag:
-                    win_list.append('Auto Smooth Scan') #not fast
-                else:
-                    win_list.append('Auto Smooth') #not fast
-                win_list.append(f'{self.angle:.1f}')
-                win_list.append(f'Global Sharpen :{bpy.context.object.hops.is_global}')
-                if not obj.modifiers:
-                    win_list.append('[A] Add Bevel')
-                if bpy.context.object.data.use_auto_smooth == False:
-                    win_list.append('Autosmooth OFF')
-                if self.flag:
-                    win_list.append('[A] Return / [B] Toggle Bevel')
-                    win_list.append('[LMB] Apply')
+                win_list.append('Auto Smooth') #not fast
+            win_list.append(f'{self.angle:.1f}')
+            win_list.append(f'Global Sharpen :{bpy.context.object.hops.is_global}')
+            if not obj.modifiers:
+                win_list.append('[A] Add Bevel')
+            if bpy.context.object.data.use_auto_smooth == False:
+                win_list.append('Autosmooth OFF')
+            if self.flag:
+                win_list.append('[A] Return / [B] Toggle Bevel')
+                win_list.append('[LMB] Apply')
 
-            # Help
-            help_items = {"GLOBAL" : [], "STANDARD" : []}
+        # Help
+        help_items = {"GLOBAL" : [], "STANDARD" : []}
 
-            help_items["GLOBAL"] = [
-                ("M", "Toggle mods list"),
-                ("H", "Toggle help"),
-                ("~", "Toggle UI Display Type"),
-                ("O", "Toggle viewport rendering")]
+        help_items["GLOBAL"] = [
+            ("M", "Toggle mods list"),
+            ("H", "Toggle help"),
+            ("~", "Toggle UI Display Type"),
+            ("O", "Toggle viewport rendering")]
 
-            help_items["STANDARD"] = [
-                ('8',          'Set angle to 180°'),
-                ('7',          'Set angle to 90°'),
-                ('6',          'Set angle to 75°'),
-                ('5',          'Set angle to 60°'),
-                ('4',          'Set angle to 45°'),
-                ('3',          'Set angle to 30°'),
-                ('2',          'Set angle to 20°'),
-                ('1',          'Set angle to 15°'),
-                ('S',          f'Sharpen {self.angle:.1f}° - Exit'),
-                ('R',          f'Resharpen - Exit'),
-                ('G',          f'Toggle Global : {bpy.context.object.hops.is_global}'),
-                ('Shift + A',  f'Autosmooth Toggle {bpy.context.object.data.use_auto_smooth}'),
-                ('Scroll   ',  'Increment angle by 5°'),
-                ('Mouse    ',  f'Adjust angle smoothly: {self.angle:.1f}'),
-                ('A',          'Transfer Autosmooth to Bevel - Exit')]
+        help_items["STANDARD"] = [
+            ('8',          'Set angle to 180°'),
+            ('7',          'Set angle to 90°'),
+            ('6',          'Set angle to 75°'),
+            ('5',          'Set angle to 60°'),
+            ('4',          'Set angle to 45°'),
+            ('3',          'Set angle to 30°'),
+            ('2',          'Set angle to 20°'),
+            ('1',          'Set angle to 15°'),
+            ('Shift S',    f'Sharpen {self.angle:.1f}° - Exit'),
+            ('S',          'Set Booleans to smooth'),
+            ('R',          f'Resharpen - Exit'),
+            ('G',          f'Toggle Global : {bpy.context.object.hops.is_global}'),
+            ('Shift + A',  f'Autosmooth Toggle {bpy.context.object.data.use_auto_smooth}'),
+            ('Scroll   ',  'Increment angle by 5°'),
+            ('Mouse    ',  f'Adjust angle smoothly: {self.angle:.1f}'),
+            ('A',          'Transfer Autosmooth to Bevel - Exit')]
 
-            # Mods
-            mods_list = []
-            for mod in reversed(context.active_object.modifiers):
-                mods_list.append([mod.name, str(mod.type)])
+        # Mods
+        mods_list = []
+        for mod in reversed(context.active_object.modifiers):
+            mods_list.append([mod.name, str(mod.type)])
 
-            self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image='Tthick', mods_list=mods_list)
+        self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image='Tthick', mods_list=mods_list)
 
         self.master.finished()
 
@@ -453,9 +463,11 @@ def add_bevel_modifier(context, object, angle):
             if get_preferences().ui.Hops_extra_info:
                 bpy.ops.hops.display_notification(info=f'Vgroup Bevel Added' )
         else:
-            bpy.ops.object.shade_smooth()
+            ops.shade_smooth()
 
     # self.bevel_objects.setdefault(object.name, {})["modifier"] = bevel_modifier.name
     # self.bevel_objects[object.name]["added_modifier"] = True
 
     return (bevel_modifier.name, True)
+
+

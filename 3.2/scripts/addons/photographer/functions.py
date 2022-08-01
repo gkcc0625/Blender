@@ -33,7 +33,7 @@ class InterpolatedArray(object):
         slope = (float(upper_point[1] - lower_point[1]) / (upper_point[0] - lower_point[0]))
         return lower_point[1] + (slope * (x - lower_point[0]))
 
-ev_lookup =     ["Starlight","Aurora Borealis","Half Moon","Full Moon","Full Moon in Snowscape",
+ev_lookup =  ["Starlight","Aurora Borealis","Half Moon","Full Moon","Full Moon in Snowscape",
             "Dim artifical light","Dim artifical light","Distant view of lit buildings",
             "Distant view of lit buildings","Fireworks","Candle","Campfire","Home interior",
             "Night Street","Office Lighting","Neon Signs","Skyline after Sunset","Sunset",
@@ -43,9 +43,16 @@ ev_lookup =     ["Starlight","Aurora Borealis","Half Moon","Full Moon","Full Moo
 def srgb_to_linear(x):
     a = 0.055
     if x <= 0.04045 :
-        y = x * (1.0 / 12.92)
+        y = x / 12.92
     else:
         y = pow( (x + a) * (1.0 / (1 + a)), 2.4)
+    return y
+
+def linear_to_srgb(x):
+    if (x > 0.0031308):
+        y = 1.055 * (pow(x, (1.0 / 2.4))) - 0.055
+    else:
+        y = 12.92 * x
     return y
 
 def rgb_to_luminance(color):
@@ -152,9 +159,9 @@ def raycast(context, event, focus, continuous, cam_obj):
 
     if continuous:
         # Shoot ray from Scene camera
-        # org = cam_obj.location
+        # Offset origin to avoid hitting Bokeh objects
         org = cam_obj.matrix_world @ Vector((0.0, 0.0, 0.0))
-        dir = cam_obj.matrix_world @ Vector((0.0, 0.0, 100.0 * -1)) - org
+        dir = cam_obj.matrix_world @ Vector((0.0, 0.0, -100)) - org
 
     else:
         # Shoot ray from mouse pointer
@@ -162,11 +169,18 @@ def raycast(context, event, focus, continuous, cam_obj):
         rv3d = context.region_data
         coord = event.mouse_region_x, event.mouse_region_y
 
-        view_vector = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
-        ray_origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
+        org = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
+        dir = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
 
-        org = ray_origin
-        dir = view_vector
+    # Offset origin to avoid hitting DoF objects
+    offset = 0.02
+    for c in cam_obj.children:
+        if c.get("is_opt_vignetting", False):
+            offset -= c.location.z * context.scene.unit_settings.scale_length
+            break
+    offset /= context.scene.unit_settings.scale_length
+    dir.normalize()
+    org += (offset * dir)
 
     if bpy.app.version >= (2, 91, 0):
         vl = bpy.context.view_layer.depsgraph

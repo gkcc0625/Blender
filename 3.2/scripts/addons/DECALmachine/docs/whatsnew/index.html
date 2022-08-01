@@ -79,6 +79,21 @@
     <a class="current" href="index.html">What's new?</a>
     <ul class="subnav">
             
+    <li class="toctree-l3"><a href="#264">2.6.4</a></li>
+    
+
+    <li class="toctree-l3"><a href="#263">2.6.3</a></li>
+    
+
+    <li class="toctree-l3"><a href="#262">2.6.2</a></li>
+    
+
+    <li class="toctree-l3"><a href="#261">2.6.1</a></li>
+    
+
+    <li class="toctree-l3"><a href="#260">2.6.0</a></li>
+    
+
     <li class="toctree-l3"><a href="#251">2.5.1</a></li>
     
 
@@ -642,13 +657,30 @@
           <div role="main">
             <div class="section">
               
-                <h2 id="251">2.5.1</h2>
+                <h2 id="264">2.6.4</h2>
+<p>Blender 3.2 breaks material matching if Decals. This tiny bugfix releases resolves it.</p>
+<h2 id="263">2.6.3</h2>
+<p>Yet another bugfix release, this time fixing a uber-rare issue where the addon perfererences or Decal update panel could become very sluggish.<br />
+I've also added small, one-time thank you message, when opening the addon preferences forfthe first time.</p>
+<h2 id="262">2.6.2</h2>
+<p>Besides a few minor tweaks and adjusments 2.6.2 resolves a MacOS issue when registering Atlases caused by .DS_store files</p>
+<h2 id="261">2.6.1</h2>
+<p>This is a hotfix release, dealing with an <a href="https://bugs.python.org/issue37999">issue introduced</a> in Blender 3.1 / Python 3.10.
+Atlasing and Decal-from-Text-Creation were affected by this, and will now work again.</p>
+<h2 id="260">2.6.0</h2>
+<p>This is the Blender 3.1 release.  </p>
+<p>In addition to 3.1 support, 2.6.0 also introduces the concept of <em>corrupted</em> libraries in an effort to further harden asset registration and prevent user errors.<br />
+DECALmachine always assumed that any folder in a decal or trim sheet library, contains a decal or trim decal accordingly.<br />
+If instead there are any other <strong>user-placed</strong> folders, DECALmachine will now no longer register the library and will also not attempt to update it.</p>
+<p>And that's about it. Lately, I was rather occupied with <a href="https://punch.machin3.io">PUNCHit</a> and <a href="https://twitter.com/search?f=live&amp;q=MACHIN3tools%20(from%3Amachin3io)%20-filter%3Areplies&amp;src=typed_query">MACHIN3tools</a> and even some <a href="https://twitter.com/machin3io/status/1489018487615934465">design work</a> for once.</p>
+<p>Oh, I also have a <a href="https://patreon.com/machin3">Patreon</a> account now, where I will do pre-releases of upcoming addons, and <a href="https://twitter.com/machin3io/status/1499788313468801029">where I share blend files</a>, if I manage to find time for art. So if you are interested in further supporting my work, that would be a good way to do it. It is very much appreciated! Thank you for considering!</p>
+<h2 id="251">2.5.1</h2>
 <p>This is a bugfix release, that with one exception addresses only Blender 3.0 related issues, so it's completely optional for Blender 2.93 users.</p>
 <p>The exception is what I'd call a visual bug in the Decal shaders for simple, subset and panel Decals. </p>
 <p><img alt="VisualBug" src="../img/whatsnew/visual_bug.gif" />
 <em>AO affects Roughness, but needs to be clamped</em></p>
-<p>This issue has been present for a long time, but it's pretty minor and rarely noticable, as evidenced by the fact that is hasn't been reported until now.<br />
-All supplied assets have been updated to clamp the AO/Rougness. Newly created User Decals will also no longer have this issue in this version.</p>
+<p>This issue has been present for a long time, but it's pretty minor and rarely noticeable, as evidenced by the fact that is hasn't been reported until now.<br />
+All supplied assets have been updated to clamp the AO/Roughness. Newly created User Decals will also no longer have this issue in this version.</p>
 <p>If you want to fix existing Decals you've created yourself or got from a third-party, you can do this using the <em>Fix AO Clamping</em> debug tool.<br />
 Note, that I don't consider this a decal asset update per-se, and so there is no decal version change here. 
 The fix can be used in 2.93 and 3.0, and for each version, only the currently registered Decal Libraries will be affected.</p>

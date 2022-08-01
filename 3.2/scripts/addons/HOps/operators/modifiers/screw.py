@@ -56,7 +56,7 @@ class HOPS_OT_MOD_Screw(bpy.types.Operator):
     @segment.setter
     def segment(self, val):
         for mod in self.mod_controller.active_modifiers():
-            mod.steps = val
+            mod.steps = int(val)
 
     @property
     def angle(self):
@@ -86,7 +86,7 @@ class HOPS_OT_MOD_Screw(bpy.types.Operator):
     @iteration.setter
     def iteration(self, val):
         for mod in self.mod_controller.active_modifiers():
-            mod.iterations = val
+            mod.iterations = int(val)
 
 
     def invoke(self, context, event):
@@ -235,7 +235,7 @@ class HOPS_OT_MOD_Screw(bpy.types.Operator):
             self.snap_buffer += self.base_controls.mouse
             if abs(self.snap_buffer) > self.snap_break:
                 increment = 1
-                mod.steps += math.copysign(increment, self.snap_buffer)
+                mod.steps += int(math.copysign(increment, self.snap_buffer))
                 mod.steps = snap(mod.steps, increment)
                 self.snap_buffer = 0
 

@@ -158,7 +158,7 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
         elif event.type == 'THREE' and event.value == 'PRESS':
             self.offset_to_one()
 
-        if event.type == "Q" and event.value == "PRESS":
+        elif event.type == "Q" and event.value == "PRESS":
             self.mod_controller.move_mod(context, up=True)
 
         elif event.type == "E" and event.value == "PRESS":

@@ -57,8 +57,30 @@ def crop_image(img=None, imagepath=None, cropbox=None, padding=0, debug=False):
 
 
 def crop_trimsheet_texture(path, trimpath, loc, sca, dimensions):
-    from . core import core
-    return core.crop_trimsheet_texture(path, trimpath, loc, sca, dimensions)
+
+
+
+    from PIL import Image
+
+    if os.path.exists(path):
+        img = Image.open(path)
+
+        xmin = round((0.5 + loc.x / dimensions.x - sca.x / 2) * img.size[0])
+        ymin = round((0.5 - loc.y / dimensions.y - sca.y / 2) * img.size[1])
+
+        xmax = round((0.5 + loc.x / dimensions.x + sca.x / 2) * img.size[0])
+        ymax = round((0.5 - loc.y / dimensions.y + sca.y / 2) * img.size[1])
+
+        cropbox = (xmin, ymin, xmax, ymax)
+
+        cropped = img.crop(cropbox)
+
+        savepath = os.path.join(trimpath, os.path.basename(path))
+        cropped.save(savepath)
+
+        del img, cropped
+
+        return savepath
 
 
 def increase_canvas_size(path, size, textype):
@@ -89,7 +111,7 @@ def change_contrast(imagepath, contrast):
 
 def change_height_contrast(img, amount=1):
     def contrast(c):
-        return 128 + amount * (c - 128)
+        return round(128 + amount * (c - 128))
 
     return img.point(contrast)
 
@@ -108,9 +130,12 @@ def adjust_height_channel(img, amount=1):
 
 
 def set_gamma(img, gamma, bandcount):
+
     invert_gamma = 1.0 / gamma
     lut = [pow(x / 255., invert_gamma) * 255 for x in range(256)]
-    lut = lut * bandcount  # need one set of data for each band for RGB
+
+    lut = [round(l) for l in lut * bandcount]  # need one set of data for each band for RGB
+
     img = img.point(lut)
     return img
 
@@ -508,7 +533,7 @@ def create_white_height_map(heightpath, savepath=None):
 
     def white_height(img):
         def contrast(c):
-            return c + 128
+            return round(c + 128)
         return img.point(contrast)
 
     height = convert_to_L(Image.open(heightpath))
@@ -578,8 +603,153 @@ def create_channel_packed_atlas_map(sources, resolution, savepath):
 
 
 def pack_textures(dm, decalpath, textures, size=None, crop=False, padding=0):
-    from . core import core
-    return core.pack_textures(dm, decalpath, textures, size=size, crop=crop, padding=padding)
+    from PIL import Image, ImageChops
+
+    ao = None
+    curv = None
+    height = None
+
+    color = None
+    normal = None
+    alpha = None
+
+    subset = None
+    mat2 = None
+
+    diffuse = None
+
+    emission = None
+    emission_bounce = None
+
+    for path in textures:
+        basename = os.path.splitext(os.path.basename(path))[0]
+
+        if basename == "ao":
+            ao = path
+
+        elif basename == "curvature":
+            curv = path
+
+        elif basename == "height":
+            height = path
+
+        elif basename == "normal":
+            normal = path
+
+        elif basename == "alpha":
+            alpha = path
+
+        elif basename == "subset":
+            subset = path
+
+        elif basename == "material2":
+            mat2 = path
+
+        elif basename == "diffuse":
+            diffuse = path
+
+        elif basename == "emission":
+            emission = path
+
+        elif basename == "emission_bounce":
+            emission_bounce = path
+
+        elif dm.create_decaltype == 'INFO':
+            color = path
+
+    packed = {}
+
+    if alpha:
+        alpha = convert_to_L(Image.open(alpha))
+        subset, issubset = (convert_to_L(Image.open(subset)), True) if subset else (Image.new("L", size, 0), False)
+        mat2 = convert_to_L(Image.open(mat2)) if mat2 else Image.new("L", size, 0)
+
+        masks = Image.merge("RGB", (alpha, subset, mat2))
+        masks_path = os.path.join(decalpath, "masks.png")
+        masks.save(masks_path)
+
+        packed['MASKS'] = masks_path
+
+    if ao and curv and height:
+        ao = convert_to_L(Image.open(ao))
+        curv = Image.open(curv)
+        height = convert_to_L(Image.open(height))
+
+        ao_curv_height = Image.merge("RGB", (ao, curv, height))
+        ao_curv_height_path = os.path.join(decalpath, "ao_curv_height.png")
+        ao_curv_height.save(ao_curv_height_path)
+
+        packed['AO_CURV_HEIGHT'] = ao_curv_height_path
+
+    if normal:
+        path = os.path.join(decalpath, "normal.png")
+        copy(normal, path)
+        packed['NORMAL'] = path
+
+    if emission and emission_bounce:
+        emission = Image.open(emission)
+        emission_bounce = Image.open(emission_bounce)
+
+        combined = ImageChops.screen(emission, emission_bounce)
+
+        path = os.path.join(decalpath, "emission.png")
+        combined.save(path)
+
+        packed['EMISSION'] = path
+
+    elif emission:
+        path = os.path.join(decalpath, "emission.png")
+        copy(emission, path)
+        packed['EMISSION'] = path
+
+    else:
+        path = create_dummy_texture(decalpath, 'emission.png')
+        packed['EMISSION'] = path
+
+    if diffuse:
+        path = os.path.join(decalpath, "color.png")
+        copy(diffuse, path)
+        packed['COLOR'] = path
+
+    if color:
+        img = avoid_P_mode(Image.open(color))
+
+        if crop and padding:
+            splitext = os.path.splitext(color)
+            croppath = "%s_%s%s" % (splitext[0], "cropped", splitext[1])
+            size = crop_image(img, imagepath=croppath, padding=padding, debug=False)
+
+            img = Image.open(croppath)
+
+        else:
+            size = img.size
+
+        if img.mode in ['RGBA', 'LA']:
+            alpha = img.split()[-1]
+            color = img.convert(img.mode[:-1])
+
+        elif img.mode in ['RGB', 'L']:
+            alpha = Image.new('L', img.size, color=255)
+            color = img
+
+        if alpha and color:
+            empty = Image.new('L', img.size, color=0)
+            masks = Image.merge("RGB", (alpha, empty, empty))
+
+            color_path = os.path.join(decalpath, "color.png")
+            masks_path = os.path.join(decalpath, "masks.png")
+
+            color.save(color_path)
+            masks.save(masks_path)
+
+            packed['COLOR'] = color_path
+            packed['MASKS'] = masks_path
+
+            packed['SIZE'] = size
+
+    decaltype = 'PANEL' if dm.create_decaltype == 'PANEL' else 'INFO' if dm.create_decaltype == 'INFO' else 'SUBSET' if issubset else 'SIMPLE'
+
+    return packed, decaltype
 
 
 
@@ -610,8 +780,25 @@ def create_empty_map(bakebasepath, baketype, targetname, size):
 
 
 def create_decals_mask(bakebasepath, targetname, baketype, target_uv, margin_0_uv, margin_3_uv):
-    from . core import core
-    return core.create_decals_mask(bakebasepath, targetname, baketype, target_uv, margin_0_uv, margin_3_uv)
+    from PIL import Image, ImageOps
+
+    path = os.path.join(bakebasepath, "%s_%s_mask.png" % (targetname, baketype))
+
+    print("Info: Creating %s's %s mask: %s" % (targetname, baketype, path))
+
+    uv = convert_to_L(Image.open(target_uv))
+    margin0 = Image.open(margin_0_uv).convert('RGBA')
+    margin3 = Image.open(margin_3_uv)
+
+    uv_invert = ImageOps.invert(uv)
+    margin3.putalpha(uv_invert)
+    margin_map = convert_to_L(Image.alpha_composite(margin0, margin3))
+
+    margin_map.save(path)
+
+    del uv, margin0, margin3, uv_invert, margin_map
+
+    return path
 
 
 def apply_decals_mask(margin_map, bake_map, baketype, targetname):
@@ -765,5 +952,51 @@ def combine_emission_maps(bakebasepath, bakes):
 
 
 def create_atlas(destination, sources, solution, textype):
-    from . core import core
-    return core.create_atlas(destination, sources, solution, textype)
+    from PIL import Image
+
+    atlas_img = Image.new('RGB', size=solution['resolution'], color=(0, 0, 0) if textype == 'MASKS' else textype_color_mapping_dict[textype])
+
+    for uuid, box in solution['boxes'].items():
+        img = Image.open(sources[uuid]['textures'][textype])
+        height_amount = sources[uuid]['height']
+
+        if img.size != tuple(box['dimensions']):
+            prepack = sources[uuid]['prepack']
+
+            if prepack in ['NONE', 'STRETCH']:
+                img = img.resize(box['dimensions'], Image.BICUBIC)
+
+                if sources[uuid].get('repetitions'):
+                    del sources[uuid]['repetitions']
+
+            elif prepack == 'REPEAT':
+
+                scale_factor = box['dimensions'][1] / img.size[1]
+
+                repetitions = int(box['dimensions'][0] / (img.size[0] * scale_factor))
+
+                if repetitions <= 1:
+                    img = img.resize(box['dimensions'], Image.BICUBIC)
+
+                else:
+                    repeated = Image.new('RGB', size=(img.size[0] * repetitions, img.size[1]))
+
+                    for i in range(repetitions):
+                        repeated.paste(img, box=(i * img.size[0], 0))
+
+                    img = repeated.resize(box['dimensions'], Image.BICUBIC) if repeated.size != box['dimensions'] else repeated
+                    del repeated
+
+                    sources[uuid]['repetitions'] = repetitions
+
+        if textype == 'AO_CURV_HEIGHT' and height_amount != 1:
+            img = adjust_height_channel(img, amount=height_amount)
+
+        atlas_img.paste(img, box=box['coords'].copy())
+        del img
+
+    path = os.path.join(destination, "%s.png" % (textype.lower()))
+    atlas_img.save(path)
+    del atlas_img
+
+    return path

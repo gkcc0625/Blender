@@ -10,7 +10,7 @@ def shape(op, context, event):
     if hasattr(bc.shader, 'widgets') and bc.shader.widgets.active and bc.shader.widgets.active.index != -1:
         op.ngon_point_index = bc.shader.widgets.active.index
 
-        if op.ngon_fit:
+        if op.ngon_fit or op.shape_type == 'BOX':
             modifier.apply(bc.shape, types={'LATTICE'})
 
     if op.shape_type != 'NGON' and op.ngon_point_index == -1:

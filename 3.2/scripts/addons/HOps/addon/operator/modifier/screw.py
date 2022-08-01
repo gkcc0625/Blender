@@ -283,7 +283,7 @@ class HOPS_OT_MODS_screw_step(bpy.types.Operator):
 
         self.step = ((self.offset) + (p2_to_m3d - (self.p2_to_m3d / modifier.iterations)))
         self.delta = self.step
-        self.step = int(round(self.step, 0))
+        self.step = abs(int(round(self.step, 0)))
         self.delta_mouse = intersect_point_line(mouse3d, self.backface, self.frontface)
 
         modifier.steps = self.step #(self.start + (p2_to_m3d - (self.p2_to_m3d / modifier.iterations)))

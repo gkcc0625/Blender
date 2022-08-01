@@ -1,6 +1,6 @@
 import bpy, bgl, math
 from ..functions import show_message, rgb_to_luminance
-from ..autofocus import hide_focus_planes
+from ..autofocus import list_focus_planes
 from ..constants import base_ev
 
 def get_exposure_node(self,context):
@@ -54,15 +54,16 @@ class PHOTOGRAPHER_OT_AddExposureNode(bpy.types.Operator):
 
         # Find links to Composite and Viewer node
         link_comp = [l for l in links if l.to_node == comp and l.to_socket == img]
-        inc_comp = link_comp[0].from_node
-        inc_comp_socket = link_comp[0].from_socket
-        inc_comp_links = [l for l in links if l.from_socket == inc_comp_socket]
+        if link_comp:
+            inc_comp = link_comp[0].from_node
+            inc_comp_socket = link_comp[0].from_socket
+            inc_comp_links = [l for l in links if l.from_socket == inc_comp_socket]
 
-        # Insert node
-        if inc_comp != exp:
-            links.new(inc_comp.outputs[inc_comp_socket.name], exp.inputs[0])
-        for l in inc_comp_links:
-            links.new(exp.outputs[0], l.to_node.inputs[l.to_socket.name])
+            # Insert node
+            if inc_comp != exp:
+                links.new(inc_comp.outputs[inc_comp_socket.name], exp.inputs[0])
+            for l in inc_comp_links:
+                links.new(exp.outputs[0], l.to_node.inputs[l.to_socket.name])
 
         # Turn on Compositing rendering
         scene.render.use_compositing = True
@@ -89,8 +90,7 @@ class PHOTOGRAPHER_OT_DisableExposureNode(bpy.types.Operator):
         exp = get_exposure_node(self,context)
         if exp:
             exp.mute = True
-        scene.view_settings.exposure = exp.inputs['Exposure'].default_value
-        # scene.photographer.comp_exposure = False
+            scene.view_settings.exposure = exp.inputs['Exposure'].default_value
 
         return {'FINISHED'}
 
@@ -202,7 +202,7 @@ class PHOTOGRAPHER_OT_EVPicker(bpy.types.Operator):
         self.stored_exposure = settings.ev
         self.stored_exposure_mode = settings.exposure_mode
 
-        self.fp = hide_focus_planes()
+        self.fp = list_focus_planes()
 
         if not settings.exposure_mode == 'EV':
             settings.exposure_mode = 'EV'

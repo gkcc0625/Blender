@@ -1,4 +1,4 @@
-from ..... utility import addon
+from ..... utility import addon, method_handler
 from .. import utility
 from .. utility import statusbar
 # from .. utility import statusbar
@@ -12,12 +12,11 @@ def operator(op, context):
     wm = context.window_manager
     bc = context.scene.bc
 
-    # op.shader.cancel = True
-    # op.widgets.cancel = True
+    bc.__class__.operator = None
+    bc.__class__.shader = None
 
     bc.running = False
     statusbar.remove()
-    # prop.running = False
 
     op.cancelled = True
 
@@ -36,12 +35,8 @@ def operator(op, context):
             for mat in op.existing[obj]['materials']:
                 obj.data.materials.append(mat)
 
-    utility.data.clean(op, context, clean_all=True)
-    # bpy.types.SpaceView3D.draw_handler_remove(op.dot_handler, 'WINDOW')
-    # op.widgets.exit = True
+    method_handler(utility.data.clean, (op, context, True))
 
-    # if preference.display.dots:
-        # op.widgets.remove()
     op.report({'INFO'}, 'Cancelled')
 
     return {'CANCELLED'}

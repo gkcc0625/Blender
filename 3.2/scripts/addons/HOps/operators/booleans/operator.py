@@ -1,5 +1,6 @@
 import bpy
 import bmesh
+from mathutils import Vector, Matrix
 from ... utils.objects import set_active
 from ... material import assign_material, blank_cutting_mat
 from ... preferences import get_preferences
@@ -270,7 +271,7 @@ def shift(context, operation='DIFFERENCE', collection='Cutters', boolshape=True,
 
 # TODO: redo intersection with bmesh
 # TODO: add material cutting
-def knife(context, knife_project, material_cut = False, cut_through=True):
+def knife(context, knife_project, material_cut = False, cut_through=True, projection='VIEW'):
     selected = context.selected_objects[:]
     cutters = [o for o in selected if o is not context.active_object and o.type in {'MESH', 'CURVE', 'SURFACE', 'FONT'}]
     if not cutters:
@@ -284,9 +285,51 @@ def knife(context, knife_project, material_cut = False, cut_through=True):
             cutter.select_set(False)
 
         bpy.ops.object.mode_set(mode='EDIT')
-        for cutter in cutters: cutter.select_set(True)
-        bpy.ops.mesh.knife_project(cut_through=cut_through)
+
+        if projection == 'VIEW':
+            for cutter in cutters: cutter.select_set(True)
+            bpy.ops.mesh.knife_project(cut_through=cut_through)
+
+        else:
+            view = context.region_data.view_matrix.copy()
+            persp = context.region_data.view_perspective
+            context.region_data.view_perspective = 'ORTHO'
+
+            if projection[0] == 'X':
+                normal = Vector((1, 0, 0))
+
+            elif projection[0] == 'Y':
+                normal = Vector((0, 1, 0))
+
+            elif projection[0] == 'Z':
+                normal = Vector((0, 0, 1))
+
+            if projection[1] == '-' : normal *= -1.0
+
+            tangent = normal.orthogonal()
+            tangent.normalize()
+            cross = normal.cross(tangent)
+            cross.normalize()
+            matrix = Matrix()
+            matrix.col[0] = [*tangent, 0]
+            matrix.col[1] = [*cross, 0]
+            matrix.col[2] = [*normal, 0]
+
+            for cutter in cutters:
+                cutter_mat = cutter.matrix_world.normalized()
+                context.region_data.view_matrix = (cutter_mat @ matrix).inverted()
+                context.region_data.update()
+
+                cutter.select_set(True)
+                bpy.ops.mesh.knife_project(cut_through=cut_through)
+                cutter.select_set(False)
+
+            context.region_data.view_matrix = view
+            context.region_data.view_perspective = persp
+            context.region_data.update()
+
         bpy.ops.object.mode_set(mode='OBJECT')
+
 
         for cutter in cutters:
             edge_split = cutter.modifiers[-1]

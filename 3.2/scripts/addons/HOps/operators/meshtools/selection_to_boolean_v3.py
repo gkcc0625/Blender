@@ -1,27 +1,25 @@
-import bpy, math, bmesh
+import bpy, bmesh
+from mathutils import Matrix, Vector
 from enum import Enum
 from ... preferences import get_preferences
-from ... addon.utility.screen import dpi_factor
 from ... utility.base_modal_controls import Base_Modal_Controls
 from ... utility.collections import view_layer_unhide, hide_all_objects_in_collection, hops_col_get
 from ... ui_framework.master import Master
 from ... ui_framework.utils.mods_list import get_mods_list
-from ... ui_framework.flow_ui.flow import Flow_Menu, Flow_Form
-from ... ui_framework.graphics.draw import render_text
 from ... utils.toggle_view3d_panels import collapse_3D_view_panels
 from ... utils.modal_frame_drawing import draw_modal_frame
 from ... utils.cursor_warp import mouse_warp
 from ... addon.utility import method_handler
+from ... utility.modifier import user_sort
 
 
 class State(Enum):
-    OFFSET = 0
-    INSET = 1
-    EXTRUDE = 2
+    INSET = 0
+    EXTRUDE = 1
 
     @classmethod
     def states(cls):
-        return [cls.OFFSET, cls.INSET, cls.EXTRUDE]
+        return [cls.INSET, cls.EXTRUDE]
 
 
 class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
@@ -33,6 +31,12 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
     """
     bl_options = {"REGISTER", "UNDO", "BLOCKING"}
 
+    override_obj_name: bpy.props.StringProperty(name="Target Override", default="")
+
+    # Popover
+    operator = None
+    selected_operation = ""
+
     @classmethod
     def poll(cls, context):
         if context.mode == 'EDIT_MESH':
@@ -43,19 +47,29 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
 
     def invoke(self, context, event):
 
-        # Target
-        self.obj = context.active_object
-        self.boolean_mod = None
+        # Override : Called from extract face
+        use_override = False
+        if self.override_obj_name:
+            if self.override_obj_name in bpy.data.objects:
+                target_obj = bpy.data.objects[self.override_obj_name]
+                if target_obj.name in context.view_layer.objects:
+                    use_override = True
+                    self.override_setup(context, target_obj)
 
-        # Boolean
-        self.bool_obj = None
-        self.solidify_mod = None
-        self.bm = None
-        self.bool_mesh_backup = None
+        if use_override == False:
+            # Target
+            self.obj = context.active_object
+            self.boolean_mod = None
 
-        # Setup
-        if not self.selection_valid(): return {'CANCELLED'}
-        self.create_boolean(context)
+            # Boolean
+            self.bool_obj = None
+            self.solidify_mod = None
+            self.bm = None
+            self.bool_mesh_backup = None
+
+            # Setup
+            if not self.selection_valid(): return {'CANCELLED'}
+            self.standard_setup(context)
 
         # State
         self.state = State.INSET
@@ -66,44 +80,25 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
 
         # Controls
         self.accumulation = 0
-        self.offset_value = 0.035 if bpy.app.version >= (2, 90, 0) else -0.035
         self.inset_value = 0
         self.extrude_value = 0
 
-        # Drawing
-        self.mouse_pos = (event.mouse_region_x, event.mouse_region_y)
-        cell_color = get_preferences().color.Hops_UI_cell_background_color
-        self.color = ( cell_color[0], cell_color[1], cell_color[2], 1)
-
-        # Flow menu
-        self.flow = Flow_Menu()
-        self.setup_flow_menu(context)
-
         # Base Systems
-        self.master = Master(context=context)
+        self.master = Master(context)
         self.master.only_use_fast_ui = True
-        self.base_controls = Base_Modal_Controls(context, event)
+        self.base_controls = Base_Modal_Controls(context, event, popover_keys=['TAB', 'SPACE'])
         self.original_tool_shelf, self.original_n_panel = collapse_3D_view_panels()
         self.draw_handle_2D = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_2D, (context,), 'WINDOW', 'POST_PIXEL')
         context.window_manager.modal_handler_add(self)
+
+        # Popover
+        self.__class__.operator = self
+        self.__class__.selected_operation = ""
+
         return {"RUNNING_MODAL"}
 
-    # --- Flow Menu --- #
-    def setup_flow_menu(self, context):
-        flow_data = [
-            Flow_Form(text="TOOLS"  , font_size=18, tip_box="Pick a tool"),
-            Flow_Form(text="OFFSET" , font_size=14, func=self.flow_func, pos_args=(State.OFFSET,) , tip_box="Adjust the offset."),
-            Flow_Form(text="INSET"  , font_size=14, func=self.flow_func, pos_args=(State.INSET,)  , tip_box="Adjust the inset of the face."),
-            Flow_Form(text="EXTRUDE", font_size=14, func=self.flow_func, pos_args=(State.EXTRUDE,), tip_box="Extrude the faces in.")]
-        self.flow.setup_flow_data(flow_data)
-
-
-    def flow_func(self, state):
-        self.state = state
-        self.set_viewport_shading()
-        bpy.ops.hops.display_notification(info=f'Switched tool to: {state.name}')
-
     # --- Setup --- #
+
     def selection_valid(self):
         bm = bmesh.from_edit_mesh(self.obj.data)
         faces = [f for f in bm.faces if f.select]
@@ -111,7 +106,43 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
         else: return False
 
 
-    def create_boolean(self, context):
+    def override_setup(self, context, target_obj):
+
+        self.obj = target_obj
+        self.bool_obj = context.active_object
+        self.bool_obj.hops.status = "BOOLSHAPE"
+
+        # Collection
+        col = hops_col_get(bpy.context)
+
+        if col and self.bool_obj.users_collection:
+            for collection in self.bool_obj.users_collection:
+                if collection != col:
+                    collection.objects.unlink(self.bool_obj)
+                
+        if self.bool_obj.name not in col.objects:
+            view_layer_unhide(col, enable=True)
+            hide_all_objects_in_collection(coll=col)
+            col.objects.link(self.bool_obj)
+
+        self.add_mods(context)
+        self.parent_move_display()
+
+        context.view_layer.objects.active = self.bool_obj
+
+        # Edit
+        if context.mode != 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
+
+        # Clean
+        self.bm = bmesh.from_edit_mesh(self.bool_obj.data)
+        self.bool_obj.update_from_editmode()
+
+        # Backup
+        self.bool_mesh_backup = self.bool_obj.data.copy()
+
+
+    def standard_setup(self, context):
 
         # New mesh
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -127,25 +158,8 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
 
         col.objects.link(self.bool_obj)
 
-        # Solidify
-        self.solidify_mod = self.bool_obj.modifiers.new('Solidify', type='SOLIDIFY')
-        self.solidify_mod.use_even_offset = True
-        self.solidify_mod.use_quality_normals = True
-        self.solidify_mod.show_viewport = False
-
-        # Boolean
-        self.boolean_mod = self.obj.modifiers.new("HOPS Boolean", 'BOOLEAN')
-        if hasattr(self.boolean_mod, 'solver'):
-            self.boolean_mod.solver = 'FAST'
-        self.boolean_mod.show_render = True
-        self.boolean_mod.object = self.bool_obj
-        self.boolean_mod.show_viewport = False
-        self.simple_mod_sort()
-
-        # Parent / Move / Display
-        self.bool_obj.parent = self.obj
-        self.bool_obj.matrix_world = self.obj.matrix_world
-        self.bool_obj.display_type = 'WIRE'
+        self.add_mods(context)
+        self.parent_move_display()
 
         # Edit
         bpy.ops.object.select_all(action='DESELECT')
@@ -159,6 +173,10 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
         bmesh.ops.delete(self.bm, geom=verts, context='VERTS')
         faces = [f for f in self.bm.faces if not f.select]
         bmesh.ops.delete(self.bm, geom=faces, context='FACES')
+        
+        sca = self.obj.matrix_world.decompose()[2]
+        bmesh.ops.transform(self.bm, matrix=Matrix.Diagonal(sca), space=Matrix(), verts=self.bm.verts)
+        
         bmesh.update_edit_mesh(self.bool_obj.data)
         self.bool_obj.update_from_editmode()
 
@@ -166,64 +184,74 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
         self.bool_mesh_backup = self.bool_obj.data.copy()
 
 
-    def simple_mod_sort(self):
-        '''Place the bool mod in the mod stack.'''
+    def add_mods(self, context):
 
-        moves = 0
-        for mod in reversed(self.obj.modifiers):
-            if mod.type == 'BEVEL': break
-            moves += 1
+        # Solidify
+        self.solidify_mod = self.bool_obj.modifiers.new('Solidify', type='SOLIDIFY')
+        self.solidify_mod.use_even_offset = True
+        self.solidify_mod.offset = -.95
+        self.solidify_mod.use_quality_normals = True
+        self.solidify_mod.show_viewport = False
 
-        while moves != 0:
-            moves -= 1
-            bpy.ops.object.modifier_move_up(modifier=self.boolean_mod.name)
+        # Boolean
+        self.boolean_mod = self.obj.modifiers.new("HOPS Boolean", 'BOOLEAN')
+        if hasattr(self.boolean_mod, 'solver'):
+            self.boolean_mod.solver = 'FAST'
+        self.boolean_mod.show_render = True
+        self.boolean_mod.object = self.bool_obj
+        self.boolean_mod.show_viewport = False
+
+        user_sort(self.obj)
+
+
+    def parent_move_display(self):
+        
+        loc, rot, sca = self.obj.matrix_world.decompose()
+        mat_loc = Matrix.Translation(loc).to_4x4()
+        mat_sca = Matrix.Diagonal(Vector((1,1,1))).to_4x4()
+        mat_rot = rot.to_matrix().to_4x4()
+        mat_out = mat_loc @ mat_rot @ mat_sca
+                
+        self.bool_obj.matrix_world = mat_out
+        self.bool_obj.parent = self.obj
+        self.bool_obj.matrix_parent_inverse = self.obj.matrix_world.inverted()
+        self.bool_obj.display_type = 'WIRE'
 
     # --- Controler -- #
+
     def modal(self, context, event):
 
         # --- Systems --- #
-        self.master.receive_event(event=event)
+        self.master.receive_event(event)
         self.base_controls.update(context, event)
         mouse_warp(context, event)
-        self.flow.run_updates(context, event, enable_tab_open=True)
         self.accumulation += self.base_controls.mouse
-        self.mouse_pos = (event.mouse_region_x, event.mouse_region_y)
 
         # --- Controls ---#
         if self.base_controls.pass_through:
             return {'PASS_THROUGH'}
 
         elif self.base_controls.cancel:
-            self.shut_down(context)
             self.cancelled(context)
             return {'CANCELLED'}
 
-        elif self.base_controls.confirm and self.state not in {State.OFFSET, State.INSET}:
-            if self.flow.is_open == False:
-                self.shut_down(context)
+        elif self.base_controls.confirm:
+            if self.state == State.EXTRUDE:
                 self.confirmed(context)
                 return {'FINISHED'}
+            else:
+                self.state = State.EXTRUDE
 
-        elif self.base_controls.scroll:
-            self.set_viewport_shading()
+        elif self.base_controls.scroll and not event.shift:
             self.cycle_state(forward=bool(self.base_controls.scroll))
+
+        # Popover
+        ret = self.popover(context)
+        if ret == True: return {'FINISHED'}
 
         # Cycle
         if event.type == 'X' and event.value == 'PRESS':
-            self.set_viewport_shading()
             self.cycle_state(forward=event.shift)
-
-        # Continue operations
-        elif self.base_controls.confirm and self.state in {State.OFFSET, State.INSET}:
-            if self.state == State.OFFSET:
-                self.state = State.INSET
-            elif self.state == State.INSET:
-                self.state = State.EXTRUDE
-
-        # Flip extrude
-        elif event.type == 'F' and event.value == 'PRESS':
-            self.extrude_value *= -1
-            self.accumulation = self.extrude_value
 
         # Toggle Bool
         elif event.type == 'S' and event.value == 'PRESS':
@@ -238,45 +266,88 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
                 self.boolean_mod.object = None
                 self.bool_obj.display_type = 'SOLID'
 
-        # Apply mods on exit
+        # Apply mods on exit / Boolean Sovler
         elif event.type == 'A' and event.value == 'PRESS':
-            self.apply_mods = not self.apply_mods
+            if event.shift:
+                self.apply_mods = not self.apply_mods
+            else:
+                if self.boolean_mod.operation == 'DIFFERENCE':
+                    self.boolean_mod.operation = 'UNION'
+                elif self.boolean_mod.operation == 'UNION':
+                    self.boolean_mod.operation = 'DIFFERENCE'
+                bpy.ops.hops.display_notification(info=f"Boolean Operation : {self.boolean_mod.operation}")
+
+        # Flip
+        elif event.type == 'F' and event.value == 'PRESS':
+            if self.state == State.EXTRUDE:
+                self.solidify_mod.offset = self.solidify_mod.offset * -1
+                
+        # Toggle X-Ray
+        elif event.type == 'Z' and event.value == 'PRESS':
+            bpy.context.space_data.shading.show_xray = not bpy.context.space_data.shading.show_xray
+                
+        # Solver
+        elif event.type == 'E' and event.value == 'PRESS':
+            if hasattr(self.boolean_mod, 'solver'):
+                if self.boolean_mod.solver == 'EXACT':
+                    self.boolean_mod.solver = 'FAST'
+                elif self.boolean_mod.solver == 'FAST':
+                    self.boolean_mod.solver = 'EXACT'
+                bpy.ops.hops.display_notification(info=f"Boolean Solver : {self.boolean_mod.solver}")
+
+        # Move mod
+        elif self.base_controls.scroll and event.shift:
+            if self.obj and self.boolean_mod:
+                    active = context.active_object
+                    context.view_layer.objects.active = self.obj
+                    if self.base_controls.scroll > 0:
+                        bpy.ops.object.modifier_move_up(modifier=self.boolean_mod.name)
+                    else:
+                        bpy.ops.object.modifier_move_down(modifier=self.boolean_mod.name)
+                    context.view_layer.objects.active = active
+
+        # Solidify Offsets
+        if self.state == State.EXTRUDE:
+            if event.type == 'ONE' and event.value == 'PRESS':
+                self.solidify_mod.offset = -.95
+
+            elif event.type == 'TWO' and event.value == 'PRESS':
+                self.solidify_mod.offset = 0
+
+            elif event.type == 'THREE' and event.value == 'PRESS':
+                self.solidify_mod.offset = .95
+
+            elif event.type == 'FOUR' and event.value == 'PRESS':
+                if (2, 82, 4) < bpy.app.version:
+                    if self.solidify_mod.solidify_mode == 'EXTRUDE':
+                        self.solidify_mod.solidify_mode = 'NON_MANIFOLD'
+                    elif self.solidify_mod.solidify_mode == 'NON_MANIFOLD':
+                        self.solidify_mod.solidify_mode = 'EXTRUDE'
 
         # --- Update --- #
-        if event.type != 'TIMER' and self.flow.is_open == False:
-            self.update_mesh(context, event)
-            self.interface(context=context)
+        if event.type != 'TIMER':
+            self.update_mesh(event)
+            self.interface(context)
 
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
 
 
-    def update_mesh(self, context, event):
+    def update_mesh(self, event):
 
-        bmesh.ops.delete(self.bm, geom=self.bm.verts, context='VERTS')
-        self.bm.from_mesh(self.bool_mesh_backup)
-
-        if self.state == State.OFFSET:
-            self.set_mod_visibility(on=False)
-            self.offset_value = self.accumulation
-            self.offset()
-        elif self.state == State.INSET:
+        if self.state == State.INSET:
+            bmesh.ops.delete(self.bm, geom=self.bm.verts, context='VERTS')
+            self.bm.from_mesh(self.bool_mesh_backup)
             self.set_mod_visibility(on=False)
             self.inset_value = self.accumulation
-            self.offset()
             self.inset()
+
         elif self.state == State.EXTRUDE:
             self.set_mod_visibility(on=True)
             self.extrude_value = self.accumulation
-            self.offset()
-            self.inset()
-            self.extrude()
+            self.extrude(event)
 
         bmesh.update_edit_mesh(self.bool_obj.data)
-
-
-    def offset(self):
-        bpy.ops.transform.shrink_fatten(value=self.offset_value, use_even_offset=True)
 
 
     def inset(self):
@@ -294,55 +365,87 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
         bmesh.ops.delete(self.bm, geom=result['faces'], context='FACES')
 
 
-    def extrude(self):
-        self.solidify_mod.thickness = self.extrude_value
+    def extrude(self, event):
+        if event.alt:
+            self.solidify_mod.offset += self.base_controls.mouse
+            if self.solidify_mod.offset > 1: self.solidify_mod.offset = 1
+            elif self.solidify_mod.offset < -1: self.solidify_mod.offset = -1
+        else:
+            self.solidify_mod.thickness = self.extrude_value
 
 
     def interface(self, context):
         self.master.setup()
-        #---  Fast UI ---#
-        if self.master.should_build_fast_ui():
-            help_items = {"GLOBAL" : [], "STANDARD" : []}
-            help_items["GLOBAL"] = [
-                ("M", "Toggle mods list"),
-                ("H", "Toggle help"),
-                ("~", "Toggle UI Display Type"),
-                ("O", "Toggle viewport rendering"),
-                ("Z", "Toggle Wireframe / Solid")]
+        if not self.master.should_build_fast_ui(): return
+    
+        win_list = []
+        if self.state == State.INSET:
+            win_list.append("Mode: Inset")
+            win_list.append(f"{self.inset_value:.3f}")
+            
+        elif self.state == State.EXTRUDE:
+            win_list.append("Mode: Extrude")
+            win_list.append(f"{self.extrude_value:.3f}")
 
-            help_items["STANDARD"] = [
-                ("A"     , "Apply modifiers"),
-                ("S"     , "Toggle use as bool"),
-                ("F"     , "Flip Extrude"),
-                ("X"     , "Cycle Operation"),
-                ("Scroll", "Cycle Operation"),
-                ("TAB"   , "Open Flow Menu")]
+        win_list.append(f"Apply: {self.apply_mods}")
+        win_list.append(f"Boolean: {self.use_as_boolean}")
 
-            win_list = []
-            if self.state == State.OFFSET:
-                win_list.append("Mode: Offset")
-                win_list.append(f"{self.offset_value:.3f}")
-            elif self.state == State.INSET:
-                win_list.append("Mode: Inset")
-                win_list.append(f"{self.inset_value:.3f}")
-            elif self.state == State.EXTRUDE:
-                win_list.append("Mode: Extrude")
-                win_list.append(f"{self.extrude_value:.3f}")
+        help_items = {"GLOBAL" : [], "STANDARD" : []}
+        help_items["GLOBAL"] = [
+            ("M", "Toggle mods list"),
+            ("H", "Toggle help"),
+            ("~", "Toggle UI Display Type"),
+            ("O", "Toggle viewport rendering"),
+            ("Z", "Toggle Wireframe / Solid")]
 
-            win_list.append(f"Apply: {self.apply_mods}")
+        help_items["STANDARD"] = [
+            ("ALT"         , "Solidify Offset"),
+            ("F"           , "Flip Offset"),
+            ("Z"           , "X-Ray View"),
+            ("1"           , "Offset to : -1"),
+            ("2"           , "Offset to : 0"),
+            ("3"           , "Offset to : 1"),
+            ("4"           , f"Solidify Mode : {self.solidify_mod.solidify_mode}"),
+            ("Shift A"     , "Apply modifiers"),
+            ("A"           , 'Use : DIFFERENCE' if self.boolean_mod.operation == 'UNION' else 'Use : UNION'),
+            ("S"           , "Toggle use as bool"),
+            ("X"           , "Cycle Operation"),
+            ("Scroll"      , "Cycle Operation"),
+            ("Shift Scroll", "Move Modifier"),
+            ("TAB"         , "Select Menu")]
 
-            self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image="Booleans", mods_list=get_mods_list(mods=self.obj.modifiers))
+        if hasattr(self.boolean_mod, 'solver'):
+            help_items["STANDARD"].append(("E", f"Solver {self.boolean_mod.solver}"))
+            
+        active_mod = self.boolean_mod.name if self.boolean_mod else ""
+        self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image="Booleans", mods_list=get_mods_list(mods=self.obj.modifiers), active_mod_name=active_mod)
         self.master.finished()
 
-    # --- Utils --- #
-    def set_viewport_shading(self):
-        if self.state == State.OFFSET:
-            bpy.context.space_data.shading.show_xray = False
-        elif self.state == State.INSET:
-            bpy.context.space_data.shading.show_xray = False
-        elif self.state == State.EXTRUDE:
-            bpy.context.space_data.shading.show_xray = True
 
+    def popover(self, context):
+        if self.__class__.selected_operation != "":
+            if self.__class__.selected_operation == "INSET":
+                self.state = State.INSET
+                bpy.ops.hops.display_notification(info=f'State Set To : {self.__class__.selected_operation}')
+            elif self.__class__.selected_operation == "EXTRUDE":
+                self.state = State.EXTRUDE
+                bpy.ops.hops.display_notification(info=f'State Set To : {self.__class__.selected_operation}')
+            elif self.__class__.selected_operation == "APPLY":
+                self.apply_mods = True
+                bpy.ops.hops.display_notification(info="Modifiers will be applied on exit.")
+            elif self.__class__.selected_operation == "CONFIRM":
+                self.confirmed(context)
+                return True
+                
+            self.__class__.selected_operation = ""
+
+        # Spawns
+        if self.base_controls.popover:
+            context.window_manager.popover(popup_draw)
+
+        return False
+
+    # --- Utils --- #
 
     def set_mod_visibility(self, on=True):
         self.solidify_mod.show_viewport = on
@@ -356,9 +459,12 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
         self.state = types[index % len(types)]
 
     # --- Exit --- #
+
     def shut_down(self, context):
+        self.__class__.operator = None
+        self.__class__.selected_operation = ""
+        self.override_obj_name = ""
         collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
-        self.flow.shut_down()
         self.master.run_fade()
         self.remove_shaders()
         context.space_data.shading.show_xray = self.og_xray
@@ -367,6 +473,7 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
 
 
     def cancelled(self, context):
+        self.shut_down(context)
         bpy.ops.object.mode_set(mode='OBJECT')
         mesh = self.bool_obj.data
         bpy.data.objects.remove(self.bool_obj)
@@ -381,12 +488,15 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
 
 
     def confirmed(self, context):
+        self.shut_down(context)
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
-        self.obj.select_set(True)
+        self.obj.hide_set(False)
         context.view_layer.objects.active = self.obj
+        self.obj.select_set(True)
         bpy.ops.object.mode_set(mode='EDIT')
 
+        # Fallback on errors
         if self.boolean_mod.object == None:
             self.obj.modifiers.remove(self.boolean_mod)
             # Unlink
@@ -421,47 +531,69 @@ class HOPS_OT_Sel_To_Bool_V3(bpy.types.Operator):
                 mesh = self.bool_obj.data
                 bpy.data.objects.remove(self.bool_obj)
                 bpy.data.meshes.remove(mesh)
+                self.bool_obj = None
 
                 bpy.ops.object.mode_set(mode='EDIT')
 
-        bpy.ops.object.mode_set(mode='OBJECT')
-
         # Select bool object
+        if not self.apply_mods:
+            if self.bool_obj:
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bpy.ops.object.select_all(action='DESELECT')
+                context.view_layer.objects.active = self.bool_obj
+                self.bool_obj.select_set(True)
+
+        # Remove custom normals.
         if self.bool_obj:
-            bpy.ops.object.select_all(action='DESELECT')
             context.view_layer.objects.active = self.bool_obj
-            self.bool_obj.select_set(True)
+            bpy.ops.mesh.customdata_custom_splitnormals_clear()
 
     # --- Shaders --- #
+
     def remove_shaders(self):
         if self.draw_handle_2D:
             self.draw_handle_2D = bpy.types.SpaceView3D.draw_handler_remove(self.draw_handle_2D, "WINDOW")
 
 
     def safe_draw_2D(self, context):
-        method_handler(self.draw_shader_2D, arguments=(context,), identifier='Modal Shader 2D', exit_method=self.remove_shaders)
+        method_handler(draw_modal_frame, arguments=(context,), identifier='Modal Shader 2D', exit_method=self.remove_shaders)
 
+# --- POPOVER --- #
 
-    def draw_shader_2D(self, context):
-        '''Draw shader handle.'''
+def popup_draw(self, context):
+    layout = self.layout
 
-        self.flow.draw_2D()
-        draw_modal_frame(context)
+    op = HOPS_OT_Sel_To_Bool_V3.operator
+    if not op: return {'CANCELLED'}
 
-        factor = dpi_factor()
-        up = 40 * factor
-        right = 40 * factor
-        font_size = 16
-        text_pos = (self.mouse_pos[0] + up, self.mouse_pos[1] + right)
+    layout.label(text='Selector')
+    broadcaster = "hops.popover_data"
 
-        if self.state == State.OFFSET:
-            text = "Click to Inset"
-            render_text(text=text, position=text_pos, size=font_size, color=self.color)
-
-        elif self.state == State.INSET:
-            text = "Click to Extrude"
-            render_text(text=text, position=text_pos, size=font_size, color=self.color)
-
-        elif self.state == State.EXTRUDE:
-            text = "Click to Finish"
-            render_text(text=text, position=text_pos, size=font_size, color=self.color)
+    row = layout.row()
+    row.scale_y = 2
+    props = row.operator(broadcaster, text='Inset')
+    props.calling_ops = 'SELECT_TO_BOOLEAN'
+    props.str_1 = 'INSET'
+    
+    row = layout.row()
+    row.scale_y = 2
+    props = row.operator(broadcaster, text='Extrude')
+    props.calling_ops = 'SELECT_TO_BOOLEAN'
+    props.str_1 = 'EXTRUDE'
+    
+    row = layout.row()
+    row.scale_y = 2
+    props = row.operator(broadcaster, text='Apply')
+    props.calling_ops = 'SELECT_TO_BOOLEAN'
+    props.str_1 = 'APPLY'
+    
+    if op.state == State.EXTRUDE:
+        row = layout.row()
+        row.scale_y = 2
+        props = row.operator(broadcaster, text='Confirm')
+        props.calling_ops = 'SELECT_TO_BOOLEAN'
+        props.str_1 = 'CONFIRM'
+    else:
+        row = layout.row()
+        row.scale_y = 2
+        row.label(text="Extrude before continuing.")

@@ -28,6 +28,9 @@ class BC_OT_modifier_remove(Operator):
 
         obj.modifiers.remove(obj.modifiers[self.modifier])
 
+        if self.modifier.startswith("Quad"):
+            bc.q_bevel = False
+
         return {'FINISHED'}
 
 
@@ -40,10 +43,10 @@ class BC_OT_smart_apply(Operator):
     bl_region_type = 'WINDOW'
     bl_options = {'REGISTER', 'UNDO'}
 
-    loose: BoolProperty(
+    use_loose: BoolProperty(
         name = 'Loose Boolean Cleanup',
         description = 'Cleanup booleans that do not effect the current visual geometry',
-        default = False)
+        default = True)
 
 
     @classmethod
@@ -65,19 +68,18 @@ class BC_OT_smart_apply(Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
 
 
-        if event.shift:
-            self.loose = True
+        self.loose = event.shift and self.use_loose
 
         if self.loose:
             # Remove unused cutters
-            rounded = lambda d: (round(d.x, 6), round(d.y, 6), round(d.z, 6))
-            counted = lambda d: (len(d.vertices), len(d.polygons), len(d.edges))
+            rounded = lambda d: sum((round(d.x, 6), round(d.y, 6), round(d.z, 6)))
+            counted = lambda d: sum((len(d.vertices), len(d.polygons), len(d.edges)))
             for obj in context.selected_objects:
                 if obj.type != 'MESH':
                     continue
 
                 evld = obj.evaluated_get(context.evaluated_depsgraph_get())
-                state = sum(counted(evld.data) + (rounded(evld.dimensions)))
+                state = counted(evld.data) + rounded(evld.dimensions) + sum((rounded(p.center) for p in evld.data.polygons))
 
                 for mod in obj.modifiers[:]:
                     if mod.type != 'BOOLEAN' or not mod.show_viewport:
@@ -89,7 +91,7 @@ class BC_OT_smart_apply(Operator):
 
                     evld = obj.evaluated_get(context.evaluated_depsgraph_get())
 
-                    if state != sum(counted(evld.data) + (rounded(evld.dimensions))):
+                    if state != counted(evld.data) + rounded(evld.dimensions) + sum((rounded(p.center) for p in evld.data.polygons)):
                         mod.show_viewport = True
 
                         continue

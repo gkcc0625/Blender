@@ -44,7 +44,7 @@ def stop_playback(scene):
         settings.af_continuous_enabled = False
         bpy.app.handlers.frame_change_pre.remove(stop_playback)
 
-def hide_focus_planes():
+def list_focus_planes():
     # Clear list
     list = []
     # Disable Focus Plane of all cameras that could block the rays
@@ -55,7 +55,7 @@ def hide_focus_planes():
                 o.hide_viewport = True
     return list
 
-def hide_dof_objects():
+def list_dof_objects():
     # Clear list
     list = []
     # Disable Focus Plane of all cameras that could block the rays
@@ -281,10 +281,20 @@ class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
+        # Add lightpath shader
+        lightpath = nodes.new('ShaderNodeLightPath')
+        lightpath.location = (-400,0)
+
+        # Add mix RGB
+        mix_rgb = nodes.new('ShaderNodeMixRGB')
+        mix_rgb.location = (-200,0)
+        mix_rgb.name = "Focus Plane Color"
+        mix_rgb.inputs[1].default_value = (0,0,0,1)
+        mix_rgb.inputs[2].default_value = bpy.context.preferences.addons[__package__].preferences.default_focus_plane_color
+
         # Add emission shader
         emission = nodes.new('ShaderNodeEmission')
         emission.location = (0,0)
-        emission.inputs[0].default_value = bpy.context.preferences.addons[__package__].preferences.default_focus_plane_color
 
         # Add transparent shader
         transp = nodes.new('ShaderNodeBsdfTransparent')
@@ -299,6 +309,8 @@ class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
         output.location = (600,0)
 
         # Connect all of them
+        links.new(lightpath.outputs[0], mix_rgb.inputs[0])
+        links.new(mix_rgb.outputs[0], emission.inputs[0])
         links.new(transp.outputs[0], mix.inputs[1])
         links.new(emission.outputs[0], mix.inputs[2])
         links.new(mix.outputs[0], output.inputs[0])
@@ -400,8 +412,8 @@ class PHOTOGRAPHER_OT_FocusSingle(bpy.types.Operator):
                     # Restore Focus Planes visibility
                     for o in self.fp:
                         o.hide_viewport = False
-                    for o in self.dof_objects:
-                        o.hide_viewport = False
+                    # for o in self.dof_objects:
+                    #     o.hide_viewport = False
                     return {'FINISHED'}
                 else:
                     self.report({'WARNING'}, "Active space must be a View3d")
@@ -410,8 +422,8 @@ class PHOTOGRAPHER_OT_FocusSingle(bpy.types.Operator):
                     # Restore Focus Planes visibility
                     for o in self.fp:
                         o.hide_viewport = False
-                    for o in self.dof_objects:
-                        o.hide_viewport = False
+                    # for o in self.dof_objects:
+                    #     o.hide_viewport = False
                     return {'CANCELLED'}
 
         # Cancel Modal with RightClick and ESC
@@ -422,8 +434,8 @@ class PHOTOGRAPHER_OT_FocusSingle(bpy.types.Operator):
             # Restore Focus Planes visibility
             for o in self.fp:
                 o.hide_viewport = False
-            for o in self.dof_objects:
-                o.hide_viewport = False
+            # for o in self.dof_objects:
+            #     o.hide_viewport = False
             return {'CANCELLED'}
 
         return {'RUNNING_MODAL'}
@@ -434,8 +446,8 @@ class PHOTOGRAPHER_OT_FocusSingle(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
 
         # Hide all Focus Planes
-        self.fp = hide_focus_planes()
-        self.dof_objects = hide_dof_objects()
+        self.fp = list_focus_planes()
+        # self.dof_objects = list_dof_objects()
 
         return {'RUNNING_MODAL'}
 
@@ -476,8 +488,8 @@ class PHOTOGRAPHER_OT_FocusTracking(bpy.types.Operator):
                         # Restore visibility of other cameras' Focus Planes
                         for o in self.fp:
                             o.hide_viewport = False
-                        for o in self.dof_objects:
-                            o.hide_viewport = False
+                        # for o in self.dof_objects:
+                        #     o.hide_viewport = False
 
                         # Recreate Focus Plane
                         if self.restore_focus_plane:
@@ -518,8 +530,8 @@ class PHOTOGRAPHER_OT_FocusTracking(bpy.types.Operator):
                     # Restore visibility of other cameras' Focus Planes
                     for o in self.fp:
                         o.hide_viewport = False
-                    for o in self.dof_objects:
-                        o.hide_viewport = False
+                    # for o in self.dof_objects:
+                    #     o.hide_viewport = False
 
                     # Recreate Focus Plane
                     if self.restore_focus_plane:
@@ -533,8 +545,8 @@ class PHOTOGRAPHER_OT_FocusTracking(bpy.types.Operator):
                     # Restore visibility of other cameras' Focus Planes
                     for o in self.fp:
                         o.hide_viewport = False
-                    for o in self.dof_objects:
-                        o.hide_viewport = False
+                    # for o in self.dof_objects:
+                    #     o.hide_viewport = False
 
                     # Recreate Focus Plane
                     if self.restore_focus_plane:
@@ -549,8 +561,8 @@ class PHOTOGRAPHER_OT_FocusTracking(bpy.types.Operator):
             # Restore visibility of other cameras' Focus Planes
             for o in self.fp:
                 o.hide_viewport = False
-            for o in self.dof_objects:
-                o.hide_viewport = False
+            # for o in self.dof_objects:
+            #     o.hide_viewport = False
 
             # Recreate Focus Plane
             if self.restore_focus_plane:
@@ -574,8 +586,8 @@ class PHOTOGRAPHER_OT_FocusTracking(bpy.types.Operator):
             self.restore_focus_plane = True
 
         # Hide other cameras' focus planes
-        self.fp = hide_focus_planes()
-        self.dof_objects = hide_dof_objects()
+        self.fp = list_focus_planes()
+        # self.dof_objects = list_dof_objects()
         return {'RUNNING_MODAL'}
 
 
@@ -634,8 +646,8 @@ def focus_continuous():
                         raycast(context, None, True, True, cam_obj)
 
                         #Little trick to update viewport as the header distance doesn't update automatically
-                        exposure = scene.view_settings.exposure
-                        scene.view_settings.exposure = exposure
+                        # exposure = scene.view_settings.exposure
+                        # scene.view_settings.exposure = exposure
 
                     #Set key if animate is on
                     if settings.af_animate:

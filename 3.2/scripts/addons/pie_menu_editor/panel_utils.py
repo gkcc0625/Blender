@@ -264,6 +264,22 @@ def panel_context_items(self, context):
     return _context_items
 
 
+def bl_header_types():
+    ret = []
+    header_tp = bpy.types.Header
+    for tp_name in dir(bpy.types):
+        tp = getattr(bpy.types, tp_name, None)
+        if not tp or not isclass(tp):
+            continue
+
+        if tp is header_tp or not issubclass(tp, header_tp):
+            continue
+
+        ret.append(tp)
+
+    return ret
+
+
 def bl_menu_types():
     ret = []
     menu_tp = bpy.types.Menu

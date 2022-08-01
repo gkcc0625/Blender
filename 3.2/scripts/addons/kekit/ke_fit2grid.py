@@ -8,13 +8,15 @@ def fit_to_grid(co, grid):
     return round(x, 5), round(y, 5), round(z, 5)
 
 
-class VIEW3D_OT_ke_fit2grid(bpy.types.Operator):
+class KeFit2Grid(bpy.types.Operator):
     bl_idname = "view3d.ke_fit2grid"
     bl_label = "Fit2Grid"
-    bl_description = "EDIT: Snaps verts of selected VERTS/EDGES/FACES to nearest set world grid step."
+    bl_description = "Quantization\n" \
+                     "EDIT MODE: Snaps each vert in selected VERTS/EDGES/FACES to nearest set world grid value\n" \
+                     "OBJECT MODE: Snaps Object Location to nearest Grid value"
     bl_options = {'REGISTER', 'UNDO'}
 
-    set_grid: bpy.props.FloatProperty()
+    set_grid: bpy.props.FloatProperty(name="Grid Value", min=0, description="Nearest Grid value in internal BU(Metric)")
 
     @classmethod
     def poll(cls, context):
@@ -55,7 +57,7 @@ class VIEW3D_OT_ke_fit2grid(bpy.types.Operator):
                         v.select = True
 
                 bmesh.update_edit_mesh(od)
-                bm.free()
+                # bm.free()
                 bpy.ops.object.mode_set(mode="OBJECT")
                 bpy.ops.object.mode_set(mode='EDIT')
 
@@ -73,21 +75,26 @@ class VIEW3D_OT_ke_fit2grid(bpy.types.Operator):
             obj.location = new_loc
 
         else:
-            self.report({"INFO"}, "Fit2Grid: Invalid object/mode - Aborted")
+            self.report({"INFO"}, "Fit2Grid: Invalid object type or mode - Aborted")
 
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (
+    KeFit2Grid,
+)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_ke_fit2grid)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_ke_fit2grid)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

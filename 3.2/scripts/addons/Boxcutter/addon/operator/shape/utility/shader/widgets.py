@@ -73,7 +73,7 @@ class display_handler:
         self.mouse = Vector((mouse.x, mouse.y))
         self.fade = True
         self.shape = None
-        self.points = points(self, context)
+        self.widgets = widgets(self, context)
 
         self._eval_block = False
 
@@ -81,8 +81,7 @@ class display_handler:
     def eval_shape(self, context, force=False):
         bc = context.scene.bc
 
-        # TODO: ngon vert cache
-        if bc.running and bc.operator.shape_type != 'NGON' and not bc.operator.ngon_fit:
+        if bc.running and bc.operator.shape_type not in {'BOX', 'NGON'} and not bc.operator.ngon_fit:
             return
 
         if not hasattr(bc.shape, 'modifiers'):
@@ -90,11 +89,11 @@ class display_handler:
 
             return
 
-        if not hasattr(self, 'shape') or bc.operator.operation == 'NONE' and not self._eval_block or self.points.handler or force:
+        if not hasattr(self, 'shape') or bc.operator.operation == 'NONE' and not self._eval_block or self.widgets.handler or force:
             self._eval_block = bc.operator.operation == 'NONE'
 
             for mod in bc.shape.modifiers[:]:
-                if mod.type in {'BEVEL', 'ARRAY', 'SOLIDIFY', 'SCREW', 'MIRROR'}:
+                if mod.type in {'BEVEL', 'ARRAY', 'SOLIDIFY', 'SCREW', 'MIRROR', 'WELD'}:
                     mod.show_viewport = False
 
             new_vert = lambda v: type('vertex', (), {'co': v.co.xyz, 'index': v.index})
@@ -116,10 +115,10 @@ class display_handler:
         else:
             self.mouse = Vector((mouse.x, mouse.y))
 
-        self.points.update(self, context)
-        self.active = self.points.active
+        self.widgets.update(self, context)
+        self.active = self.widgets.active
 
-        self.fade = self.points.fade
+        self.fade = self.widgets.fade
 
         self.area_tag_redraw(context)
 
@@ -128,13 +127,13 @@ class display_handler:
         self.obj = None
         self.mesh = None
 
-        self.points.exit = True
+        self.widgets.exit = True
 
         if force:
-            self.points.remove(force=True)
+            self.widgets.remove(force=True)
 
 
-class points:
+class widgets:
     active = None
     operation: str = 'NONE'
 
@@ -152,12 +151,13 @@ class points:
         matrix = bc.shape.matrix_world
         draw_index = op.draw_dot_index
 
-        vert_locations = [Vector((round(w.location.x, 1), round(w.location.y, 1), round(w.location.z, 1))) for w in handler.points.handler if w.type == 'VERT']
+        vert_locations = [Vector((round(w.location.x, 1), round(w.location.y, 1), round(w.location.z, 1))) for w in handler.widgets.handler if w.type == 'VERT']
         draw_point = Vector(bc.bound_object.bound_box[draw_index])
+        max_dimension = max(bc.bound_object.dimensions[:-1])
 
-        if type == 'DRAW' and (op.shape_type != 'NGON' or op.ngon_fit):
+        if type == 'DRAW': # and (op.shape_type != 'NGON' or op.ngon_fit):
             if Vector((round(draw_point.x, 1), round(draw_point.y, 1), round(draw_point.z, 1))) in vert_locations:
-                offset = 0.05
+                offset = 0.05 * max_dimension
 
                 draw_point.x -= -offset if draw_index in {5, 6} else offset
                 draw_point.y -= -offset if draw_index in {2, 6} else offset
@@ -174,7 +174,7 @@ class points:
 
         elif type == 'BEVEL':
             index_keys = {1: 7, 2: 4, 5: 3, 6: 0}
-            offset = 0.05
+            offset = 0.05 * max_dimension
 
             location = Vector(bc.bound_object.bound_box[index_keys[draw_index if draw_index in index_keys.keys() else 1]])
             location.x -= offset if draw_index in {5, 6} else -offset
@@ -188,9 +188,12 @@ class points:
         elif type == 'VERT':
             if index == -1:
                 snap = preference.snap
-                indices = op.geo['indices']['extrusion'] if op.extruded else []
                 snap = snap.enable and snap.grid and snap.increment
+
+                indices = op.geo['indices']['extrusion'] if op.extruded or (op.shape_type == 'BOX' and not op.ngon_fit) else []
+
                 valid = lambda v: v.index in indices if op.inverted_extrude and not snap else not v.index in indices
+
                 return [vert for vert in handler.shape.vertices if valid(vert)]
 
             elif not handler.exit and index < len(handler.shape.vertices):
@@ -199,11 +202,11 @@ class points:
         elif type == 'SNAP':
             ngon_last_enabled = len(bc.shape.data.vertices) > 1 and not preference.shape.lasso and ((op.ctrl and not preference.snap.angle_lock) or (not op.ctrl and preference.snap.angle_lock))
 
-            if not ngon_last_enabled or len(bc.shape.data.vertices) < 3:
+            if not ngon_last_enabled or len(bc.shape.data.vertices) < 3 or (op.ngon_point_index == -1 and op.shape_type == 'BOX' and not op.ngon_fit):
                 return None
 
             ngon_angle = 0.017453292519943295 * preference.snap.ngon_angle
-            angle45 = 0.017453292519943295 * 45
+            angle45 = 0.017453292519943295 * (45 if op.shape_type == 'NGON' and not op.ngon_fit else 15)
 
             if op.ngon_point_index > len(bc.shape.data.vertices):
                 op.ngon_point_index = 0
@@ -220,6 +223,33 @@ class points:
 
             if preference.snap.ngon_previous_edge:
                 previous_edge_angle = (previous - bc.shape.data.vertices[index-2].co.xy).angle_signed(Vector((1, 0)), 0.0)
+
+            if op.shape_type == 'BOX' and not op.ngon_fit:
+                previous_edge_angle = 0.0
+                for i in op.geo['indices']['offset']:
+                    if i == index:
+                        continue
+
+                    for key in bc.shape.data.edge_keys:
+                        if i not in key:
+                            continue
+
+                        if index in key:
+                            anchor = bc.shape.data.vertices[i].co.xy
+                            anchor_index = i
+                            break
+
+                for i in op.geo['indices']['offset']:
+                    if i == index:
+                        continue
+
+                    for key in bc.shape.data.edge_keys:
+                        if i not in key:
+                            continue
+
+                        if index in key and anchor_index not in key:
+                            previous = bc.shape.data.vertices[i].co.xy
+                            break
 
             delta = current - previous
             angle = round((delta.angle_signed(Vector((1, 0)), 0.0) - previous_edge_angle) / ngon_angle) * ngon_angle + previous_edge_angle
@@ -251,7 +281,7 @@ class points:
                 if (point_position - position).length < preference.keymap.ngon_last_line_threshold * screen.dpi_factor() * 6:
                     return Vector((intersect.x, intersect.y, location.z))
 
-            snap_widget = [w for w in handler.points.handler if w.type == 'SNAP']
+            snap_widget = [w for w in handler.widgets.handler if w.type == 'SNAP']
             if snap_widget and snap_widget[-1].distance < preference.keymap.ngon_last_line_threshold * screen.dpi_factor() * 6:
                 return snap_widget[-1].location
 
@@ -279,13 +309,13 @@ class points:
                 if 'DISPLACE' in types:
                     enabled_types.append('DISPLACE')
 
-            if op.shape_type == 'NGON' or op.ngon_fit and not preference.shape.lasso:
+            if (op.shape_type in {'BOX', 'NGON'} or op.ngon_fit) and not preference.shape.lasso and not preference.shape.box_grid:
                 enabled_types.append('VERT')
 
-            # else:
-            enabled_types.append('BEVEL')
+            if not preference.shape.lasso and not preference.shape.box_grid:
+                enabled_types.append('BEVEL')
 
-        if op.operation == 'DRAW' and (op.shape_type == 'NGON' or op.ngon_fit):
+        if op.operation == 'DRAW' and (op.shape_type in {'BOX', 'NGON'} or op.ngon_fit) and (op.ngon_point_index != -1 or op.shape_type == 'NGON'):
             enabled_types.append('SNAP')
 
         return enabled_types
@@ -349,7 +379,7 @@ class points:
         if self.exit:
             self.remove()
 
-        if not hasattr(handler, 'points'):
+        if not hasattr(handler, 'widgets'):
             return
 
         handler.eval_shape(context)

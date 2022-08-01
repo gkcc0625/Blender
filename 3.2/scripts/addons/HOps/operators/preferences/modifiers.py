@@ -14,7 +14,7 @@ class HOPS_OT_CollapseModifiers(bpy.types.Operator):
 
         scene = bpy.context.scene
 
-        objects = [obj for obj in scene.objects if obj.type == "MESH"]
+        objects = [obj for obj in scene.objects if obj.type == "MESH" or "CURVE"]
 
         for obj in objects:
             for mod in obj.modifiers:
@@ -36,7 +36,7 @@ class HOPS_OT_OpenModifiers(bpy.types.Operator):
 
         scene = bpy.context.scene
 
-        objects = [obj for obj in scene.objects if obj.type == "MESH"]
+        objects = [obj for obj in scene.objects if obj.type == "MESH" or "CURVE"]
 
         for obj in objects:
             for mod in obj.modifiers:

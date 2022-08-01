@@ -16,7 +16,7 @@ class BC_OT_helper(Operator):
         op = toolbar.option()
         bc = context.scene.bc
 
-        if preference.behavior.helper.shape_type != op.shape_type: # XXX: beware of shape type update method
+        if op and preference.behavior.helper.shape_type != op.shape_type: # XXX: beware of shape type update method
             preference.behavior.helper.shape_type = op.shape_type
 
         if bc.running:
@@ -28,7 +28,7 @@ class BC_OT_helper(Operator):
                 preference.shape['mirror_bisect_axis'] = mod.use_bisect_axis
                 preference.shape['mirror_flip_axis'] = mod.use_bisect_flip_axis
 
-                break                
+                break
 
         bpy.ops.wm.call_panel(name='BC_PT_helper', keep_open=True)
 

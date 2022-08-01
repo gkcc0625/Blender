@@ -164,4 +164,4 @@ LMB + Shift - Outset"""
             ui.receive_draw_data(draw_data=draw_data)
             ui.draw(draw_bg=get_preferences().ui.Hops_operator_draw_bg, draw_border=get_preferences().ui.Hops_operator_draw_border)
 
-        return edit_bool_inset(context, self.keep_cutters, self.outset, self.thickness, self.keep_cutters, self.use_swap, self.use_self, self.threshold, get_preferences().property.boolean_solver)
+        return edit_bool_inset(context, self.keep_cutters, self.outset, self.thickness, self.use_swap, self.use_self, self.threshold, get_preferences().property.boolean_solver)

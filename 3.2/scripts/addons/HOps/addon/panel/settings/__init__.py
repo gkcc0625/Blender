@@ -63,7 +63,7 @@ class HARDFLOW_PT_settings(Panel):
 
     @classmethod
     def poll(cls, context):
-        return active_tool().idname == 'Hardflow'
+        return active_tool().idname == 'Hopsedit'
 
     def draw(self, context):
         layout = self.layout

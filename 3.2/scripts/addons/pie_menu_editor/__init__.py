@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Pie Menu Editor",
     "author": "roaoao",
-    "version": (1, 18, 3),
+    "version": (1, 18, 5),
     "blender": (2, 80, 0),
     "warning": "",
     "tracker_url": "http://blenderartists.org/forum/showthread.php?392910",

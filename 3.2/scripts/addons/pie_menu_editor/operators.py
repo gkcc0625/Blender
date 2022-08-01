@@ -11,7 +11,7 @@ from .bl_utils import (
 from .layout_helper import lh, draw_pme_layout, operator
 from .overlay import Timer, Overlay, TablePainter
 from .ui import tag_redraw, utitle
-from .utils import extract_str_flags, format_exception
+from . import utils as U
 from . import c_utils as CTU
 from .panel_utils import (
     hide_panel, hidden_panel, is_panel_hidden, bl_panel_types,
@@ -1408,7 +1408,7 @@ class WM_OT_pme_user_pie_menu_call(bpy.types.Operator):
                     p = lh.operator(op_bl_idname, text, icon)
                     operator_utils.apply_properties(p, args, pm, pmi)
                 except:
-                    msg = format_exception(0)
+                    msg = U.format_exception(0)
                     if msg.startswith(
                             "AttributeError: _bpy.ops.as_string: operator"):
                         msg = msg[36:].capitalize()
@@ -1425,7 +1425,7 @@ class WM_OT_pme_user_pie_menu_call(bpy.types.Operator):
                     text, icon, cmd=pmi.text, menu=pm.name, slot=pmi.name)
 
         elif pmi.mode == 'MENU':
-            menu_name, expand_menu, use_frame = extract_str_flags(
+            menu_name, expand_menu, use_frame = U.extract_str_flags(
                 pmi.text, F_EXPAND, F_EXPAND)
 
             if menu_name in pr.pie_menus:
@@ -1601,7 +1601,7 @@ class WM_OT_pme_user_pie_menu_call(bpy.types.Operator):
             if pmi8.mode == 'COMMAND':
                 lh.layout.scale_y = 1.5
             elif pmi8.mode == 'MENU':
-                _, expand_menu, _ = extract_str_flags(
+                _, expand_menu, _ = U.extract_str_flags(
                     pmi8.text, F_EXPAND, F_EXPAND)
 
                 if not expand_menu:
@@ -1619,7 +1619,7 @@ class WM_OT_pme_user_pie_menu_call(bpy.types.Operator):
             if pmi9.mode == 'COMMAND':
                 lh.layout.scale_y = 1.5
             elif pmi9.mode == 'MENU':
-                _, expand_menu, _ = extract_str_flags(
+                _, expand_menu, _ = U.extract_str_flags(
                     pmi9.text, F_EXPAND, F_EXPAND)
 
                 if not expand_menu:
@@ -1634,10 +1634,7 @@ class WM_OT_pme_user_pie_menu_call(bpy.types.Operator):
     def draw_rm(pm, layout):
         pr = prefs()
 
-        tp_name = pm.name
-        pre = tp_name.endswith("_pre")
-        if pre:
-            tp_name = tp_name[:-4]
+        tp_name, _, _ = U.extract_str_flags_b(pm.name, CC.F_RIGHT, CC.F_PRE)
 
         is_header = hasattr(bpy.types, tp_name) and \
             ('_HT_' in tp_name or tp_name.endswith("_editor_menus"))
@@ -2758,7 +2755,7 @@ class WM_OT_pmidata_hints_show(bpy.types.Operator):
 class PME_OT_pmidata_specials_call(bpy.types.Operator):
     bl_idname = "pme.pmidata_specials_call"
     bl_label = ""
-    bl_description = "Menu"
+    bl_description = "Examples"
     bl_options = {'INTERNAL'}
 
     def _draw(self, menu, context):
@@ -2773,24 +2770,29 @@ class PME_OT_pmidata_specials_call(bpy.types.Operator):
         pm = pr.selected_pm
         mode = pr.pmi_data.mode
 
+        row = lh.row(align=False)
+        lh.column(align=False)
+
+        lh.label(text="Examples:", icon='HELP')
+        lh.label(text="Command Tab")
+        lh.sep()
+
         lh.operator(
             PME_OT_script_open.bl_idname,
-            "External Script", 'FILE_FOLDER',
+            "Call External Script", 'FILE_FOLDER',
             idx=pme.context.edit_item_idx,
             mode='CUSTOM' if mode == 'CUSTOM' else 'COMMAND')
+
+        lh.operator(
+            PME_OT_pmi_pm_search.bl_idname,
+            "Call PME Menu", 'COLOR')
 
         lh.sep()
 
         lh.operator(
             PME_OT_pmi_operator_search.bl_idname,
-            "Operator", 'BLENDER',
+            "Call Operator", 'BLENDER',
             idx=pme.context.edit_item_idx)
-
-        lh.operator(
-            PME_OT_pmi_pm_search.bl_idname,
-            "PME Menu", 'COLOR')
-
-        lh.sep()
 
         lh.operator(
             PME_OT_pmi_menu_search.bl_idname,
@@ -2811,6 +2813,8 @@ class PME_OT_pmidata_specials_call(bpy.types.Operator):
             idx=pme.context.edit_item_idx,
             pie=True,
             mouse_over=False)
+
+        lh.sep()
 
         if is_28():
             lh.operator(
@@ -2837,27 +2841,32 @@ class PME_OT_pmidata_specials_call(bpy.types.Operator):
 
         lh.sep()
 
-        lh.menu("PME_MT_screen_set", "Screen Layout", icon=ic('SPLITSCREEN'))
-        lh.menu("PME_MT_brush_set", "Brush", icon=ic('BRUSH_DATA'))
+        lh.menu("PME_MT_screen_set", "Set Workspace", icon=ic('SPLITSCREEN'))
+        lh.menu("PME_MT_brush_set", "Set Brush", icon=ic('BRUSH_DATA'))
 
         if pm and pm.mode in {'PMENU', 'DIALOG'}:
+            lh.column(row, align=False)
+            lh.label(text="")
+            lh.label(text="Custom Tab")
             lh.sep()
 
             lh.operator(
                 PME_OT_pmi_pm_search.bl_idname,
-                "Draw Popup Dialog", 'COLOR', custom=True)
+                "Draw PME Popup Dialog", 'COLOR', custom=True)
 
             lh.operator(
                 PME_OT_pmi_panel_search.bl_idname,
-                "Draw Panel", 'LINENUMBERS_OFF', custom=True)
+                "Draw Panel", 'WINDOW', custom=True)
 
             lh.menu(
                 "PME_MT_header_menu_set",
-                "Draw Header Menu", icon=ic('FULLSCREEN'))
+                "Draw Header Menu", icon=ic('WINDOW'))
+
+            lh.sep()
 
             lh.layout.operator_menu_enum(
                 PME_OT_pmi_custom_set.bl_idname, "mode",
-                text="Custom Tab Examples", icon=ic('COLLAPSEMENU'))
+                text="More", icon=ic('COLLAPSEMENU'))
 
     def _draw_menu(self, menu, context):
         lh.lt(menu.layout, operator_context='INVOKE_DEFAULT')
@@ -2898,7 +2907,7 @@ class PME_OT_pmidata_specials_call(bpy.types.Operator):
         if mode in MODAL_CMD_MODES:
             mode = 'COMMAND'
 
-        context.window_manager.popup_menu(self._draw, title="Examples")
+        context.window_manager.popup_menu(self._draw)
         # if mode == 'COMMAND':
         # elif mode == 'MENU':
         #     context.window_manager.popup_menu(self._draw_menu)

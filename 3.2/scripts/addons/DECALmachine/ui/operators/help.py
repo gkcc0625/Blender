@@ -2,7 +2,7 @@ import bpy
 import os
 import sys
 import socket
-from ... utils.registration import get_path, get_prefs, get_version_files, get_version_from_filename, get_version_from_blender
+from ... utils.registration import get_path, get_prefs, get_version_files, get_version_from_filename, get_version_from_blender, is_library_corrupted
 from ... utils.system import makedir, open_folder, get_PIL_image_module_path
 from ... import bl_info
 
@@ -81,13 +81,7 @@ class GetSupport(bpy.types.Operator):
                     if all(string in line for string in ['version:', 'branch:', 'hash:']):
                         idx = newlines.index(line)
                         newlines.pop(idx)
-
-                        try:
-                            ip = socket.gethostbyname('drum.machin3.io')
-                        except:
-                            ip = ''
-
-                        newlines.insert(idx, line.replace(', type:', f", revision: {bl_info['revision']}|{self.str_to_hex(ip)}, type:"))
+                        newlines.insert(idx, line.replace(', type:', f", revision: {bl_info['revision']}, type:"))
 
                     elif line.startswith('DECALmachine'):
                         idx = newlines.index(line)
@@ -100,8 +94,15 @@ class GetSupport(bpy.types.Operator):
                             libs = [(f, ', '.join([get_version_from_filename(v) for v in get_version_files(libpath)])) for f in sorted(os.listdir(os.path.join(assetspath, folder))) if os.path.isdir(libpath := os.path.join(assetspath, folder, f))]
 
                             for name, versions in libs:
-                                new.append(f"    {name}: {versions}")
+                                if is_library_corrupted(os.path.join(assetspath, folder, name)):
+                                    if versions:
+                                        corrupted = ' - corrupted'
+                                    else:
+                                        corrupted = 'corrupted'
+                                else:
+                                    corrupted = ''
 
+                                new.append(f"    {name}: {versions}{corrupted}")
 
                         new.extend(['',
                                     'Color Management',
@@ -116,10 +117,3 @@ class GetSupport(bpy.types.Operator):
 
                 f.seek(0)
                 f.writelines(newlines)
-
-
-    def str_to_hex(self, ipstr):
-        basehex = '0x'
-        if ipstr:
-            return basehex + ''.join('{:02x}'.format(int(char)) for char in ipstr.split('.'))
-        return basehex

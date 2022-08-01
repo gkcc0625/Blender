@@ -201,7 +201,7 @@ class bc(PropertyGroup):
     quad_bevel_width: FloatProperty(
         name = names['bevel_width'],
         description = '\n Bevel width',
-        #update = change.bevel_width,
+        update = change.bevel_width,
         subtype = 'DISTANCE',
         unit = 'LENGTH',
         min = 0,
@@ -211,7 +211,7 @@ class bc(PropertyGroup):
     front_bevel_width: FloatProperty(
         name = names['bevel_width'],
         description = '\n Bevel width',
-        #update = change.bevel_width,
+        update = change.bevel_width,
         subtype = 'DISTANCE',
         unit = 'LENGTH',
         min = 0,

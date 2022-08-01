@@ -25,3 +25,6 @@ panel_value_size = 0.88
 
 # Default Exposure value
 base_ev = 9.416 #Applying the 683 lm/W conversion (2^9.416 = 683)
+
+# Color Temperature description
+color_temp_desc = "Color Temperature (Kelvin)./n Physically based between 1000K and 12,000K then accelerated towards blue for artistic purposes"

@@ -520,11 +520,14 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
 
             text = form.shortened_text(mod.name, width=100, font_size=12)
 
+            _, pop_up = popup_generator(self, mod, index + 1, bool_tracker_mode=True)
+
             button = form.Button(
                 scroll_enabled=False, text=text, tips=self.bool_tips_updater(mod.name),
                 width=110, height=20, use_padding=False,
                 callback=self.bool_tracker.make_selected_active, pos_args=(bool_index, False), neg_args=(bool_index, True),
-                highlight_hook=self.bool_tracker.highlight, highlight_hook_args=(bool_index,))
+                highlight_hook=self.bool_tracker.highlight, highlight_hook_args=(bool_index,),
+                popup=pop_up, popup_modifier_key='CTRL')
 
             tips = button.tips
             if tips:
@@ -757,6 +760,8 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
                 tip.append("No Object in Modifier")
                 
         except: pass
+
+        tip.append("Ctrl Click : Popup Menu")
 
         return tip
 

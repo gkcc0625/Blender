@@ -4,7 +4,7 @@ from math import radians, degrees
 from bpy.props import BoolProperty
 from . import infobar
 from ... utils.objects import apply_scale
-from ... utility import modifier
+from ... utility import modifier, ops
 from ... utility.base_modal_controls import Base_Modal_Controls
 from ... utils.mod_controller import Mod_Controller
 from ... preferences import get_preferences
@@ -340,7 +340,7 @@ class HOPS_OT_AdjustBevelOperator(bpy.types.Operator):
                 if context.mode == 'OBJECT':
                     for obj, mod in self.iter_obj_mod():
                         obj.data.use_auto_smooth = True
-                    bpy.ops.object.shade_smooth()
+                    ops.shade_smooth()
 
             # Segment Mode
             else:
@@ -513,9 +513,9 @@ class HOPS_OT_AdjustBevelOperator(bpy.types.Operator):
     def preset_one(self, context):
         for obj, mod in self.iter_obj_mod():
             if round(obj.data.auto_smooth_angle, 4) == round(radians(60), 4):
-                obj.data.use_auto_smooth = True
                 if context.mode == 'OBJECT':
-                    bpy.ops.object.shade_smooth()
+                    ops.shade_smooth()
+                obj.data.use_auto_smooth = True
                 obj.data.auto_smooth_angle = radians(30)
                 mod.harden_normals = False
                 if bpy.app.version < (2, 90, 0):
@@ -525,10 +525,10 @@ class HOPS_OT_AdjustBevelOperator(bpy.types.Operator):
                 if mod.segments == 2:
                     mod.segments = 4
             else:
-                obj.data.use_auto_smooth = True
                 if context.mode == 'OBJECT':
-                    bpy.ops.object.shade_smooth()
+                    ops.shade_smooth()
                     obj.data.auto_smooth_angle = radians(60)
+                obj.data.use_auto_smooth = True
                 mod.harden_normals = False
                 if bpy.app.version < (2, 90, 0):
                     mod.use_only_vertices = False
@@ -731,7 +731,12 @@ class HOPS_OT_AdjustBevelOperator(bpy.types.Operator):
             h_append(["Move", "Adjust segments of bevel modifier"])
         else:
             h_append(["Move", "Adjust width of bevel modifier"])
-        
+
+        if 'SPACE' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('Space', 'Open Select Menu'))
+        elif 'TAB' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('TAB', 'Open Select Menu'))
+
         # Mods
         mods_list = get_mods_list(mods=self.mod_controller.active_obj.modifiers)
 
@@ -822,7 +827,7 @@ class HOPS_OT_AdjustBevelOperator(bpy.types.Operator):
                         mod.vertex_group = vg.name
                         bpy.ops.mesh.faces_shade_smooth()
                     else:
-                        bpy.ops.object.shade_smooth()
+                        ops.shade_smooth()
 
         # Notifications
         if get_preferences().ui.Hops_extra_info:

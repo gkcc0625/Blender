@@ -114,6 +114,11 @@ class bc(PropertyGroup):
         description = '\n Flip the shape fitted for custom shape on the z axis during a join operation',
         default = True)
 
+    join_exact: BoolProperty(
+        name = names['join_exact'],
+        description = '\n Allows the Join shape to use exact boolean mode without the offset from the main shape',
+        default = False)
+
     # make_active: BoolProperty(
     #     name = names['make_active'],
     #     description = '\n Make the shape active when holding shift to keep it',
@@ -500,6 +505,7 @@ def draw(preference, context, layout):
     label_row(preference.behavior, 'surface_extract', layout.row(), label='Surface Extract')
     label_row(preference.behavior, 'accucut', layout.row())
     # label_row(preference.behavior, 'simple_trace', layout.row())
+    label_row(preference.behavior, 'join_exact', layout.row(), label='Join Jump to Exact')
     label_row(preference.behavior, 'orient_active_edge', layout.row())
     label_row(preference.behavior, 'orient_method', layout.row())
 

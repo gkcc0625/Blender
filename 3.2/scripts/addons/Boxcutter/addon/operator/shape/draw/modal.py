@@ -71,6 +71,10 @@ def repeat(op, context, event):
 
 def ngon_point_bevel(context, event, op, widget):
     op.ngon_point_index = widget.index
+
+    if not op.ngon_point_bevel:
+        op.ngon_point_bevel_reset = op.last['modifier']['bevel_width']
+
     op.ngon_point_bevel = True
 
     utility.modal.operation.change(op, context, event, to='BEVEL')
@@ -135,15 +139,27 @@ def method(op, context, event):
     within_region_tool_header = False
     within_region_tool_header_x = event.mouse_region_x > 0 and event.mouse_region_x < tool_region.width
 
+    region_height = context.region.height
+    header_height = tool_region.height
+    total_height = region_height
+
     if context.space_data.show_region_tool_header:
-        if tool_region.alignment == 'TOP':
-            within_region_tool_header = within_region_tool_header_x and event.mouse_region_y > context.region.height and event.mouse_region_y < context.region.height + tool_region.height
+        if bpy.app.version > (2, 93, 0): #XXX: change may have happened on a micro version
+            region_height -= header_height
         else:
-            within_region_tool_header = within_region_tool_header_x and event.mouse_region_y > 0 - tool_region.height and event.mouse_region_y < 0
+            total_height += header_height
+
+        if tool_region.alignment == 'TOP':
+            within_region_tool_header = within_region_tool_header_x and event.mouse_region_y > region_height and event.mouse_region_y < total_height
+        else:
+            within_region_tool_header = within_region_tool_header_x and event.mouse_region_y > 0 - header_height and event.mouse_region_y < 0
 
     within_region_3d_x = event.mouse_region_x > 0 and event.mouse_region_x < context.region.width
-    within_region_3d_y = event.mouse_region_y > 0 and event.mouse_region_y < context.region.height
+    within_region_3d_y = event.mouse_region_y > 0 and event.mouse_region_y < region_height
     within_region_3d = within_region_3d_x and within_region_3d_y
+
+    ngon = op.shape_type == 'NGON' or op.ngon_fit
+    boxgon = op.shape_type == 'BOX' and not op.ngon_fit
 
     if op.allow_menu and op.operation != 'NONE':
         op.allow_menu = False
@@ -195,7 +211,7 @@ def method(op, context, event):
                 if bc.shader and bc.shader.widgets.active and bc.shader.widgets.active.type != 'SNAP' and not event.ctrl:
                     widget = bc.shader.widgets.active
 
-                    if widget.operation == 'DRAW' and event.shift and (op.shape_type == 'NGON' or op.ngon_fit):
+                    if widget.type == 'VERT' and event.shift and (ngon or boxgon):
 
                         ngon_point_bevel(context, event, op, widget)
                         op.update()
@@ -254,7 +270,8 @@ def method(op, context, event):
                         op.modified_lock = False
 
                     else:
-                        bc.shader.widgets.eval_shape(context, force=True)
+                        if bc.shader:
+                            bc.shader.widgets.eval_shape(context, force=True)
 
                         if op.ngon_fit:
                             utility.lattice.fit(op, context)
@@ -374,14 +391,16 @@ def method(op, context, event):
                         op.ngon_fit = False
                         op.shape_type = 'NGON'
 
-                    bc.shader.widgets.active = None
+                    if bc.shader:
+                        bc.shader.widgets.active = None
+
                     utility.modal.operation.change(op, context, event, to='DRAW')
 
-                ngon = op.shape_type == 'NGON' and op.operation == 'DRAW'
+                ngon_draw = op.shape_type == 'NGON' and op.operation == 'DRAW'
                 rmb_cancel = preference.keymap.rmb_cancel_ngon
                 # last_count = 0
 
-                if op.alt_lock or (not rmb_cancel and event.type == 'RIGHTMOUSE' and ngon and len(bc.shape.data.vertices) == 2) or (rmb_cancel and event.type == 'RIGHTMOUSE' and ngon):
+                if op.alt_lock or (not rmb_cancel and event.type == 'RIGHTMOUSE' and ngon_draw and len(bc.shape.data.vertices) == 2) or (rmb_cancel and event.type == 'RIGHTMOUSE' and ngon):
                     op.cancel(context)
 
                     op.update()
@@ -430,7 +449,7 @@ def method(op, context, event):
             if event.value == 'PRESS':
                 op.mmb = True
 
-                if op.operation == 'NONE' and bc.shader.widgets.active and bc.shader.widgets.active.operation == 'DRAW' and (op.shape_type == 'NGON' or op.ngon_fit):
+                if op.operation == 'NONE' and bc.shader and bc.shader.widgets.active and bc.shader.widgets.active.type == 'VERT' and (ngon or boxgon):
 
                     ngon_point_bevel(context, event, op, bc.shader.widgets.active)
                     op.update()
@@ -439,7 +458,7 @@ def method(op, context, event):
             elif event.value == 'RELEASE':
                 op.mmb = False
 
-                if op.operation == 'BEVEL' and op.ngon_point_bevel:
+                if op.operation == 'BEVEL' and op.ngon_point_bevel and op.ngon_point_index != -1:
                     utility.modal.operation.change(op, context, event, to='NONE')
 
                     op.update()
@@ -502,6 +521,9 @@ def method(op, context, event):
                     op.ngon_fit = False
                     utility.custom.cutter(op, context)
 
+                elif event.shift and op.operation in ('NONE', 'EXTRUDE', 'OFFSET'):
+                    utility.modifier.move(op, context, False)
+
                 else:
                     op.update()
                     return {'PASS_THROUGH'}
@@ -559,6 +581,9 @@ def method(op, context, event):
                     op.ngon_fit = False
                     utility.custom.cutter(op, context, index=-1)
 
+                elif event.shift and op.operation in ('NONE', 'EXTRUDE', 'OFFSET'):
+                    utility.modifier.move(op, context, True)
+
                 else:
                     op.update()
                     return {'PASS_THROUGH'}
@@ -580,8 +605,8 @@ def method(op, context, event):
                     op.allow_menu = False
                     return {'PASS_THROUGH'}
 
-                ngon = op.shape_type == 'NGON' and op.operation == 'DRAW' and not op.add_point
-                if op.operation == 'NONE' and not op.allow_menu or (not op.modified and (not ngon or preference.behavior.draw_line)):
+                ngon_draw = op.shape_type == 'NGON' and op.operation == 'DRAW' and not op.add_point
+                if op.operation == 'NONE' and not op.allow_menu or (not op.modified and (not ngon_draw or preference.behavior.draw_line)):
                     op.cancel(context)
                     op.update()
                     return {'CANCELLED'}
@@ -598,7 +623,7 @@ def method(op, context, event):
                     utility.modal.operation.change(op, context, event, to='NONE', clear_mods=remove)
 
         # RET
-        elif event.type in {'RET', 'SPACE'}:
+        elif event.type in {'RET', 'SPACE', 'NUMPAD_ENTER'}:
             op.execute(context)
 
             op.update()
@@ -898,7 +923,7 @@ def method(op, context, event):
                         op.last['modifier']['front_bevel_width'] = 0.02
                         op.last['modifier']['quad_bevel_width'] = 0.02
 
-                        if op.shape_type == 'NGON' or op.ngon_fit:
+                        if ngon or boxgon:
                             for vindex in op.geo['indices']['offset']:
                                 vert = bc.shape.data.vertices[vindex]
 
@@ -970,7 +995,7 @@ def method(op, context, event):
                 if bc.shape.bc.array_circle:
                     bc.shape.bc['array_circle'] = False
                     to = 'NONE'
-                    remove.append('DISPLACE')
+                    remove = ('DISPLACE', 'ARRAY')
 
                 utility.modal.operation.change(op, context, event, to=to, clear_mods=remove)
 
@@ -1020,6 +1045,7 @@ def method(op, context, event):
         # X, Y, Z
         elif event.type in {'X', 'Y', 'Z'}:
             if event.type == 'Z' and event.alt or event.shift:
+                op.update()
                 return {'PASS_THROUGH'}
 
             if event.value == 'RELEASE':
@@ -1065,6 +1091,11 @@ def method(op, context, event):
                 elif op.operation in {'MOVE', 'ROTATE', 'SCALE'}:
                     utility.modal.axis.change(op, context, to=event.type)
 
+                utility.modal.refresh.shape(op, context, event)
+                op.update()
+                return {'RUNNING_MODAL'}
+
+
         elif op.operation == 'NONE' and event.type not in {'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE'}:
             op.update()
             return {'PASS_THROUGH'}
@@ -1083,3 +1114,4 @@ def method(op, context, event):
 
     op.update()
     return {'RUNNING_MODAL'}
+

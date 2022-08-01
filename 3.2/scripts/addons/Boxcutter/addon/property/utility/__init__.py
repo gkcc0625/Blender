@@ -54,6 +54,7 @@ names = { #XXX use property utility names instead
     'intersect': 'Intersect',
     'join': 'Join',
     'join_flip_z': 'Join Flip Z',
+    'join_exact': 'Join Exact',
     'keep_modifiers': 'Keep Modifiers',
     'knife': 'Knife',
     'lazorcut_depth': 'Depth',

@@ -12,6 +12,8 @@ F_HIDDEN = "!"
 F_CB = "^"
 F_EXPAND = "@"
 F_CUSTOM_ICON = "@"
+F_RIGHT = "_right"
+F_PRE = "_pre"
 PMIF_DISABLED = 1
 PANEL_FILE = "sub"
 PANEL_FOLDER = ""
@@ -190,7 +192,10 @@ SPACE_ITEMS = (
     ('TIMELINE', "Timeline", "", 'TIME', 13),
     (UPREFS, "User Preferences", "", 'PREFERENCES', 14),
     ('IMAGE_EDITOR', "Image/UV Editor", "", 'IMAGE', 15),
-    ('SEQUENCE_EDITOR', "Video Sequencer", "", 'SEQUENCE', 16)
+    ('SEQUENCE_EDITOR', "Video Sequencer", "", 'SEQUENCE', 16),
+    ('SPREADSHEET', "Spreadsheet", "", 'SPREADSHEET', 17),
+    ('TOPBAR', "Top Bar", "", 'TRIA_UP_BAR', 18),
+    ('STATUSBAR', "Status Bar", "", 'TRIA_DOWN_BAR', 19),
 )
 
 REGION_ITEMS = (
@@ -220,91 +225,55 @@ def header_action_enum_items():
     yield ('BOTTOM_HIDE', "Bottom Hidden", "", '', 4)
 
 
+class EnumItems():
+    def __init__(self):
+        self._items = []
+
+    def add_item(self, id, name, icon, desc=""):
+        self._items.append(
+            (id, name, desc, ic(icon), len(self._items)))
+
+    def retrieve_items(self):
+        if self._items is None:
+            raise ValueError("Items are already retrieved")
+
+        ret = self._items
+        self._items = None
+
+        return ret
+
+
 def area_type_enum_items(current=True, none=False):
-    ret = []
+    ei = EnumItems()
+
     if current:
-        ret.append(('CURRENT', "Current", "", 'BLENDER', len(ret)))
+        ei.add_item('CURRENT', "Current", 'BLENDER')
 
     if none:
-        ret.append(('NONE', "None", "", 'SPACE3', len(ret)))
+        ei.add_item('NONE', "None", 'SPACE3')
 
-    b28 = is_28()
+    ei.add_item('VIEW_3D', "3D View", 'VIEW3D')
+    ei.add_item('TIMELINE', "Timeline", 'TIME')
+    ei.add_item('FCURVES', "Graph Editor", 'GRAPH')
+    ei.add_item('DRIVERS', "Drivers", 'DRIVER')
+    ei.add_item('DOPESHEET', "Dope Sheet", 'ACTION')
+    ei.add_item('NLA_EDITOR', "NLA Editor", 'NLA')
+    ei.add_item('VIEW', "Image Editor", 'IMAGE')
+    ei.add_item('UV', "UV Editor", 'UV')
+    ei.add_item('CLIP_EDITOR', "Movie Clip Editor", 'TRACKER')
+    ei.add_item('SEQUENCE_EDITOR', "Video Sequence Editor", 'SEQUENCE')
+    ei.add_item('ShaderNodeTree', "Shader Editor", 'NODE_MATERIAL')
+    ei.add_item('CompositorNodeTree', "Compositing", 'NODE_COMPOSITING')
+    ei.add_item('TextureNodeTree', "Texture Node Editor", 'NODE_TEXTURE')
+    ei.add_item('GeometryNodeTree', "Geometry Node Editor", 'NODETREE')
+    ei.add_item('TEXT_EDITOR', "Text Editor", 'TEXT')
+    ei.add_item('PROPERTIES', "Properties", 'PROPERTIES')
+    ei.add_item('OUTLINER', "Outliner", 'OOPS')
+    ei.add_item(UPREFS, "User Preferences", 'PREFERENCES')
+    ei.add_item('INFO', "Info", 'INFO')
+    ei.add_item('FILE_BROWSER', "File Browser", 'FILESEL')
+    ei.add_item('ASSETS', "Asset Browser", 'ASSET_MANAGER')
+    ei.add_item('SPREADSHEET', "Spreadsheet", 'SPREADSHEET')
+    ei.add_item('CONSOLE', "Python Console", 'CONSOLE')
 
-    ret.append(('VIEW_3D', '3D View', '', 'VIEW3D', len(ret)))
-    ret.append(('TIMELINE', 'Timeline', '', 'TIME', len(ret)))
-
-    if b28:
-        ret.append(('FCURVES', 'Graph Editor', '', 'GRAPH', len(ret)))
-    else:
-        ret.append(('GRAPH_EDITOR', 'Graph Editor', '', 'IPO', len(ret)))
-
-    if b28:
-        ret.append(('DOPESHEET', 'Dope Sheet', '', 'ACTION', len(ret)))
-    else:
-        ret.append(('DOPESHEET_EDITOR', 'Dope Sheet', '', 'ACTION', len(ret)))
-
-    ret.append(('NLA_EDITOR', 'NLA Editor', '', 'NLA', len(ret)))
-
-    if b28:
-        ret.append(('VIEW', 'Image Editor', '', 'IMAGE', len(ret)))
-        ret.append(('UV', 'UV Editor', '', 'UV', len(ret)))
-    else:
-        ret.append(('IMAGE_EDITOR', 'UV/Image Editor', '', 'IMAGE_COL', len(ret)))
-
-    if b28:
-        ret.append((
-            'CLIP_EDITOR', 'Movie Clip Editor', '', 'TRACKER', len(ret)))
-    else:
-        ret.append((
-            'CLIP_EDITOR', 'Movie Clip Editor', '', 'CLIP', len(ret)))
-
-    ret.append(
-        ('SEQUENCE_EDITOR', 'Video Sequence Editor', '', 'SEQUENCE', len(ret)))
-
-    if b28:
-        ret.append((
-            'ShaderNodeTree', 'Shader Editor', '',
-            'NODE_MATERIAL', len(ret)))
-        ret.append((
-            'CompositorNodeTree', 'Compositing', '',
-            'NODE_COMPOSITING', len(ret)))
-        ret.append((
-            'TextureNodeTree', 'Texture Node Editor', '',
-            'NODE_TEXTURE', len(ret)))
-    else:
-        ret.append(('NODE_EDITOR', 'Node Editor', '', 'NODETREE', len(ret)))
-
-    ret.append(('TEXT_EDITOR', 'Text Editor', '', 'TEXT', len(ret)))
-
-    if not b28:
-        ret.append(('LOGIC_EDITOR', 'Logic Editor', '', 'LOGIC', len(ret)))
-
-    if b28:
-        ret.append(('PROPERTIES', 'Properties', '', 'PROPERTIES', len(ret)))
-    else:
-        ret.append(('PROPERTIES', 'Properties', '', 'BUTS', len(ret)))
-
-    ret.append(('OUTLINER', 'Outliner', '', 'OOPS', len(ret)))
-    ret.append((UPREFS, 'User Preferences', '', 'PREFERENCES', len(ret)))
-    ret.append(('INFO', 'Info', '', 'INFO', len(ret)))
-    ret.append(('FILE_BROWSER', 'File Browser', '', 'FILESEL', len(ret)))
-    ret.append(('CONSOLE', 'Python Console', '', 'CONSOLE', len(ret)))
-
-    return ret
-
-    # i = -1
-    # if current:
-    #     i += 1
-    #     yield ('CURRENT', "Current", "", 'SPACE2', i)
-
-    # if none:
-    #     i += 1
-    #     yield ('NONE', "None", "", 'SPACE3', i)
-
-    # for v in bpy.types.Area.bl_rna.properties['type'].enum_items:
-    #     if v.identifier == 'EMPTY':
-    #         continue
-
-    #     i += 1
-    #     yield (v.identifier, v.name, v.description, v.icon, i)
-
+    return ei.retrieve_items()

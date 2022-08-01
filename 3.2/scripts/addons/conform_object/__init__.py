@@ -16,11 +16,12 @@ bl_info = {
     "author" : "Mark Kingsnorth",
     "description" : "Deform an object to the surface of another.",
     "blender" : (2, 80, 0),
-    "version" : (1, 0, 2),
+    "version" : (1, 0, 5),
     "location" : "",
     "warning" : "",
     "category" : "Mesh",
     "wiki_url": "https://conform-object-docs.readthedocs.io/",
+    "doc_url": "https://conform-object-docs.readthedocs.io/",
 }
 
 import bpy
@@ -50,8 +51,10 @@ def depsgraph(none):
                 bpy.data.objects.remove(obj)
                 bpy.data.meshes.remove(data)
         elif obj.conform_object.is_conform_obj:
-            if not obj.conform_object.is_conform_shrinkwrap and obj.conform_object.grid_object not in obj.children:
-                operators.conform_undo(obj, bpy.context, remove_grid = False)
+            grid_obj = operators.get_grid_obj(obj)
+            if not obj.conform_object.is_conform_shrinkwrap and grid_obj not in obj.children:
+                operators.conform_undo(obj, bpy.context, remove_grid = False, set_active=False)
+
 
 def load_presets():
     """Load preset files if they have not been already"""

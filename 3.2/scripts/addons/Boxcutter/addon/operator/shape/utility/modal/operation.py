@@ -15,6 +15,9 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
     bc = context.scene.bc
     op.modified = modified
 
+    ngon = op.shape_type == 'NGON' or op.ngon_fit
+    boxgon = op.shape_type == 'BOX' and not op.ngon_fit and (op.ngon_point_index != -1 or op.ngon_point_bevel)
+
     if modified and op.lmb:
         op.modified_lock = True
     else:
@@ -30,13 +33,21 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
 
     for mod in bc.shape.modifiers:
         if mod.type in clear_mods:
-            setattr(bc.shape.bc, mod.type.lower(), False)
+            if hasattr(bc.shape.bc, mod.type.lower()):
+                setattr(bc.shape.bc, mod.type.lower(), False)
             bc.shape.modifiers.remove(mod)
 
     bound_box = bc.shape.bound_box
 
     op.last['lattice_corner'] = lattice.center(Matrix(), 'front') * 2 - Vector(bc.lattice.bound_box[op.draw_dot_index])
     op.last['lattice_center'] = lattice.center(Matrix(), None)
+
+    front = (1, 2, 5, 6)
+    back = (0, 3, 4, 7)
+    side = front
+    side = back if op.inverted_extrude else front
+
+    op.input_plane = math.vector_sum([(op.bounds[i] if op.shape_type != 'NGON' or op.ngon_fit else Vector(bc.shape.bound_box[i])) for i in side]) / 4
 
     # op.ray['location'] = math.vector_sum([bc.shape.matrix_world @ op.bounds[i] for i in (1, 2, 5, 6)]) / 4
 
@@ -144,6 +155,12 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
 
         if modified:
             if to == 'BEVEL':
+                for mod in bc.shape.modifiers:
+                    if mod.type not in {'WELD', 'VERTEX_WEIGHT_MIX', 'VERTEX_WEIGHT_EDIT'}:
+                        continue
+
+                    bc.shape.modifiers.remove(mod)
+
                 to = 'NONE'
 
     elif op.operation == 'ROTATE':
@@ -160,7 +177,19 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
             to = 'NONE'
 
     rebevel = False
-    if op.shape_type == 'NGON' or op.ngon_fit:
+    if boxgon:
+        if op.operation == 'DRAW' and to == 'NONE':
+            if not op.extruded and op.ngon_point_index == -1:
+                bc.shape.data.transform(Matrix.Scale(-1, 4, Vector((0, 0, 1))))
+
+            lattice.fit(op, context, ngon=False)
+
+            if not op.extruded:
+                op.extruded = True
+
+            op.ngon_point_index = -1
+
+    if ngon:
         if to in {'EXTRUDE', 'OFFSET'} and not op.extruded:
             for mod in bc.shape.modifiers:
                 if mod.type == 'BEVEL':
@@ -244,7 +273,9 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
         op.last['axis'] = 'XY'
 
     if to == 'BEVEL':
-        if op.shape_type == 'NGON' or op.ngon_fit:
+        bc.shape.data.bc.q_beveled = bc.q_bevel
+
+        if ngon or boxgon:
             for index, vindex in enumerate(op.geo['indices']['offset']):
                 op.last['vert_weight'][index] = bc.shape.data.vertices[vindex].bevel_weight
             op.last['edge_weight'] = [edge.bevel_weight for edge in bc.shape.data.edges]
@@ -253,7 +284,10 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
             #     # op.last['vert_weight'][op.ngon_point_index] = bc.shape.data.vertices[op.ngon_point_index].bevel_weight
             # else:
             from . bevel import clamp, clamp_and_visual_weight
-            clamp_and_visual_weight(op, bc, preference, clamp(op), set=op.ngon_point_index == -1 and not op.ngon_point_bevel)
+            clamp_and_visual_weight(op, bc, preference, clamp(op), set=op.shape_type == 'NGON' and op.ngon_point_index == -1 and not op.ngon_point_bevel)
+
+    else:
+        op.ngon_point_index = -1
 
     value = to
 
@@ -283,6 +317,7 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
         op.start['offset'] = front_center.z
         op.start['extrude'] = back_center.z
         op.start['matrix'] = bc.shape.matrix_world.copy()
+        op.last['bounds_center'] = (front_center + back_center) / 2
 
     elif value == 'ROTATE':
         op.angle = 0
@@ -347,7 +382,7 @@ def change(op, context, event, to='NONE', modified=True, init=False, clear_mods=
 
                 bc.shape.modifiers.remove(mod)
 
-            elif mod.type in {'VERTEX_WEIGHT_MIX', 'VERTEX_WEIGHT_EDIT'}:
+            elif mod.type in {'WELD', 'VERTEX_WEIGHT_MIX', 'VERTEX_WEIGHT_EDIT'}:
                 bc.shape.modifiers.remove(mod)
 
         op.last['mouse'] = op.mouse['location']

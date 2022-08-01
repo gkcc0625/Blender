@@ -1,8 +1,9 @@
 import bpy
+from ... utility import ops
 from ... utils.context import ExecutionContext
 from ... preferences import get_preferences
 from ... preferences import get_preferences
-from ...ui_framework.operator_ui import Master
+from ... ui_framework.operator_ui import Master
 
 class HOPS_OT_SphereCast(bpy.types.Operator):
     bl_idname = "hops.sphere_cast"
@@ -52,5 +53,4 @@ def sphereCast(object):
                 if hasattr(mod, 'render_levels'):
                     if mod.levels != mod.render_levels:
                         mod.render_levels = mod.levels
-        bpy.ops.object.shade_smooth()
-
+        ops.shade_smooth()

@@ -294,7 +294,7 @@ class hops(PropertyGroup):
             ("3D", "3D", "")],
             default='2D')
 
-    st3_meshtools: BoolProperty(name="Enable ST3 Meshtools", default=False, description="Enable experimental ST3 Meshtools in edit")
+    # st3_meshtools: BoolProperty(name="Enable ST3 Meshtools", default=False, description="Enable experimental ST3 Meshtools in edit")
 
     meshclean_mode: EnumProperty(
         name="Mode", description="",

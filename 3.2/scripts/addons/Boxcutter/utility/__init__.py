@@ -4,6 +4,8 @@ import traceback
 import bpy
 
 name = __name__.partition('.')[0]
+handled_error = False
+error_log = []
 
 
 def new_type(name='object', default=None, inherent=(), attribute={}, **keyed_argument):
@@ -21,12 +23,24 @@ def context_copy(**kargs):
 
 
 def debug_print(name, identifier, header=''):
-    if bpy.context.preferences.addons[name].preferences.debug: # TODO: store traceback for recall on enable
-        if header:
-            print(header + '\n')
+    out = ''
 
-        print(F'{name} {identifier} Method Failed:\n')
-        traceback.print_exc()
+    if header:
+        global handled_error
+        handled_error = True
+        out = header + '\n'
+
+    out += F'{name} {identifier} Method Failed:\n'
+
+    for elem in traceback.format_exc().split('\n'):
+        if not elem:
+            continue
+        out += elem + '\n'
+
+    error_log.append(out[:-1])
+
+    if bpy.context.preferences.addons[name].preferences.debug: # TODO: store traceback for recall on enable
+        print(out)
     else:
         print(F'{name} Method Failure: Enable {name} debug preference to view error')
 

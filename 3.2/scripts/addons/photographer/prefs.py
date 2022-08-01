@@ -547,6 +547,25 @@ class AddonPreferences(bpy.types.AddonPreferences):
         subtype="DIR_PATH",
         update=hdri_lib_path_update,
     )
+    hdri_auto_world_rename: BoolProperty(
+        name="Automatically rename World with HDRI texture name",
+        description="Automatically rename the World data with the name of the HDRI it is using",
+        default=True,
+    )
+    # Widget prefix
+    widget_prefix: StringProperty(
+        name="Camera Widget prefix",
+        description="Prefix for the widget objects",
+        default="WGT-",
+    )
+
+    # Collection name
+    camera_widget_collection_name: StringProperty(
+        name="Bone Widget collection name",
+        description="Name for the collection the widgets will appear",
+        default="Widgets",
+    )
+
 
     def draw(self, context):
             layout = self.layout
@@ -651,6 +670,17 @@ class AddonPreferences(bpy.types.AddonPreferences):
                 # Camera Viewport Display options
                 row = box.row(align=True)
                 split = row.split(factor=percentage_columns)
+                split.label(text="Focus Eyedropper :")
+                split.prop(self, 'focus_eyedropper_func', text = '')
+
+                row = box.row(align=True)
+                split = row.split(factor=percentage_columns)
+                split.label(text="Full Viewport Framing :")
+                split.prop(self, 'frame_full_viewport', text = '')
+
+                box = layout.box()
+                row = box.row(align=True)
+                split = row.split(factor=percentage_columns)
                 split.label(text="Default Passepartout :")
                 row = split.row(align=True)
                 row.prop(self, 'default_show_passepartout')
@@ -658,18 +688,8 @@ class AddonPreferences(bpy.types.AddonPreferences):
 
                 row = box.row(align=True)
                 split = row.split(factor=percentage_columns)
-                split.label(text="Focus Eyedropper :")
-                split.prop(self, 'focus_eyedropper_func', text = '')
-
-                row = box.row(align=True)
-                split = row.split(factor=percentage_columns)
                 split.label(text="Default Focus Plane Color :")
                 split.prop(self, 'default_focus_plane_color', text = '')
-
-                row = box.row(align=True)
-                split = row.split(factor=percentage_columns)
-                split.label(text="Full Viewport Framing :")
-                split.prop(self, 'frame_full_viewport', text = '')
 
                 col = box.column(align=True)
                 col.label(text= "Default Composition Guides :")
@@ -693,6 +713,17 @@ class AddonPreferences(bpy.types.AddonPreferences):
                 split.prop(self, "show_composition_harmony_tri_a", text="Triangle A")
                 split.prop(self, "show_composition_harmony_tri_b", text="Triangle B")
                 split.separator()
+
+                box = layout.box()
+                row = box.row(align=True)
+                split = row.split(factor=percentage_columns)
+                split.label(text="Camera Rig Widget Prefix :")
+                split.prop(self, 'widget_prefix', text = '')
+
+                row = box.row(align=True)
+                split = row.split(factor=percentage_columns)
+                split.label(text="Camera Rig Collection name :")
+                split.prop(self, 'camera_widget_collection_name', text = '')
 
             elif self.ui_tab == 'EXPOSURE':
                 # Default Exposure mode
@@ -726,6 +757,8 @@ class AddonPreferences(bpy.types.AddonPreferences):
                     col.enabled = False
                 col.prop(self, 'follow_unit_scale')
                 col.prop(self, 'show_default_light_panels')
+                col.separator()
+                box.prop(self, 'hdri_auto_world_rename')
 
                 box = layout.box()
                 col = box.column(align=True)

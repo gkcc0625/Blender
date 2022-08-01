@@ -161,7 +161,7 @@ class setup:
                 normals = numpy.ones([length, 3], dtype='f', order='C')
                 mesh.vertices.foreach_get('normal', numpy.reshape(normals, length * 3))
 
-                offset = min(shape.dimensions[:-1]) * (0.001 if bc.operator.mode != 'JOIN' else 0.005)
+                offset = min(shape.dimensions[:-1]) * (0.001 if bc.operator.mode != 'JOIN' else 0 if addon.preference().behavior.join_exact else 0.005)
                 self.verts_shell = math.transform_coordinates(shape_matrix, local + (normals * offset))
 
         if batch and (not len(self.last) or not numpy.array_equal(self.last, self.verts)):
@@ -174,6 +174,18 @@ class setup:
                 'polys': shader.batch(uniform, 'TRIS', verts if bc.operator.mode != 'JOIN' else shell, indices=self.index_tri),
                 'lines': shader.batch(uniform, 'LINES', verts, indices=edges),
                 'shell': shader.batch(uniform, 'LINES', shell, indices=edges)}
+
+
+        if bc.running:
+            bc_op = bc.operator
+            a, b = bc_op.last['wedge_points']
+            # assumes no mods on lattice
+            matrix = bc.lattice.matrix_world if bc.lattice else Matrix.Diagonal((0, 0, 0, 0))
+            line = [
+                matrix @ bc.lattice.data.points[a].co_deform,
+                matrix @ bc.lattice.data.points[b].co_deform,
+            ]
+            self.batches['wedge'] = shader.batch(self.shaders['uniform'], 'LINES', {'pos':line})
 
         if alpha:
             current = 1.0 if not self.exit else 0.0
@@ -258,6 +270,12 @@ class setup:
             xray_wire_color[3] *= 0.5
             self.lines(lines, uniform, xray_wire_color, wire_width(), xray=True)
             self.lines(shell, uniform, wire_color if not preference.color.wire_use_mode or show_shape_wire else mode_color, wire_width())
+
+        if bc.running and addon.preference().shape.wedge and not bc.operator.draw_line:
+            wedge  = self.batches['wedge']
+            color = Vector((1, 1, 1, 1)) - Vector(xray_wire_color)
+            color.w = 1
+            self.lines(wedge, uniform, color, wire_width() * 2, xray=True)
 
 
     def update(self, op, context):

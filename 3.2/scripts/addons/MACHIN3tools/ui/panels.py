@@ -298,3 +298,4 @@ class PanelMACHIN3tools(bpy.types.Panel):
 
         column.operator("machin3.create_assembly_asset", text='Create Assembly Asset', icon='ASSET_MANAGER')
         column.operator("machin3.assemble_collection_instance", text='Assemble Collection Instance', icon='NETWORK_DRIVE')
+

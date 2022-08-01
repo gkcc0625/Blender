@@ -1921,196 +1921,199 @@ class HOPS_OT_Conv_To_Shape_1_5(bpy.types.Operator):
         self.master.setup()
 
         # -- Fast UI -- #
-        if self.master.should_build_fast_ui():
+        if not self.master.should_build_fast_ui(): return
 
-            # Main
-            win_list = []
-            if get_preferences().ui.Hops_modal_fast_ui_loc_options != 1:
-                win_list.append(self.primitive_type)
-                win_list.append(self.shape_offset_axis)
-                if self.shape_offset > 0:
-                    win_list.append(F'{self.shape_offset:.3f}')
-                if self.individual:
-                    win_list.append('I' if self.individual else 'C')
-                if not self.modified:
-                    win_list.append(F"M: {self.modified}")
-                if self.equalize_mode != "OFF":
-                    if self.primitive_type not in {'Empty', 'Decap', 'Convex_Hull' }:
-                        win_list.append(self.equalize_mode)
-                if self.scale != 1:
-                    win_list.append(F"{self.scale:.3f}")
-                if self.parent_mode != "OFF":
-                    win_list.append(self.parent_mode)
+        # Main
+        win_list = []
+        if get_preferences().ui.Hops_modal_fast_ui_loc_options != 1:
+            win_list.append(self.primitive_type)
+            win_list.append(self.shape_offset_axis)
+            if self.shape_offset > 0:
+                win_list.append(F'{self.shape_offset:.3f}')
+            if self.individual:
+                win_list.append('I' if self.individual else 'C')
+            if not self.modified:
+                win_list.append(F"M: {self.modified}")
+            if self.equalize_mode != "OFF":
+                if self.primitive_type not in {'Empty', 'Decap', 'Convex_Hull' }:
+                    win_list.append(self.equalize_mode)
+            if self.scale != 1:
+                win_list.append(F"{self.scale:.3f}")
+            if self.parent_mode != "OFF":
+                win_list.append(self.parent_mode)
 
-                if self.primitive_type == 'Plane':
-                    win_list.append(self.plane_alignment)
-                    #win_list.append(F'{self.plane_offset:.3f}')
+            if self.primitive_type == 'Plane':
+                win_list.append(self.plane_alignment)
+                #win_list.append(F'{self.plane_offset:.3f}')
 
-                elif self.primitive_type == 'Cylinder':
-                    #win_list.append(self.alignment)
-                    win_list.append(self.cyl_segments)
+            elif self.primitive_type == 'Cylinder':
+                #win_list.append(self.alignment)
+                win_list.append(self.cyl_segments)
 
-                elif self.primitive_type == 'Sphere':
-                    #win_list.append(self.alignment)
-                    win_list.append(self.sphere_segments)
-                    win_list.append(self.sphere_rings)
+            elif self.primitive_type == 'Sphere':
+                #win_list.append(self.alignment)
+                win_list.append(self.sphere_segments)
+                win_list.append(self.sphere_rings)
 
-                # elif self.primitive_type == 'Empty':
-                #     win_list.append(self.empty_display)
+            # elif self.primitive_type == 'Empty':
+            #     win_list.append(self.empty_display)
 
-                elif self.primitive_type == 'Decap':
-                    win_list.append(self.decap_axis)
-                    if self.decap_fill_mode != 'NO':
-                        win_list.append(self.decap_fill_mode)
-                    if self.decap_cap_type != 'NO':
-                        win_list.append(self.decap_cap_type)
-                    win_list.append(f'{self.decap_thickness:.3f}' if not self.decap_solidify else 'Z')
-                    win_list.append(f'{self.decap_center:.3f}')
+            elif self.primitive_type == 'Decap':
+                win_list.append(self.decap_axis)
+                if self.decap_fill_mode != 'NO':
+                    win_list.append(self.decap_fill_mode)
+                if self.decap_cap_type != 'NO':
+                    win_list.append(self.decap_cap_type)
+                win_list.append(f'{self.decap_thickness:.3f}' if not self.decap_solidify else 'Z')
+                win_list.append(f'{self.decap_center:.3f}')
 
-                elif self.primitive_type == 'Convex_Hull':
-                    win_list.append(f'{self.dissolve_angle:.1f}')
-
-                elif self.primitive_type == 'Curve':
-                    win_list.append(self.curve_type[0])
-                    win_list.append(self.curve_axis)
-
-
-                # if self.primitive_type not in self.no_bevel_club:
-                #     win_list.append(self.copy_1st_bvl)
-
-            else:
-                win_list.append(self.primitive_type)
-                win_list.append(self.shape_offset_axis)
-                win_list.append(F'Offset[G]: {self.shape_offset:.3f}')
-                #win_list.append(F"Mode[I]: {'Individual' if self.individual else 'Combined'}")
-                #win_list.append(F"Modified: {self.modified}")
-                # if self.primitive_type not in {'Empty', 'Decap', 'Convex_Hull' }:
-                #     win_list.append(F"Equalize: {self.equalize_mode}")
-                win_list.append(F"Scale[S]: {self.scale:.3f}")
-                #win_list.append(f"Parenting: {self.parent_mode}")
-                #win_list.append(f"Show Original: {self.display_original}")
-
-                if self.primitive_type == 'Plane':
-                    win_list.append(F'Axis: {self.plane_alignment}')
-                    #win_list.append(F'Offset: {self.plane_offset:.3f}')
-
-                elif self.primitive_type == 'Cylinder':
-                    win_list.append(F'Alignment: {self.alignment}')
-                    win_list.append(F'Segments: {self.cyl_segments}')
-
-                elif self.primitive_type == 'Sphere':
-                    win_list.append(F'Alignment: {self.alignment}')
-                    win_list.append(F'Segments: {self.sphere_segments}')
-                    win_list.append(F'Rings: {self.sphere_rings}')
-
-                elif self.primitive_type == 'Empty':
-                    win_list.append(F'Display: {self.empty_display}')
-
-                elif self.primitive_type == 'Decap':
-                    win_list.append(F'Axis: {self.decap_axis}')
-                    #win_list.append(F"Fill: {self.decap_fill_mode}")
-                    #win_list.append(F"Caps: {self.decap_cap_type}")
-                    win_list.append(F'Thickness: {self.decap_thickness:.3f}' if not self.decap_solidify else 'ZERO')
-                    win_list.append(F'Center: {self.decap_center:.3f}')
-
-                elif self.primitive_type == 'Convex_Hull':
-                    win_list.append(F'Dissolve:{self.dissolve_angle:.1f}')
-
-                elif self.primitive_type == 'Curve':
-                    win_list.append(F'Type[C]: {self.curve_type}')
-                    win_list.append(F'Axis: {self.curve_axis}')
-
-                # if self.primitive_type not in self.no_bevel_club:
-                #     win_list.append(F'Copy 1st BVL: {self.copy_1st_bvl}')
-
-            # Help
-            help_items = {"GLOBAL" : [], "STANDARD" : []}
-
-            help_items["GLOBAL"] = [
-                ("M", "Toggle mods list"),
-                ("H", "Toggle help"),
-                ("~", "Toggle UI Display Type"),
-                ("O", "Toggle viewport rendering")]
-
-            help_append = help_items["STANDARD"].append
-
-            if self.primitive_type == 'Decap':
-                help_append(["C", f"Caps mode - {self.decap_cap_type}"])
-                help_append(["F", f"Fill Mode - {self.decap_fill_mode}"])
-                help_append(["T", "Toggle ZERO thickness mode"])
+            elif self.primitive_type == 'Convex_Hull':
+                win_list.append(f'{self.dissolve_angle:.1f}')
 
             elif self.primitive_type == 'Curve':
-                help_append(["C", f"Type - {self.curve_type}"])
+                win_list.append(self.curve_type[0])
+                win_list.append(self.curve_axis)
 
-            if self.primitive_type not in self.no_bevel_club:
-                help_append(["B", f"1st bevel - {self.copy_1st_bvl}"])
 
+            # if self.primitive_type not in self.no_bevel_club:
+            #     win_list.append(self.copy_1st_bvl)
+
+        else:
+            win_list.append(self.primitive_type)
+            win_list.append(self.shape_offset_axis)
+            win_list.append(F'Offset[G]: {self.shape_offset:.3f}')
+            #win_list.append(F"Mode[I]: {'Individual' if self.individual else 'Combined'}")
+            #win_list.append(F"Modified: {self.modified}")
+            # if self.primitive_type not in {'Empty', 'Decap', 'Convex_Hull' }:
+            #     win_list.append(F"Equalize: {self.equalize_mode}")
+            win_list.append(F"Scale[S]: {self.scale:.3f}")
+            #win_list.append(f"Parenting: {self.parent_mode}")
+            #win_list.append(f"Show Original: {self.display_original}")
+
+            if self.primitive_type == 'Plane':
+                win_list.append(F'Axis: {self.plane_alignment}')
+                #win_list.append(F'Offset: {self.plane_offset:.3f}')
+
+            elif self.primitive_type == 'Cylinder':
+                win_list.append(F'Alignment: {self.alignment}')
+                win_list.append(F'Segments: {self.cyl_segments}')
+
+            elif self.primitive_type == 'Sphere':
+                win_list.append(F'Alignment: {self.alignment}')
+                win_list.append(F'Segments: {self.sphere_segments}')
+                win_list.append(F'Rings: {self.sphere_rings}')
+
+            elif self.primitive_type == 'Empty':
+                win_list.append(F'Display: {self.empty_display}')
+
+            elif self.primitive_type == 'Decap':
+                win_list.append(F'Axis: {self.decap_axis}')
+                #win_list.append(F"Fill: {self.decap_fill_mode}")
+                #win_list.append(F"Caps: {self.decap_cap_type}")
+                win_list.append(F'Thickness: {self.decap_thickness:.3f}' if not self.decap_solidify else 'ZERO')
+                win_list.append(F'Center: {self.decap_center:.3f}')
+
+            elif self.primitive_type == 'Convex_Hull':
+                win_list.append(F'Dissolve:{self.dissolve_angle:.1f}')
+
+            elif self.primitive_type == 'Curve':
+                win_list.append(F'Type[C]: {self.curve_type}')
+                win_list.append(F'Axis: {self.curve_axis}')
+
+            # if self.primitive_type not in self.no_bevel_club:
+            #     win_list.append(F'Copy 1st BVL: {self.copy_1st_bvl}')
+
+        # Help
+        help_items = {"GLOBAL" : [], "STANDARD" : []}
+
+        help_items["GLOBAL"] = [
+            ("M", "Toggle mods list"),
+            ("H", "Toggle help"),
+            ("~", "Toggle UI Display Type"),
+            ("O", "Toggle viewport rendering")]
+
+        help_append = help_items["STANDARD"].append
+
+        if self.primitive_type == 'Decap':
+            help_append(["C", f"Caps mode - {self.decap_cap_type}"])
+            help_append(["F", f"Fill Mode - {self.decap_fill_mode}"])
+            help_append(["T", "Toggle ZERO thickness mode"])
+
+        elif self.primitive_type == 'Curve':
+            help_append(["C", f"Type - {self.curve_type}"])
+
+        if self.primitive_type not in self.no_bevel_club:
+            help_append(["B", f"1st bevel - {self.copy_1st_bvl}"])
+
+        if self.primitive_type in {'Plane', 'Sphere', 'Cylinder', 'Decap'}:
+            help_append(["X  ", 'Adjust alignment'])
+
+        help_append(["Y",  F"Active Only: {self.active_only}"])
+        help_append(["Ctrl+S", "Reset Scale"])
+        help_append(["Ctrl+G", "Reset Offset"])
+        help_append(["G", "Toggle Offset adjust"])
+        help_append(["S", "Toggle Scale adjust"])
+        help_append(["P", f"Parenting Mode {self.parent_mode}"])
+        help_append(["I", f"Toggle {'Individual' if self.individual else 'Combined'}"])
+        help_append(["R", "Reset shape Adjustment"])
+        help_append(["A", "Toggle Adjustment mode"])
+        help_append(["D", F"Display original: {self.display_original}"])
+        help_append(["E", f"Equalize mode - {self.equalize_mode}"])
+        help_append(["Shift+W", f"Shade {'Solid' if self.shade_wire else 'Wire'}"])
+        help_append(["W", f"Toggle Modified {self.modified}"])
+        help_append(["LMB", "Apply"])
+        help_append(["RMB", "Cancel"])
+
+        # scroll
+        if self.scroll_state == Scroll_states.none:
             if self.primitive_type in {'Plane', 'Sphere', 'Cylinder', 'Decap'}:
-                help_append(["X  ", 'Adjust alignment'])
+                help_append(["Shift+Scroll  ", 'Adjust alignment'])
 
-            help_append(["TAB/SPACE",  "Shape selector"])
-            help_append(["Y",  F"Active Only: {self.active_only}"])
-            help_append(["Ctrl+S", "Reset Scale"])
-            help_append(["Ctrl+G", "Reset Offset"])
-            help_append(["G", "Toggle Offset adjust"])
-            help_append(["S", "Toggle Scale adjust"])
-            help_append(["P", f"Parenting Mode {self.parent_mode}"])
-            help_append(["I", f"Toggle {'Individual' if self.individual else 'Combined'}"])
-            help_append(["R", "Reset shape Adjustment"])
-            help_append(["A", "Toggle Adjustment mode"])
-            help_append(["D", F"Display original: {self.display_original}"])
-            help_append(["E", f"Equalize mode - {self.equalize_mode}"])
-            help_append(["Shift+W", f"Shade {'Solid' if self.shade_wire else 'Wire'}"])
-            help_append(["W", f"Toggle Modified {self.modified}"])
-            help_append(["LMB", "Apply"])
-            help_append(["RMB", "Cancel"])
+            elif self.primitive_type == 'Empty':
+                help_append(["Shift+Scroll ", 'Adjust Display type'])
 
-            # scroll
-            if self.scroll_state == Scroll_states.none:
-                if self.primitive_type in {'Plane', 'Sphere', 'Cylinder', 'Decap'}:
-                    help_append(["Shift+Scroll  ", 'Adjust alignment'])
+            help_append(["Ctrl+Scroll  ", "Adjust offset direction"])
+            help_append(["Scroll", "Cycle Shape"])
 
-                elif self.primitive_type == 'Empty':
-                    help_append(["Shift+Scroll ", 'Adjust Display type'])
+        elif self.scroll_state == Scroll_states.cyl_segments:
+            help_append(["Scroll ", 'Adjust Segments'])
 
-                help_append(["Ctrl+Scroll  ", "Adjust offset direction"])
-                help_append(["Scroll", "Cycle Shape"])
+        elif self.scroll_state == Scroll_states.sphere_adjust:
+            help_append(["Shift+Scroll ", 'Adjust Rings'])
+            help_append(["Scroll", 'Adjust Segmnets'])
 
-            elif self.scroll_state == Scroll_states.cyl_segments:
-                help_append(["Scroll ", 'Adjust Segments'])
+        # mouse
+        if self.mouse_state == Mouse_states.hull_dissolve:
+            help_append(["Mouse", "Adjust Dissolve angle"])
 
-            elif self.scroll_state == Scroll_states.sphere_adjust:
-                help_append(["Shift+Scroll ", 'Adjust Rings'])
-                help_append(["Scroll", 'Adjust Segmnets'])
+        elif self.mouse_state == Mouse_states.shape_offset:
+            help_append(["Mouse", "Adjust Offset"])
 
-            # mouse
-            if self.mouse_state == Mouse_states.hull_dissolve:
-                help_append(["Mouse", "Adjust Dissolve angle"])
+        elif self.mouse_state == Mouse_states.decap_adjsut:
+            help_append(["Ctrl+Mouse ", "Adjust Center"])
+            help_append(["Mouse", "Adjust Thickness"])
 
-            elif self.mouse_state == Mouse_states.shape_offset:
-                help_append(["Mouse", "Adjust Offset"])
+        elif self.mouse_state == Mouse_states.decap_solidify:
+            help_append(["Ctrl+Mouse ", "Adjust Center"])
+            help_append(["Mouse", "Adjust Solidify"])
 
-            elif self.mouse_state == Mouse_states.decap_adjsut:
-                help_append(["Ctrl+Mouse ", "Adjust Center"])
-                help_append(["Mouse", "Adjust Thickness"])
+        elif self.mouse_state == Mouse_states.scale:
+            help_append(["Mouse", "Adjust Scale"])
 
-            elif self.mouse_state == Mouse_states.decap_solidify:
-                help_append(["Ctrl+Mouse ", "Adjust Center"])
-                help_append(["Mouse", "Adjust Solidify"])
+        elif self.mouse_state == Mouse_states.cyl_diameter:
+            help_append(["Alt+Mouse ", "Adjust Diameter 2"])
+            help_append(["Ctrl+Mouse ", "Adjust Diameter 1"])
+            help_append(["Mouse", "Adjust Diameter"])
 
-            elif self.mouse_state == Mouse_states.scale:
-                help_append(["Mouse", "Adjust Scale"])
+        if 'SPACE' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('Space', 'Open Select Menu'))
+        elif 'TAB' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('TAB', 'Open Select Menu'))
 
-            elif self.mouse_state == Mouse_states.cyl_diameter:
-                help_append(["Alt+Mouse ", "Adjust Diameter 2"])
-                help_append(["Ctrl+Mouse ", "Adjust Diameter 1"])
-                help_append(["Mouse", "Adjust Diameter"])
+        # Mods
+        mods_list = get_mods_list(mods=bpy.context.active_object.modifiers) if context.active_object else []
 
-
-            # Mods
-            mods_list = get_mods_list(mods=bpy.context.active_object.modifiers) if context.active_object else []
-
-            self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image="Tthick", mods_list=mods_list)
+        self.master.receive_fast_ui(win_list=win_list, help_list=help_items, image="Tthick", mods_list=mods_list)
 
         self.master.finished()
 

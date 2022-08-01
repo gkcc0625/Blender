@@ -16,7 +16,7 @@ from .ui import (
     utitle
 )
 from . import utils as U
-from .utils import extract_str_flags
+from . import screen_utils as SU
 from .ui_utils import get_pme_menu_class, toggle_menu, pme_menu_classes
 from .layout_helper import lh, operator, split, draw_pme_layout, L_SEP, L_LABEL
 from .property_utils import to_py_value
@@ -40,6 +40,21 @@ from .operators import (
 EXTENDED_PANELS = {}
 
 
+def gen_header_draw(pm_name):
+    def _draw(self, context):
+        is_right_region = context.region.alignment == 'RIGHT'
+        _, is_right_pm, _ = U.extract_str_flags_b(
+            pm_name, CC.F_RIGHT, CC.F_PRE)
+        if is_right_region and is_right_pm or \
+                not is_right_region and not is_right_pm:
+            draw_pme_layout(
+                prefs().pie_menus[pm_name], self.layout.column(align=True),
+                WM_OT_pme_user_pie_menu_call._draw_item,
+                icon_btn_scale_x=1)
+
+    return _draw
+
+
 def gen_menu_draw(pm_name):
     def _draw(self, context):
         WM_OT_pme_user_pie_menu_call.draw_rm(
@@ -61,37 +76,38 @@ def extend_panel(pm):
     if pm.name in EXTENDED_PANELS:
         return
 
-    tp_name = pm.name
-    pre = tp_name.endswith("_pre")
-    if pre:
-        tp_name = tp_name[:-4]
+    tp_name, right, pre = U.extract_str_flags_b(pm.name, CC.F_RIGHT, CC.F_PRE)
 
     if tp_name.startswith("PME_PT") or \
-            tp_name.startswith("PME_MT"):
+            tp_name.startswith("PME_MT") or \
+            tp_name.startswith("PME_HT"):
         return
 
     tp = getattr(bpy.types, tp_name, None)
-    if tp and issubclass(tp, (bpy.types.Panel, bpy.types.Menu)):
-        EXTENDED_PANELS[pm.name] = gen_panel_draw(pm.name) \
-            if '_PT_' in pm.name else \
-            gen_menu_draw(pm.name)
+    if tp and issubclass(
+            tp, (bpy.types.Panel, bpy.types.Menu, bpy.types.Header)):
+        if '_HT_' in pm.name:
+            EXTENDED_PANELS[pm.name] = gen_header_draw(pm.name)
+        elif '_MT_' in pm.name:
+            EXTENDED_PANELS[pm.name] = gen_menu_draw(pm.name)
+        else:
+            EXTENDED_PANELS[pm.name] = gen_panel_draw(pm.name)
         f = tp.prepend if pre else tp.append
         f(EXTENDED_PANELS[pm.name])
+        SU.redraw_screen()
 
 
 def unextend_panel(pm):
     if pm.name not in EXTENDED_PANELS:
         return
 
-    tp_name = pm.name
-    pre = tp_name.endswith("_pre")
-    if pre:
-        tp_name = tp_name[:-4]
+    tp_name, _, _ = U.extract_str_flags_b(pm.name, CC.F_RIGHT, CC.F_PRE)
 
     tp = getattr(bpy.types, tp_name, None)
     if tp:
         tp.remove(EXTENDED_PANELS[pm.name])
         del EXTENDED_PANELS[pm.name]
+        SU.redraw_screen()
 
 
 class PME_OT_tags_filter(bpy.types.Operator):
@@ -1448,11 +1464,8 @@ class PME_MT_header_menu_set(bpy.types.Menu):
         lh.lt(self.layout)
 
         for id, name, _, icon, _ in CC.SPACE_ITEMS:
-            if id == 'CURRENT':
-                lh.sep()
-
             lh.operator(
-                "wm.pme_user_command_exec", name, icon,
+                "pme.exec", name, icon,
                 cmd=(
                     "d = prefs().pmi_data; "
                     "d.mode = 'CUSTOM'; "
@@ -1460,10 +1473,12 @@ class PME_MT_header_menu_set(bpy.types.Menu):
                     "d.sname = '{1}'"
                 ).format(id, name, icon))
 
+        lh.sep()
         lh.operator(
-            "wm.pme_user_command_exec", name, icon,
+            "pme.exec", "Current", 'BLANK1',
             cmd=(
                 "d = prefs().pmi_data; "
+                "d.mode = 'CUSTOM'; "
                 "d.custom = 'header_menu([\"CURRENT\"])'; "
                 "d.sname = 'Current Area'"
             ))
@@ -1504,7 +1519,7 @@ class PME_MT_screen_set(bpy.types.Menu):
             icon = icons.get(name, 'LAYER_USED')
 
             lh.operator(
-                "wm.pme_user_command_exec", name, icon,
+                "pme.exec", name, icon,
                 cmd=(
                     "d = prefs().pmi_data; "
                     "d.mode = 'COMMAND'; "
@@ -2116,7 +2131,7 @@ class EditorBase:
         data.custom = pmi.text if data_mode == 'CUSTOM' else ""
         data.prop = pmi.text if data_mode == 'PROP' else ""
         data.menu = pmi.text if data_mode == 'MENU' else ""
-        data.menu, data.expand_menu, data.use_frame = extract_str_flags(
+        data.menu, data.expand_menu, data.use_frame = U.extract_str_flags(
             data.menu, CC.F_EXPAND, CC.F_EXPAND)
 
         data.key, data.ctrl, data.shift, data.alt, \

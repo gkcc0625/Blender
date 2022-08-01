@@ -82,8 +82,10 @@ def add_mods_from_dict(obj, modsdict):
 
 
 def get_displace(obj):
-    from . core import core
-    return core.get_displace(obj)
+    displacemods = [mod for mod in obj.modifiers if mod.type == "DISPLACE"]
+
+    if displacemods:
+        return displacemods[0]
 
 
 def get_nrmtransfer(obj, create=True):

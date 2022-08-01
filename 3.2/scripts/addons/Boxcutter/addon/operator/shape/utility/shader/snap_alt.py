@@ -466,10 +466,10 @@ class grid_handler():
 
     def mouse_warp(self, context):
         coord = location_3d_to_region_2d(context.region, context.space_data.region_3d, self.snap_matrix.translation, default=self.mouse)
-        coord.x += self.region.x
-        coord.y += self.region.y
+        x = int(coord.x + self.region.x)
+        y = int(coord.y + self.region.y)
 
-        context.window.cursor_warp(*coord)
+        context.window.cursor_warp(x, y)
 
 
     def align_face(self, context):
@@ -2008,6 +2008,12 @@ def modal(self, context, event):
         grid_obj.matrix_world = self.grid_handler.snap_matrix
         context.collection.objects.link(grid_obj)
 
+        view_mat = context.region_data.view_matrix.copy()
+        perspective = context.region_data.view_perspective
+        context.region_data.view_perspective = 'ORTHO'
+        context.region_data.view_matrix = self.grid_handler.snap_matrix.normalized().inverted()
+        context.region_data.update()
+
         for obj in selection: obj.select_set(False)
         active.select_set(True)
 
@@ -2035,6 +2041,9 @@ def modal(self, context, event):
 
             bmesh.update_edit_mesh(context.active_object.data)
 
+        context.region_data.view_matrix = view_mat
+        context.region_data.view_perspective = perspective
+        context.region_data.update()
         bpy.data.objects.remove(grid_obj)
         bpy.data.meshes.remove(me)
 
@@ -2071,18 +2080,20 @@ def invoke(self, context, event):
     alignment = orientation
     override_matrix = Matrix()
     surface_offset = preference.shape.offset
+    view_world_dots = False
 
     if not preference.snap.grid and not any((preference.snap.verts, preference.snap.edges, preference.snap.faces)):
         return {'PASS_THROUGH'}
 
-    if surface in {'VIEW', 'WORLD'} and not preference.snap.grid:
-        return {'PASS_THROUGH'}
+    # if surface in {'VIEW', 'WORLD'} and not preference.snap.grid:
+    #     return {'PASS_THROUGH'}
 
     #convert bc's alignment types and subtype into single alignment argument
     if surface == 'VIEW':
         alignment = 'OVERRIDE'
         _, _, override_matrix = ray.view_matrix(context, event.mouse_region_x, event.mouse_region_y)
         override_matrix.translation += override_matrix.to_quaternion() @ Vector((0, 0, surface_offset))
+        view_world_dots = True
 
     elif surface == 'CURSOR':
         alignment = 'OVERRIDE'
@@ -2107,6 +2118,7 @@ def invoke(self, context, event):
             char = 'Z'
 
         alignment = 'WORLD' + char
+        view_world_dots =True
 
     units = Vector.Fill(2, preference.snap.increment)
     cell_count = math.ceil(preference.snap.grid_units / 2)
@@ -2117,7 +2129,7 @@ def invoke(self, context, event):
     dot_alignment = {'EDGE'} if alignment in {'LOCAL', 'NEAREST'} else {}
     ignore_flat = alignment == 'LOCAL'
 
-    if surface == 'OBJECT' and preference.snap.grid:
+    if surface == 'OBJECT':
         coord2d = Vector((event.mouse_region_x, event.mouse_region_y))
         origin = region_2d_to_origin_3d(context.region, context.space_data.region_3d, coord2d)
         direction = region_2d_to_vector_3d(context.region, context.space_data.region_3d, coord2d)
@@ -2131,6 +2143,15 @@ def invoke(self, context, event):
             alignment = 'OVERRIDE'
             _, _, override_matrix = ray.view_matrix(context, event.mouse_region_x, event.mouse_region_y)
             override_matrix.translation += override_matrix.to_quaternion() @ Vector((0, 0, surface_offset))
+            view_world_dots = True
+
+    if view_world_dots and not preference.snap.grid:
+        from ...snap import invoke, modal, exit
+        self.invoke_method = invoke
+        self.modal_method = modal
+        self.exit_method = exit
+
+        return self.invoke(context, event)
 
     dot_color = Vector(preference.color.snap_point)
     dot_color_high = Vector(preference.color.snap_point_highlight)
@@ -2221,8 +2242,6 @@ def exit(self, context):
 
     if grid_handler:
         self.grid_handler.purge()
-
-        delattr(self, 'grid_handler')
 
     bc.snap.operator = None
     bc.snap.__class__.operator = None

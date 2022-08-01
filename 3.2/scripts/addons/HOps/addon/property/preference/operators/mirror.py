@@ -99,6 +99,11 @@ class props(PropertyGroup):
         description='Reverting gizmo manipulator handlers',
         default=False)
 
+    symmetrize_selected: BoolProperty(
+        name='Symmetrize only selected mesh',
+        description='Olny selected mesh in edit mode will be symmetrize',
+        default=False)
+
     mirror_u: BoolProperty(
         name='Modifier mirror_u property',
         description='Set mirror_u on modifier',

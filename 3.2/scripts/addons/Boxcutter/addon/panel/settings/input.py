@@ -60,6 +60,7 @@ class BC_PT_input_settings(Panel):
 
         self.label_row(layout.row(), preference.keymap, 'alt_preserve', label='Preserve Alt')
         self.label_row(layout.row(), preference.keymap, 'alt_draw', label='Alt Center')
+        self.label_row(layout.row(), preference.keymap, 'alt_double_extrude', label='Alt Double Extrude')
         self.label_row(layout.row(), preference.keymap, 'alt_scroll_shape_type', label='Alt Scroll Change Shape')
 
         self.label_row(layout.row(), preference.keymap, 'shift_draw', label='Shift Uniform')

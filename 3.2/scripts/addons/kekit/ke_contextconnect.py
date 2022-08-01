@@ -1,13 +1,92 @@
 import bpy
 import bmesh
 from bpy.types import Operator
-from .ke_utils import get_duplicates, pick_closest_edge
+from ._utils import get_duplicates, pick_closest_edge
 
 
-class MESH_OT_ke_context_connect(Operator):
+def get_edge_rings(start_edge, sel):
+    max_count = 1000
+    ring_edges = []
+    area_bools = []
+    faces_visited = []
+
+    for loop in start_edge.link_loops:
+        abools = []
+        start = loop
+        edges = [loop.edge]
+
+        i = 0
+        while i < max_count:
+            loop = loop.link_loop_radial_next.link_loop_next.link_loop_next
+
+            if len(loop.face.edges) != 4:
+                # self.nq_report += 1
+                break
+
+            if loop.face in sel:
+                abools.append(True)
+                faces_visited.extend([loop.face])
+            else:
+                abools.append(False)
+                break
+
+            edges.append(loop.edge)
+
+            if loop == start or loop.edge.is_boundary:
+                break
+            i += 1
+
+        ring_edges.append(edges)
+        area_bools.append(abools)
+
+    nr = len(ring_edges)
+
+    if nr == 2:
+        # crappy workaround - better solution tbd
+        if len(ring_edges[0]) == 1 and ring_edges[0][0] == start_edge:
+            ring_edges = [ring_edges[1]]
+            nr = 1
+        elif len(ring_edges[1]) == 1 and ring_edges[1][0] == start_edge:
+            ring_edges = [ring_edges[0]]
+            nr = 1
+
+    ring = []
+
+    if nr == 1:
+        # 1-directional (Border edge starts)
+        ring = [start_edge]
+        if len(area_bools[0]) == 0:
+            ab = area_bools[1]
+        else:
+            ab = area_bools[0]
+
+        for b, e in zip(ab, ring_edges[0][1:]):
+            if b:
+                ring.append(e)
+
+    elif nr == 2:
+        # Splicing bi-directional loops
+        ring = [start_edge]
+        for b, e in zip(area_bools[0], ring_edges[0][1:]):
+            if b and e != start_edge:
+                ring.append(e)
+
+        rest = []
+        for b, e in zip(area_bools[1], ring_edges[1][1:]):
+            if b and e not in ring:
+                rest.append(e)
+
+        rest.reverse()
+        ring = rest + ring
+
+    return ring, list(set(faces_visited))
+
+
+class KeContextConnect(Operator):
     bl_idname = "mesh.ke_context_connect"
     bl_label = "Context Connect"
-    bl_description = "VERTS: Connect Verts, EDGES: Subdivide\n" \
+    bl_description = "VERTS: Connect Verts\n" \
+                     "EDGES: Subdivide\n" \
                      "FACES: Splits along selection (Single face uses mouse pos)\n" \
                      "NO SELECTION: Knife Tool"
     bl_options = {'REGISTER', 'UNDO'}
@@ -37,81 +116,6 @@ class MESH_OT_ke_context_connect(Operator):
         return (context.object is not None and
                 context.object.type == 'MESH' and
                 context.object.data.is_editmode)
-
-
-    def get_edge_rings(self, start_edge, sel):
-        max_count = 1000
-        ring_edges = []
-        area_bools = []
-        faces_visited = []
-
-        for loop in start_edge.link_loops:
-            abools = []
-            start = loop
-            edges = [loop.edge]
-
-            i = 0
-            while i < max_count:
-                loop = loop.link_loop_radial_next.link_loop_next.link_loop_next
-
-                if len(loop.face.edges) != 4:
-                    # self.nq_report += 1
-                    break
-
-                if loop.face in sel:
-                    abools.append(True)
-                    faces_visited.extend([loop.face])
-                else:
-                    abools.append(False)
-                    break
-
-                edges.append(loop.edge)
-
-                if loop == start or loop.edge.is_boundary:
-                    break
-                i += 1
-
-            ring_edges.append(edges)
-            area_bools.append(abools)
-
-        nr = len(ring_edges)
-
-        if nr == 2:
-            # crappy workaround - better solution tbd
-            if len(ring_edges[0]) == 1 and ring_edges[0][0] == start_edge:
-                ring_edges = [ring_edges[1]]
-                nr = 1
-            elif len(ring_edges[1]) == 1 and ring_edges[1][0] == start_edge:
-                ring_edges = [ring_edges[0]]
-                nr = 1
-
-        ring = []
-
-        if nr == 1:
-            # 1-directional (Border edge starts)
-            ring = [start_edge]
-            if len(area_bools[0]) == 0:
-                ab = area_bools[1]
-            else:
-                ab = area_bools[0]
-
-            for b, e in zip(ab, ring_edges[0][1:]):
-                if b: ring.append(e)
-
-        elif nr == 2:
-            # Splicing bi-directional loops
-            ring = [start_edge]
-            for b, e in zip(area_bools[0], ring_edges[0][1:]):
-                if b and e != start_edge: ring.append(e)
-
-            rest = []
-            for b, e in zip(area_bools[1], ring_edges[1][1:]):
-                if b and e not in ring: rest.append(e)
-
-            rest.reverse()
-            ring = rest + ring
-
-        return ring, list(set(faces_visited))
 
     def invoke(self, context, event):
         self.mouse_pos[0] = event.mouse_region_x
@@ -204,7 +208,7 @@ class MESH_OT_ke_context_connect(Operator):
                 if len(sel_poly) == 1:
                     start_edge = pick_closest_edge(context, mtx=self.mtx, mousepos=self.mouse_pos,
                                                    edges=sel_poly[0].edges)
-                    ring, null = self.get_edge_rings(start_edge, sel_poly)
+                    ring, null = get_edge_rings(start_edge, sel_poly)
 
                     for e in bm.edges:
                         e.select = False
@@ -226,7 +230,7 @@ class MESH_OT_ke_context_connect(Operator):
                         return {"CANCELLED"}
 
                     rings = []
-                    ring, self.visited = self.get_edge_rings(shared_edges[0], sel_poly)
+                    ring, self.visited = get_edge_rings(shared_edges[0], sel_poly)
                     rings.append(ring)
 
                     if (len(ring) - 2) != len(shared_edges):
@@ -238,7 +242,7 @@ class MESH_OT_ke_context_connect(Operator):
 
                         while shared_edges or sanity > 0:
                             if shared_edges:
-                                ring, fvis = self.get_edge_rings(shared_edges[0], sel_poly)
+                                ring, fvis = get_edge_rings(shared_edges[0], sel_poly)
                                 self.visited.extend(fvis)
                                 rings.append(ring)
                                 shared_edges = [e for e in shared_edges if e not in ring]
@@ -349,16 +353,18 @@ class MESH_OT_ke_context_connect(Operator):
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+classes = (
+    KeContextConnect,
+)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(MESH_OT_ke_context_connect)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(MESH_OT_ke_context_connect)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

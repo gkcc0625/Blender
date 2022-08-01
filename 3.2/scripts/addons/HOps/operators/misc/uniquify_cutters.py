@@ -1,6 +1,7 @@
 import bpy
 from ...preferences import get_preferences
 from ...ui_framework.operator_ui import Master
+from ...utility.collections import all_collections_in_view_layer, hops_col_get
 
 
 object_count, bool_count = 0, 0
@@ -63,7 +64,7 @@ class HOPS_OT_UniquifyCutters(bpy.types.Operator):
 
 
 def set_bools(containers):
-    
+
     # Top level
     for c in containers:
         for mod in c.obj.modifiers:
@@ -92,7 +93,7 @@ def copy_and_parent(containers):
 
     # Recursive
     def recursive(container, last_con):
- 
+
         # Get to the bottom of each branch
         for bool_con in container.bools:
             new_obj = bool_con.obj.copy()
@@ -150,11 +151,23 @@ def set_mirrors(containers):
 def selection_setup(context, containers):
     bpy.ops.object.select_all(action='DESELECT')
 
+    scene_collections = all_collections_in_view_layer(context)
+    hops_col = hops_col_get(context)
+
     # Recursive hide
     def hide_objects(container):
         # Get to the bottom of each branch
         for bool_con in container.bools:
             hide_objects(bool_con)
+
+        # Created objects have one collection
+        # The collection may not be part of the scene, so hide_set() throws
+        col = container.obj.users_collection[0]
+
+        # Fallback onto cutters collection
+        if col not in scene_collections:
+            col.objects.unlink(container.obj)
+            hops_col.objects.link(container.obj)
 
         container.obj.hide_set(True)
 
@@ -170,7 +183,7 @@ def object_and_bool_count(containers):
 
     global object_count, bool_count
     object_count, bool_count = 0, 0
-    
+
     # Recursive counter
     def count_bools(container):
         global bool_count
@@ -182,7 +195,7 @@ def object_and_bool_count(containers):
     for c in containers:
         object_count += 1
         count_bools(c)
-    
+
     bool_count -= object_count
 
 

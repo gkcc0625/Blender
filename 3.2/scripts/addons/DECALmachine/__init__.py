@@ -1,7 +1,7 @@
 bl_info = {
     "name": "DECALmachine",
     "author": "MACHIN3, AR, MX",
-    "version": (2, 5, 1),
+    "version": (2, 6, 4),
     "blender": (2, 93, 0),
     "location": "Pie Menu: D key, MACHIN3 N Panel",
     "revision": "f2520fffc921649bae4d35b98c7914156b9348fc",
@@ -66,7 +66,26 @@ from . utils.registration import register_trims, unregister_trims, register_atla
 from . utils.registration import register_icons, unregister_icons, register_infotextures, unregister_infotextures, register_infofonts, unregister_infofonts, register_trimtextures, unregister_trimtextures
 from . utils.system import get_PIL_image_module_path, verify_user_sitepackages
 from . handlers import update_match_material_enum, update_texture_sources, update_userdecallibs_enum, init_channel_packs
-from . ui.panels import draw_debug
+
+
+def update_check():
+    def hook(resp, *args, **kwargs):
+        if resp:
+            if resp.text == 'true':
+                get_prefs().update_available = True
+
+    import platform
+    from . modules.requests_futures.sessions import FuturesSession
+
+    get_prefs().update_available = False
+
+    headers = {'User-Agent': f"DECALmachine/{'.'.join([str(v) for v in bl_info.get('version')])} Blender/{'.'.join([str(v) for v in bpy.app.version])} ({platform.uname()[0]}; {platform.uname()[2]}; {platform.uname()[4]})"}
+    session = FuturesSession()
+
+    try:
+        session.post("https://drum.machin3.io/update", data={'revision': bl_info['revision']}, headers=headers, hooks={'response': hook})
+    except:
+        pass
 
 
 def register():
@@ -163,6 +182,10 @@ def register():
 
     for atlas in atlases:
         print(f" • atlas: {atlas}")
+
+
+
+    update_check()
 
 
 def unregister():

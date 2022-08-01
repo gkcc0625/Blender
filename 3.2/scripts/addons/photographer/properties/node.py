@@ -1,6 +1,6 @@
 import bpy
 
-from ..constants import addon_name
+from ..constants import addon_name, color_temp_desc
 from ..light import(
                     get_light_temperature_color,
                     set_light_temperature_color,
@@ -35,10 +35,10 @@ def set_enabled(self,value):
     wire_up(self.id_data)
     nodes = self.id_data.nodes
     node = nodes.get(self.name)
-    em_strength = node.get('em_strength','')    
+    em_strength = node.get('em_strength','')
     if em_strength:
         em_node = em_strength[0]
-        em_input = em_strength[1]   
+        em_input = em_strength[1]
         if self.enabled:
             nodes[em_node].inputs[em_input].default_value = self.strength
         else:
@@ -64,9 +64,9 @@ def update_solo(self,context):
 
     # Solo behavior for Materials
     emissive_mats = [mat for mat in bpy.data.materials if mat.get('is_emissive', False)]
-    wire_up(self.id_data)           
+    wire_up(self.id_data)
     self_node =  self.id_data.nodes.get(self.name)
-    
+
     for mat in emissive_mats:
         nodes = mat.node_tree.nodes
         for node in mat.get('em_nodes', ''):
@@ -106,7 +106,7 @@ def update_solo(self,context):
 #         if em_color:
 #             nodes[em_color[0]].inputs[em_color[1]].default_value = value
 #     return None
-    
+
 def get_light_temperature(self):
     return self.get('light_temperature', 6500)
 
@@ -138,12 +138,12 @@ class LightMixerNodeSettings(bpy.types.PropertyGroup):
         default=True,
         get=get_enabled,
         set=set_enabled,
-    )    
+    )
     solo: BoolProperty(
         name="Solo",
         default=False,
         update=update_solo,
-    )   
+    )
     strength: FloatProperty(
         name='Strength',
         precision=3,
@@ -157,7 +157,7 @@ class LightMixerNodeSettings(bpy.types.PropertyGroup):
     #     set=set_color,
     # )
     light_temperature : IntProperty(
-        name="Color Temperature", description="Color Temperature (Kelvin)",
+        name="Color Temperature", description=color_temp_desc,
         min=1000, max=13000, default=6500,
         get=get_light_temperature,
         set=set_light_temperature,
@@ -178,4 +178,3 @@ class LightMixerNodeSettings(bpy.types.PropertyGroup):
         get=get_light_temperature_color,
         set=set_light_temperature_color,
     )
-    

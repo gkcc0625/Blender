@@ -44,7 +44,8 @@ class BC_PT_settings(Panel):
         row.prop(op, 'behavior', text='')
         sub = row.row(align=True)
         sub.enabled = row.active
-        sub.operator('bc.smart_apply', text='', icon='IMPORT')
+        ot = sub.operator('bc.smart_apply', text='', icon='IMPORT')
+        ot.use_loose = True
 
         if self.is_popover:
             self.header_row(layout.row(align=True), 'behavior', label='Behavior')

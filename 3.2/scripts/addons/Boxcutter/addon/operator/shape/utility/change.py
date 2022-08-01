@@ -161,10 +161,15 @@ def bevel_width(option, context):
 
     if bc.running:
         for mod in bc.shape.modifiers:
-            if mod.type == 'BEVEL':
-                mod.width = option.bevel_width
+            if mod.type != 'BEVEL':
+                continue
 
-                last['modifier']['bevel_width'] = option.bevel_width
+            width_type = 'bevel_width' if mod.name.startswith('Bevel') else F'{mod.name.split(" ")[0].lower()}_bevel_width'
+
+            mod.width = getattr(option, width_type)
+            bc.operator.last['modifier'][width_type] = mod.width
+
+        refresh.weld_size(bc.operator, bc)
 
 
 def bevel_segments(option, context):

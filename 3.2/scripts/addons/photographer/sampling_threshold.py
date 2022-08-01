@@ -1,9 +1,20 @@
 import bpy
 
 from . import prefs
+from .operators.exposure import get_exposure_node
 
 def calc_light_threshold(self, context):
-    optimal_threshold = bpy.context.preferences.addons[__package__].preferences.default_light_threshold / pow(2,context.scene.view_settings.exposure)
+    light_thres = bpy.context.preferences.addons[__package__].preferences.default_light_threshold
+    exposure = context.scene.view_settings.exposure
+
+    # Replace Scene Exposure value with Node exposure value if doing compositing exposure
+    if context.scene.photographer.comp_exposure:
+        exp_node = get_exposure_node(self,context)
+        if exp_node:
+            exposure = exp_node.inputs['Exposure'].default_value
+
+    optimal_threshold = light_thres / pow(2,exposure)
+
     return optimal_threshold
 
 def update_light_threshold(self,context):

@@ -327,17 +327,18 @@ def init_panels(ot):
         elif obj.type == 'CAMERA':
             if context.scene.render.engine in {'BLENDER_WORKBENCH', 'BLENDER_EEVEE'}:
                 ot.panels['DATA'] = [
+
                     properties_data_camera.DATA_PT_context_camera,
                     properties_data_camera.DATA_PT_lens,
                     properties_data_camera.DATA_PT_camera_dof,
                     properties_data_camera.DATA_PT_camera_dof_aperture,
-                    properties_data_camera.DATA_PT_camera_stereoscopy,
                     properties_data_camera.DATA_PT_camera,
+                    properties_data_camera.DATA_PT_camera_stereoscopy,
                     properties_data_camera.DATA_PT_camera_safe_areas,
                     properties_data_camera.DATA_PT_camera_safe_areas_center_cut,
                     properties_data_camera.DATA_PT_camera_background_image,
-                    properties_data_camera.DATA_PT_camera_display,
-                    properties_data_camera.DATA_PT_camera_display_passepartout]
+                    properties_data_camera.DATA_PT_camera_display]
+                    # properties_data_camera.DATA_PT_camera_display_composition_guides]
 
             else:
                 from cycles import ui
@@ -345,15 +346,14 @@ def init_panels(ot):
                 ot.panels['DATA'] = [
                     properties_data_camera.DATA_PT_context_camera,
                     properties_data_camera.DATA_PT_lens,
-                    ui.CYCLES_CAMERA_PT_camera_dof,
-                    ui.CYCLES_CAMERA_PT_camera_dof_aperture,
-                    ui.CYCLES_CAMERA_PT_camera_dof_viewport,
+                    # ui.CYCLES_CAMERA_PT_dof,
+                    # ui.CYCLES_CAMERA_PT_dof_aperture,
                     properties_data_camera.DATA_PT_camera_stereoscopy,
                     properties_data_camera.DATA_PT_camera,
                     properties_data_camera.DATA_PT_camera_safe_areas,
                     properties_data_camera.DATA_PT_camera_background_image,
-                    properties_data_camera.DATA_PT_camera_display,
-                    properties_data_camera.DATA_PT_camera_display_passepartout]
+                    properties_data_camera.DATA_PT_camera_display]
+                    # properties_data_camera.DATA_PT_camera_display_composition_guides]
 
         elif obj.type == 'LIGHT':
             if context.scene.render.engine == 'BLENDER_WORKBENCH':
@@ -361,7 +361,8 @@ def init_panels(ot):
                     properties_data_light.DATA_PT_context_light,
                     properties_data_light.DATA_PT_preview,
                     properties_data_light.DATA_PT_light,
-                    properties_data_light.DATA_PT_area]
+                    properties_data_light.DATA_PT_area,
+                    properties_data_light.DATA_PT_falloff_curve]
 
 
             elif context.scene.render.engine == 'BLENDER_EEVEE':
@@ -370,9 +371,9 @@ def init_panels(ot):
                     properties_data_light.DATA_PT_preview,
                     properties_data_light.DATA_PT_EEVEE_light,
                     properties_data_light.DATA_PT_EEVEE_light_distance,
-                    properties_data_light.DATA_PT_spot,
                     properties_data_light.DATA_PT_EEVEE_shadow,
-                    properties_data_light.DATA_PT_EEVEE_shadow_contact]
+                    properties_data_light.DATA_PT_EEVEE_shadow_contact,
+                    properties_data_light.DATA_PT_spot]
 
                 if bpy.context.active_object.data.type == 'SUN':
                     ot.panels['DATA'].append(properties_data_light.DATA_PT_EEVEE_shadow_cascaded_shadow_map)
@@ -384,8 +385,7 @@ def init_panels(ot):
                     properties_data_light.DATA_PT_context_light,
                     ui.CYCLES_LIGHT_PT_preview,
                     ui.CYCLES_LIGHT_PT_light,
-                    ui.CYCLES_LIGHT_PT_nodes,
-                    ui.CYCLES_LIGHT_PT_spot]
+                    ui.CYCLES_LIGHT_PT_nodes]
 
         elif obj.type == 'LIGHT_PROBE':
             ot.panels['DATA'] = [

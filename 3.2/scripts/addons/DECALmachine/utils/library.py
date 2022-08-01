@@ -3,7 +3,7 @@ import os
 from shutil import copytree
 from zipfile import ZipFile
 import json
-from . registration import get_prefs, reload_decal_libraries, reload_trim_libraries, register_atlases, get_version_files, get_version_from_filename, get_version_from_blender, get_version_as_float
+from . registration import get_prefs, reload_decal_libraries, reload_trim_libraries, register_atlases, get_version_files, get_version_from_filename, get_version_from_blender, get_version_as_float, is_library_corrupted
 from . system import splitpath, load_json, makedir, save_json, printd
 
 
@@ -122,26 +122,47 @@ def import_library(path):
         return invalid(basename)
 
 
-def get_legacy_libs():
-
-    assetspath = get_prefs().assetspath
-    decalspath = os.path.join(assetspath, 'Decals')
-    trimspath = os.path.join(assetspath, 'Trims')
-
-    current = get_version_as_float(get_version_from_blender())
-
-    decal_libs = {path: version for f in os.listdir(decalspath) if os.path.isdir(path := os.path.join(decalspath, f)) and len(versions := get_version_files(path)) == 1 and float(version := get_version_from_filename(versions[0])) < current}
-    trim_libs = {path: version for f in os.listdir(trimspath) if os.path.isdir(path := os.path.join(trimspath, f)) and len(versions := get_version_files(path)) == 1 and float(version := get_version_from_filename(versions[0])) < current}
-
-    decal_libs_18 = [path for path, version in decal_libs.items() if version == '1.8']
-    decal_libs_20 = [path for path, version in decal_libs.items() if version == '2.0']
-    decal_libs_21 = [path for path, version in decal_libs.items() if version == '2.1']
-
-    trim_libs_20 = [path for path, version in trim_libs.items() if version == '2.0']
-    trim_libs_21 = [path for path, version in trim_libs.items() if version == '2.1']
+legacy_libs = False
 
 
-    return decal_libs_18, decal_libs_20, decal_libs_21, trim_libs_20, trim_libs_21
+def get_legacy_libs(debug=False):
+
+    global legacy_libs
+
+    if not legacy_libs:
+        if debug:
+            print("INFO: checking legacy libs")
+
+        assetspath = get_prefs().assetspath
+        decalspath = os.path.join(assetspath, 'Decals')
+        trimspath = os.path.join(assetspath, 'Trims')
+
+        current = get_version_as_float(get_version_from_blender())
+
+        decal_libs = {path: version for f in os.listdir(decalspath) if os.path.isdir(path := os.path.join(decalspath, f)) and not is_library_corrupted(path) and len(versions := get_version_files(path)) == 1 and float(version := get_version_from_filename(versions[0])) < current}
+        trim_libs = {path: version for f in os.listdir(trimspath) if os.path.isdir(path := os.path.join(trimspath, f)) and not is_library_corrupted(path) and len(versions := get_version_files(path)) == 1 and float(version := get_version_from_filename(versions[0])) < current}
+
+        decal_libs_18 = [path for path, version in decal_libs.items() if version == '1.8']
+        decal_libs_20 = [path for path, version in decal_libs.items() if version == '2.0']
+        decal_libs_21 = [path for path, version in decal_libs.items() if version == '2.1']
+
+        trim_libs_20 = [path for path, version in trim_libs.items() if version == '2.0']
+        trim_libs_21 = [path for path, version in trim_libs.items() if version == '2.1']
+
+
+        legacy_libs = [decal_libs_18, decal_libs_20, decal_libs_21, trim_libs_20, trim_libs_21]
+
+    else:
+        if debug:
+            print("INFO: returning previous legacy libs")
+
+    return legacy_libs
+
+
+def reset_legacy_libs_check():
+
+    global legacy_libs
+    legacy_libs = False
 
 
 

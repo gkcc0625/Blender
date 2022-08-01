@@ -1,7 +1,7 @@
 import bpy
 
 
-class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
+class KeCopyPlus(bpy.types.Operator):
     bl_idname = "view3d.ke_copyplus"
     bl_label = "CopyPlus"
     bl_description = "Cut+ or Copy+ face selection (to temporary cache) then Paste+ into another object."
@@ -16,9 +16,9 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
         default="COPY")
 
     def execute(self, context):
-        # -----------------------------------------------------------------------------------------
+        #
         # OBJECT SELECTION CHECK
-        # -----------------------------------------------------------------------------------------
+        #
         cut_obj = False
         obj_merge = bool(bpy.context.scene.kekit.paste_merge)
         co = bpy.data.collections[:]
@@ -33,9 +33,9 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
         if not active_obj and sel_obj:
             active_obj = sel_obj[0]
 
-        # -----------------------------------------------------------------------------------------
+        #
         # COPY/PASTE BUFFER (without copy+ cache)
-        # -----------------------------------------------------------------------------------------
+        #
         check_cache = [o.name for o in co if o.name == "_kc_cache_temp"]
 
         if sel_obj:
@@ -72,9 +72,9 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
             else:
                 return {'CANCELLED'}
 
-        # -----------------------------------------------------------------------------------------
+        #
         # CACHE CHECK
-        # -----------------------------------------------------------------------------------------
+        #
         active_coll = []
         cache = []
         cache_coll_set = False
@@ -110,12 +110,12 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
         else:
             active_coll = active_coll[0]
 
-        # -----------------------------------------------------------------------------------------
+        #
         # ELEMENT SELECTION CHECK
-        # -----------------------------------------------------------------------------------------
-        if self.mode == "COPY" or self.mode == "CUT":
-            sel_poly = []
+        #
+        sel_poly = []
 
+        if self.mode == "COPY" or self.mode == "CUT":
             for o in sel_obj:
                 o.update_from_editmode()
                 p = [v for v in o.data.polygons if v.select]
@@ -126,9 +126,9 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
                 self.report({"INFO"}, "Aborted: No polygons selected")
                 return {'CANCELLED'}
 
-        # -----------------------------------------------------------------------------------------
+        #
         # COPY/CUT (SEPARATE SELECTION INTO NEW OBJECT & TEMP COLL MACRO)
-        # -----------------------------------------------------------------------------------------
+        #
         if self.mode == "COPY" or self.mode == "CUT":
 
             # COPY/CUT
@@ -143,7 +143,6 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
 
             if cut_obj:
                 sel_obj = [o for o in sel_obj if o != active_obj]
-
 
             # CREATE CACHE OBJECT
             new_obj = [o for o in context.selected_objects if o.type == "MESH" and o not in sel_obj]
@@ -176,9 +175,9 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
                 context.view_layer.objects.active = active_obj
                 bpy.ops.object.mode_set(mode="EDIT")
 
-        # -----------------------------------------------------------------------------------------
+        #
         # PASTE OPs
-        # -----------------------------------------------------------------------------------------
+        #
         elif self.mode == "PASTE" and cache and active_coll:
 
             # PASTE
@@ -226,16 +225,19 @@ class VIEW3D_OT_ke_copyplus(bpy.types.Operator):
         return {"FINISHED"}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeCopyPlus,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_ke_copyplus)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_ke_copyplus)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

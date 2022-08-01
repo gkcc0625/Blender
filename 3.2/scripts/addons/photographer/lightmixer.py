@@ -240,6 +240,8 @@ def light_panel(context,parent_box,light_name):
         elif context.scene.render.engine == "CYCLES":
             row = col.row(align=True)
             row.prop(light.cycles, "cast_shadow", text='Shadows', toggle=True)
+            if bpy.app.version >= (3,2,0):
+             row.prop(light.cycles, "is_caustics_light", text='Caustics', toggle=True)
 
     if solo_active or not light_obj.lightmixer.enabled:
         if not light_obj.lightmixer.solo:

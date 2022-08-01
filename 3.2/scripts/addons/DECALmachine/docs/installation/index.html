@@ -92,8 +92,6 @@
         
             <li><a class="toctree-l4" href="#decal-backup">Decal Backup</a></li>
         
-            <li><a class="toctree-l4" href="#uninstallation">Uninstallation</a></li>
-        
         </ul>
     
 
@@ -433,11 +431,11 @@
                 <h2 id="requirements">Requirements</h2>
 <ul>
 <li>Windows, MacOS or Linux</li>
-<li>Blender 2.93 (LTS), Blender 3.0 (stable)</li>
+<li>Blender 2.93 (LTS), Blender 3.2 (stable)</li>
 </ul>
 <div class="admonition danger">
 <p class="admonition-title">Experimental Builds</p>
-<p><a href="https://builder.blender.org/download/daily/">Experimental</a> Blender builds such as 3.1-alpha are <strong>not supported</strong>, and fixing any issues related to them, will not be a priority, but <a href="../faq/index.html#get-support">reporting them</a> is still encouraged.  </p>
+<p><a href="https://builder.blender.org/download/daily/">Experimental</a> Blender builds such as 3.3-alpha are <strong>not supported</strong>, and fixing any issues related to them, will not be a priority, but <a href="../faq/index.html#get-support">reporting them</a> is still encouraged.  </p>
 </div>
 <div class="admonition danger">
 <p class="admonition-title">Custom Builds</p>
@@ -450,11 +448,11 @@ Avoid running it just from the Downloads folder!<br />
 Note that, for <strong>dragging</strong> of files and folders, you need to hold down the <code>COMMAND</code> key.<br />
 This will ensure <a href="../img/installation/apptranslocation.jpg">AppTranslocation</a><sup id="fnref:1"><a class="footnote-ref" href="#fn:1" rel="footnote">1</a></sup> is avoided. </p>
 <h3 id="blender-on-arch-linux">Blender on Arch Linux</h3>
-<p>Arch Linux users and users of other Arch based or similar rolling release distros are advised to use the <a href="https://blender.org./download">official Blender builds</a>.<br />
+<p>Arch Linux users and users of other Arch based or similar rolling release distros are advised to use the <a href="https://blender.org/download">official Blender builds</a>.<br />
 The Blender package in the <a href="https://www.archlinux.org/packages/community/x86_64/blender/">Community repository</a> does not supply its own Python, and does not follow <a href="https://docs.blender.org/api/current/info_tips_and_tricks.html#bundled-python-extensions">official recommendations</a>.<br />
 As a consequence, the system's python version may not work with DECALmachine.</p>
 <h3 id="latest-decalmachine">Latest DECALmachine</h3>
-<p>The latest version of DECALmachine is 2.5.1 - available on <a href="https://gumroad.com/l/DECALmachine">Gumroad</a> and <a href="https://www.blendermarket.com/products/DECALmachine">Blender Market</a>.<br />
+<p>The latest version of DECALmachine is 2.6.4 - available on <a href="https://gumroad.com/l/DECALmachine">Gumroad</a> and <a href="https://www.blendermarket.com/products/DECALmachine">Blender Market</a>.<br />
 See <a href="../whatsnew/index.html">this page</a> to learn what's new in the latest versions, or see the <a href="../changelog/index.html">changelog</a> for the full, detailed release history.</p>
 <h3 id="pilpillow">PIL/Pillow</h3>
 <p>For more advanced usage of DECALmachine, a python module called <a href="https://pillow.readthedocs.io/en/latest/">PIL/Pillow</a> is required.<br />
@@ -462,7 +460,7 @@ PIL enables DECALmachine to manipulate images, and so is required for <a href=".
 Installation has been automated and is covered below. Some additional information can be found the <a href="../faq/index.html#what-exactly-is-pilpillow-and-why-is-it-needed">FAQs</a>. </p>
 <div class="admonition warning">
 <p class="admonition-title">Keep in mind</p>
-<p>If you use DECALmachine 2.5.x in Blender 3.0, you will need PIL to <a href="../whatsnew/index.html#asset-update-blender-30-only">update the supplied example assets</a>.</p>
+<p>If you use DECALmachine 2.6.4 in Blender 3.0+, you will need PIL to <a href="../whatsnew/index.html#asset-update-blender-30-only">update the supplied example assets</a>.</p>
 </div>
 <h2 id="updating">Updating</h2>
 <h3 id="decal-backup">Decal Backup</h3>
@@ -471,15 +469,6 @@ Installation has been automated and is covered below. Some additional informatio
 <p>If you are updating from a previous version, you are at <strong>risk of loosing</strong> any <a href="../decal_creation_instant/index.html">Decals</a>, <a href="../export_atlas/index.html#atlas_creation">Atlases</a>, <a href="../trim_sheet_creation/index.html#trim-sheet-creation">Trim Sheets</a> you may have created or any <a href="../export_bake/index.html">Bakes</a> you may have done.  </p>
 </div>
 <p>If you have not chosen a decal assets location outside the DECALmachine folder in <a href="#blenders-addons-folder">Blender's addons folder</a>, you should backup your decals as described in the video, and outlined below.</p>
-<h3 id="uninstallation">Uninstallation</h3>
-<p>As a result of this <a href="https://developer.blender.org/T77837">Blender/Python issue</a>, you need to uninstall your old version of DECALmachine first, before installing a new one.<br />
-You can find two approaches to do this in the Installation video, and outlined below.</p>
-<div class="admonition warning">
-<p class="admonition-title">Keep in mind</p>
-<p>This is especially important for feature updates, such as from version from 2.0 to 2.1, or from 2.4 to 2.5.
-For bug fix updates, such as from version 2.5.0 to 2.5.1, <em>uninstallation can be skipped</em>, but installation in Blender from the zip <strong>on top of the already installed version 2.5.0 will still not work</strong>.<br />
-Instead you should close Blender, extract the DECALmachine_2.5.1.zip file, and copy the extracted DECALmachine folder to Blender's <a href="../blenders-addons-folder">addon directory</a>, replacing the existing files. </p>
-</div>
 <h2 id="installation">Installation</h2>
 <div style="position: relative; width: 100%; height: 0; padding-bottom: 56.25%;">
 <iframe src="https://www.youtube.com/embed/wb9bt62fuZM" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" allowfullscreen seamless frameBorder="0"></iframe>
@@ -495,7 +484,7 @@ Instead you should close Blender, extract the DECALmachine_2.5.1.zip file, and c
 <ul>
 <li>start Blender, bring up preferences</li>
 <li>switch to the <em>Add-ons</em> tab and click the <strong>Install...</strong> button at the top right </li>
-<li>locate the downloaded DECALmachine_2.5.1.zip file and double-click it</li>
+<li>locate the downloaded DECALmachine_2.6.4.zip file and double-click it</li>
 <li>activate the addon by ticking the checkbox</li>
 <li>ensure your preferences are saved (by default done automatically)</li>
 <li>optionally, switch to the Decal Creation + Export tab, and install PIL</li>
@@ -519,7 +508,7 @@ Instead you should close Blender, extract the DECALmachine_2.5.1.zip file, and c
 <li>quit and restart Blender</li>
 <li>back in the DECALmachine addon preferences, with DM now deactivated, click the Remove button</li>
 <li>with DM uninstalled, click the <strong>Install...</strong> button at the top right </li>
-<li>locate the downloaded DECALmachine_2.5.1.zip file and double-click it</li>
+<li>locate the downloaded DECALmachine_2.6.4.zip file and double-click it</li>
 <li>activate the addon by ticking the checkbox</li>
 <li>ensure your preferences are saved (by default done automatically)</li>
 <li>optionally, switch to the Decal Creation + Export tab, and install PIL</li>
@@ -536,9 +525,9 @@ DECALmachine needs write access to its installation folder, so you need to insta
 <li>with Blender closed, navigate to <a href="#blenders-addons-folder">Blender's addons folder</a></li>
 <li>find DECALmachine, and copy the DECALmachine/assets/Decals folder to a safe location to backup your existing decals</li>
 <li>remove the DECALmachine folder</li>
-<li>in your Downloads location, extract the DECALmachine_2.5.1.zip file</li>
+<li>in your Downloads location, extract the DECALmachine_2.6.4.zip file</li>
 <li>copy the DECALmachine folder from the zip file to <a href="#blenders-addons-folder">Blender's addons folder</a><ul>
-<li>note, if you have a DECALmachine_2.5.1 folder after extraction, don't copy this one, instead copy the DECALmachine folder contained in it</li>
+<li>note, if you have a DECALmachine_2.6.4 folder after extraction, don't copy this one, instead copy the DECALmachine folder contained in it</li>
 </ul>
 </li>
 <li>start Blender and check if the pie menu (<code>D</code> key) comes up</li>
@@ -547,10 +536,10 @@ DECALmachine needs write access to its installation folder, so you need to insta
 <h2 id="blenders-addons-folder">Blender's Addons Folder</h2>
 <div class="admonition note">
 <p class="admonition-title">Addons Folder (in user scripts location)</p>
-<p><strong>Linux</strong>: <code>/home/name/.config/blender/3.0/scripts/addons</code><br />
-<strong>MacOS</strong>: <code>/Users/name/Library/Application Support/Blender/3.0/scripts/addons</code><br />
-<strong>Windows</strong>: <code>C:\Users\name\AppData\Roaming\Blender Foundation\Blender\3.0\scripts\addons</code>  </p>
-<!--Depending on your Blender version, replace <code>3.0</code> accordingly.-->
+<p><strong>Linux</strong>: <code>/home/name/.config/blender/3.1/scripts/addons</code><br />
+<strong>MacOS</strong>: <code>/Users/name/Library/Application Support/Blender/3.1/scripts/addons</code><br />
+<strong>Windows</strong>: <code>C:\Users\name\AppData\Roaming\Blender Foundation\Blender\3.1\scripts\addons</code>  </p>
+<!--Depending on your Blender version, replace <code>3.1</code> accordingly.-->
 
 </div>
 <div class="footnote">

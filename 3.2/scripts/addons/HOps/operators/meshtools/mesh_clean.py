@@ -112,7 +112,7 @@ Advanced selection options in F6"""
             draw_data = [
                 ["Clean Mesh"],
                 ["Remove Threshold", "%.1f" % get_preferences().property.meshclean_remove_threshold],
-                ["Dissovle Angle", "%.1f" % degrees(get_preferences().property.meshclean_dissolve_angle)+ "°"],
+                ["Dissolve Angle", "%.1f" % degrees(get_preferences().property.meshclean_dissolve_angle)+ "°"],
                 [f"Modifiers Applied / Remain", f"{0} / {len(context.active_object.modifiers[:])}"],
                 ["MeshClean Mode ", get_preferences().property.meshclean_mode]
             ]

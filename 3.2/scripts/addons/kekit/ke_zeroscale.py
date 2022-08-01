@@ -1,10 +1,10 @@
 import bpy
 import bmesh
 from mathutils import Vector
-from .ke_utils import average_vector
+from ._utils import average_vector
 
 
-class MESH_OT_ke_zeroscale(bpy.types.Operator):
+class KeZeroScale(bpy.types.Operator):
     bl_idname = "mesh.ke_zeroscale"
     bl_label = "ZeroScale"
     bl_description = "Instantly zero-scales selected elements to A: Vertical or Horisontal screen global axis (pie)" \
@@ -112,16 +112,21 @@ class MESH_OT_ke_zeroscale(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (
+    KeZeroScale,
+)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(MESH_OT_ke_zeroscale)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(MESH_OT_ke_zeroscale)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

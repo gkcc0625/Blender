@@ -139,12 +139,11 @@ class bc(PropertyGroup):
 
     grid_units: IntProperty(
         name = 'Grid Units Span',
-        description = '\n Number of grid rows and columns to display.\n'
-                      ' Note - At the cost of performance',
+        description = '\n Number of grid rows and columns to display.',
         update = even_grid_units,
         min = 0,
         soft_max = 20,
-        max = 500,
+        max = 1000,
         default = 10)
 
     static_grid: BoolProperty(

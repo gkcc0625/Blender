@@ -26,6 +26,9 @@ class BC_OT_shader(Operator):
         self.timer = None
         self.exit = False
 
+        self.shape = None
+        self.widgets = None
+
         self.update_states()
 
         self.shape = shader.shape.setup(self)
@@ -118,17 +121,14 @@ class BC_OT_shader(Operator):
 
         bc.__class__.shader = None
 
-        if self.shape.handler:
+        if self.shape and self.shape.handler:
             self.shape.remove()
 
-        self.widgets.remove(force=force)
+        if self.widgets:
+            self.widgets.remove(force=force)
 
         if self.timer:
             bpy.context.window_manager.event_timer_remove(self.timer)
-
-        del self.timer
-        del self.shape
-        del self.widgets
 
         return {'CANCELLED'}
 

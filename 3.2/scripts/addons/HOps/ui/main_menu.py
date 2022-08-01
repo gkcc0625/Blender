@@ -294,7 +294,7 @@ class HOPS_MT_MainMenu(bpy.types.Menu):
 
         #if get_preferences().property.st3_meshtools:
         layout.operator("hops.edit_mesh_macro", text="EM_Macro", icon_value=get_icon_id("FaceGrate"))
-        layout.menu("HOPS_MT_ST3MeshToolsSubmenu", text="ST3 Mesh Tools", icon="MESH_ICOSPHERE")
+        layout.menu("HOPS_MT_ST3MeshToolsSubmenu", text="(M) Mesh Tools" if get_preferences().property.add_prefix else ("Mesh Tools"), icon="MESH_ICOSPHERE")
         layout.separator()
 
         layout.menu("HOPS_MT_MeshOperatorsSubmenu", text="Operations", icon_value=get_icon_id("StatusOveride"))

@@ -1386,7 +1386,7 @@ def get_pbrnode_as_dict(node):
     d = {}
 
     for i in node.inputs:
-        if i.name in ['Alpha']:
+        if i.name in ['Alpha', 'Weight']:
             continue
 
         if i.type == "VECTOR" and "Subsurface" not in i.name:
@@ -1846,8 +1846,61 @@ def restore_detail_normal_links(tree, dg):
 
 
 def transfer_parent_textures(parent, mat, tree, transferuvs, use_normals=False, atlas=False):
-    from . core import core
-    return core.transfer_parent_textures(parent, mat, tree, transferuvs, use_normals, atlas)
+
+    parentmat = get_active_material(parent)
+
+    newnodes = []
+
+    if parentmat:
+        pbrnode = get_pbrnode_from_mat(parentmat)
+        group = get_atlasgroup_from_atlasmat(mat) if atlas else get_decalgroup_from_decalmat(mat)
+
+        imgnodes = sorted([node for node in parentmat.node_tree.nodes if node.type == 'TEX_IMAGE'], key=lambda n: n.location.y)
+
+        node_space = 35
+
+        for i, node in enumerate(imgnodes):
+            imgnode = tree.nodes.new('ShaderNodeTexImage')
+            imgnode.image = node.image
+            imgnode.hide = True
+            imgnode.name = imgnode.name + '[UVTRANSFER]'
+
+            imgnode.interpolation = node.interpolation
+            imgnode.projection = node.projection
+            imgnode.extension = node.extension
+
+            imgnode.location = Vector((-850, 475 - (((len(imgnodes) - 1) * node_space) / 2) + (i * node_space)))
+
+            link = tree.links.new(transferuvs.outputs[0], imgnode.inputs[0])
+
+            if pbrnode:
+                for idx, output in enumerate(node.outputs):
+                    for link in output.links:
+
+                        if link.to_node == pbrnode:
+                            link_to_socket(mat, imgnode, group, idx, link.to_socket.name, atlas=atlas)
+
+                        elif not atlas and use_normals and link.to_node.type == 'NORMAL_MAP':
+                            nrm = link.to_node
+
+                            if nrm.outputs[0].links and nrm.outputs[0].links[0].to_node == pbrnode:
+                                nrmnode = tree.nodes.new('ShaderNodeNormalMap')
+                                nrmnode.name = nrmnode.name + '[UVTRANSFER]'
+                                nrmnode.label = 'TransferNormal'
+                                nrmnode.hide = True
+
+                                nrmnode.location.x = imgnode.location.x + 280
+                                nrmnode.location.y = imgnode.location.y
+
+                                tree.links.new(imgnode.outputs[0], nrmnode.inputs[1])
+                                link_to_socket(mat, nrmnode, group, 0, 'Normal')
+
+            newnodes.append(imgnode)
+
+        if not atlas and not use_normals:
+            restore_detail_normal_links(tree, group)
+
+    return newnodes
 
 
 def transfer_parallax(mat, tree, transferuvs, imgnodes, atlas=False):

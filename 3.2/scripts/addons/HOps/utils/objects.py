@@ -190,3 +190,30 @@ def apply_scale(objects, scale_vectors=[], keep_bevel=True):
                 backup = obj.DM.decalbackup
                 if backup:
                     backup.DM.backupmx = flatten_matrix(bmmx @ backup.DM.backupmx)
+
+
+def set_bool_tagets_on_objects_to_smooth(objs=[], smooth=True):
+    for obj in objs:
+        # Validate
+        if type(obj) != bpy.types.Object: continue
+        if obj.type != 'MESH': continue
+
+        for mod in obj.modifiers:
+            # Validate
+            if mod.type != 'BOOLEAN': continue
+            if not hasattr(mod, 'object'): continue
+            if not mod.object: continue
+            if mod.object.type != 'MESH': continue
+            #if mod.operation != 'DIFFERENCE': continue
+
+            mesh = mod.object.data
+
+            if mod.object.mode == 'OBJECT':
+                for polygon in mesh.polygons:
+                    polygon.use_smooth = smooth
+
+            if mod.object.mode == 'EDIT':
+                bm = bmesh.from_edit_mesh(mesh)
+                for face in bm.faces:
+                    face.smooth = smooth
+                bmesh.update_edit_mesh(mesh)

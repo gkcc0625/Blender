@@ -1,7 +1,7 @@
 import bpy
 from ...preferences import get_preferences
 from ...ui_framework.operator_ui import Master
-from ...utility.collections import turn_on_parent_collections
+from ...utility.collections import turn_on_parent_collections, all_collections_in_view_layer
 
 
 class Container:
@@ -30,6 +30,7 @@ class HOPS_OT_UniquifyObjects(bpy.types.Operator):
 
     def execute(self, context):
         self.objs = [o for o in context.selected_objects if o.type == 'MESH']
+        self.scene_collections = all_collections_in_view_layer(context)
         self.setup(context)
         self.container_counter()
         draw_ui(len(self.objs), self.count)
@@ -38,6 +39,7 @@ class HOPS_OT_UniquifyObjects(bpy.types.Operator):
 
 
     def setup(self, context):
+
 
         # Duplicate selected objects / link / create containers
         self.containers = []
@@ -48,6 +50,10 @@ class HOPS_OT_UniquifyObjects(bpy.types.Operator):
             o.parent = None
             for c in o.children: c.parent = None
             coll = obj.users_collection[0]
+
+            if coll not in self.scene_collections:
+                coll = context.collection
+
             coll.objects.link(o)
             self.containers.append(Container(obj=o))
 
@@ -68,7 +74,7 @@ class HOPS_OT_UniquifyObjects(bpy.types.Operator):
                 cont.mod_obj_ref = obj.name
                 cont.mod_type = mod.type
                 # <-- Recursive --> # Only for booleans
-                if mod.type == 'BOOLEAN': contain_mods(cont) 
+                if mod.type == 'BOOLEAN': contain_mods(cont)
                 # Nest containers
                 container.mod_containers.append(cont)
 
@@ -92,11 +98,14 @@ class HOPS_OT_UniquifyObjects(bpy.types.Operator):
                 # Remove children
                 for child in obj.children: child.parent = None
                 # Get coll
-                try:
+
+                if cont.obj.users_collection:
                     coll = cont.obj.users_collection[0]
+                    if coll not in self.scene_collections:
+                        coll = context.collection
+
                     # Inset copy into coll
                     coll.objects.link(obj)
-                except: pass
                 # Store new obj
                 cont.obj = obj
                 # <-- Recursive --> # Go down a level
@@ -148,7 +157,7 @@ class HOPS_OT_UniquifyObjects(bpy.types.Operator):
             obj.select_set(True)
             obj.hide_set(False)
         bpy.ops.transform.translate('INVOKE_DEFAULT')
-            
+
 
     def container_counter(self):
 
@@ -290,7 +299,7 @@ def draw_ui(roots=0, objs=0):
 #         # Collections
 #         for coll, state in self.og_collections:
 #             coll.hide_viewport = state
-            
+
 #         bpy.ops.transform.translate('INVOKE_DEFAULT')
 
 

@@ -130,6 +130,8 @@ def view_matrix(context, x, y):
 
     distance = sys.float_info.max
     for obj in context.selected_objects:
+        if obj.type != 'MESH': continue
+
         if obj.mode == 'EDIT':
             obj.update_from_editmode()
             eval = obj
@@ -323,7 +325,7 @@ def surface(op, context, event):
     normal = op.ray['normal'] if not snap else Vector(bc.snap.normal[:])
     face_index = op.ray['index'] if not snap else snap.face_index
 
-    orient_method = 'EDIT' if obj.mode == 'EDIT' and preference.behavior.orient_active_edge else preference.behavior.orient_method
+    orient_method = 'EDIT' if preference.behavior.orient_active_edge and obj and obj.mode == 'EDIT' else preference.behavior.orient_method
 
     edge_index = -1
     if snap and not grid_active and point:
@@ -338,7 +340,7 @@ def surface(op, context, event):
         elif point.type == 'FACE':
             op.snap_lock_type = 'FACE'
 
-    matrix = obj.matrix_world.to_3x3().to_4x4()
+    matrix = obj.matrix_world.to_3x3().to_4x4() if obj else Matrix()
 
     if orient_method == 'EDGE' or not snap:
         matrix.translation = (0, 0, 0)
@@ -380,4 +382,3 @@ def update_shape_transforms(op, context, event, matrix, location):
     bc.location = op.ray['location']
 
     refresh.shape(op, context, event)
-

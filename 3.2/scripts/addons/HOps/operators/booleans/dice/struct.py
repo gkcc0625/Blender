@@ -3,6 +3,17 @@ from mathutils import Vector, Matrix, Quaternion
 from enum import Enum
 from .... utility import math as hops_math
 
+bound_map = [
+    Vector((-1.0, -1.0, -1.0)),
+    Vector((-1.0, -1.0, 1.0)),
+    Vector((-1.0, 1.0, 1.0)),
+    Vector((-1.0, 1.0, -1.0)),
+    Vector((1.0, -1.0, -1.0)),
+    Vector((1.0, -1.0, 1.0)),
+    Vector((1.0, 1.0, 1.0)),
+    Vector((1.0, 1.0, -1.0)),
+]
+
 
 class Boxelize:
     active = False
@@ -70,27 +81,50 @@ class Dice_Box_3D:
             segments += 1
 
         faces = []
+
+        dimensions = self.dims()
+        offset = Vector()
+        offset_val = 0.005
+        eps = 0.00001
         for i in range(segments):
             if i == 0: continue
             factor = (gap * i) / width
             if self.axis == Axis.X:
+                if dimensions[2] < eps:
+                    offset[2] = offset_val
+
+                if dimensions[1] < eps:
+                    offset[1] = offset_val
+
                 faces.append((
-                    bounds[0].lerp(bounds[4], factor),
-                    bounds[1].lerp(bounds[5], factor),
-                    bounds[2].lerp(bounds[6], factor),
-                    bounds[3].lerp(bounds[7], factor)))
+                    bounds[0].lerp(bounds[4], factor) + (offset * bound_map[0]),
+                    bounds[1].lerp(bounds[5], factor) + (offset * bound_map[1]),
+                    bounds[2].lerp(bounds[6], factor) + (offset * bound_map[2]),
+                    bounds[3].lerp(bounds[7], factor) + (offset * bound_map[3]),))
             elif self.axis == Axis.Y:
+                if dimensions[2] < eps:
+                    offset[2] = offset_val
+
+                if dimensions[0] < eps:
+                    offset[0] = offset_val
+
                 faces.append((
-                    bounds[0].lerp(bounds[3], factor),
-                    bounds[1].lerp(bounds[2], factor),
-                    bounds[5].lerp(bounds[6], factor),
-                    bounds[4].lerp(bounds[7], factor)))
+                    bounds[0].lerp(bounds[3], factor) + (offset * bound_map[0]),
+                    bounds[1].lerp(bounds[2], factor) + (offset * bound_map[1]),
+                    bounds[5].lerp(bounds[6], factor) + (offset * bound_map[5]),
+                    bounds[4].lerp(bounds[7], factor) + (offset * bound_map[4]),))
             elif self.axis == Axis.Z:
+                if dimensions[0] <= eps:
+                    offset[0] = offset_val
+
+                if dimensions[1] <= eps:
+                    offset[1] = offset_val
+
                 faces.append((
-                    bounds[0].lerp(bounds[1], factor),
-                    bounds[3].lerp(bounds[2], factor),
-                    bounds[7].lerp(bounds[6], factor),
-                    bounds[4].lerp(bounds[5], factor)))
+                    bounds[0].lerp(bounds[1], factor) + (offset * bound_map[0]),
+                    bounds[3].lerp(bounds[2], factor) + (offset * bound_map[3]),
+                    bounds[7].lerp(bounds[6], factor) + (offset * bound_map[7]),
+                    bounds[4].lerp(bounds[5], factor) + (offset * bound_map[4]),))
 
         ret_faces = []
         for face in faces:
@@ -102,7 +136,7 @@ class Dice_Box_3D:
                 if use_normal_offset:
                     normal = (face[i] - center).normalized()
                     point = face[i] + (normal * .05)
-                
+
                 if use_transform_matrix:
                     point = self.matrix @ point
 

@@ -4,6 +4,14 @@ from mathutils import Vector, Matrix, Euler
 from . import addon, math
 
 
+def valid_active_mesh(context):
+    obj = context.active_object
+    if obj == None: return False
+    if obj.type != 'MESH': return False
+    if not obj.select_get(): return False
+    return True
+
+
 def duplicate(obj, name='', link=False):
     duplicate = obj.copy()
     duplicate.data = obj.data.copy()

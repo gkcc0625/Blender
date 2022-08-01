@@ -173,6 +173,8 @@ class HOPS_OT_MirrorOperator():
         return loc, rot
 
     def symmetry(self, context):
+        preference = get_preferences()
+        
         normal = self.data()[0]
         if normal == Vector((1, 0, 0)):
             direction = "NEGATIVE_X"
@@ -189,7 +191,8 @@ class HOPS_OT_MirrorOperator():
 
         if not self.edit_mode:
             bpy.ops.object.mode_set(mode='EDIT')
-        bpy.ops.mesh.select_all(action='SELECT')
+        if not self.edit_mode or not preference.operator.mirror.symmetrize_selected:
+            bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.symmetrize(direction=direction)
         bpy.ops.mesh.select_all(action='DESELECT')
         if not self.edit_mode:
@@ -227,13 +230,18 @@ class HOPS_OT_MirrorOperator():
         context.scene.tool_settings.transform_pivot_point = saved_pivot
 
     def bisect(self, context, fill=False):
+        preference = get_preferences()
+
         loc, rot = self.xform(context)
         position = loc
         normal = self.data()[0]
         normal.rotate(rot)
 
-
         if not self.edit_mode:
+            if not preference.operator.mirror.include_active:
+                self.active.select_set(False)
+                for obj in context.selected_objects:
+                    context.view_layer.objects.active = obj
             bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.bisect(plane_co=(position.x, position.y, position.z), plane_no=(normal.x, normal.y, normal.z), use_fill=fill, clear_inner=False, clear_outer=True)
@@ -259,6 +267,9 @@ class HOPS_OT_MirrorOperator():
                 if mod != None:
                     mod.show_viewport = True
 
+        if not preference.operator.mirror.include_active:
+            context.view_layer.objects.active = self.active
+            self.active.select_set(True)
 
     def create_empty(self, context):
 
@@ -405,7 +416,18 @@ class HOPS_OT_MirrorOperator():
                 if object.type in {"MESH"}:
                     if self.edit_mode:
                         bpy.ops.object.mode_set(mode='OBJECT')
+                    
+                    # Preserve blenders symetry
+                    b3d_sym_x = context.object.use_mesh_mirror_x
+                    b3d_sym_y = context.object.use_mesh_mirror_y
+                    b3d_sym_z = context.object.use_mesh_mirror_z
+                        
                     modifier.apply(object, modifiers=[mod])
+                    
+                    context.object.use_mesh_mirror_x = b3d_sym_x
+                    context.object.use_mesh_mirror_y = b3d_sym_y
+                    context.object.use_mesh_mirror_z = b3d_sym_z
+                    
                     if self.edit_mode:
                         bpy.ops.object.mode_set(mode='EDIT')
 
@@ -1169,6 +1191,8 @@ class HOPS_PT_MirrorOptions(Panel):
         layout.prop(preference.operator.mirror, 'parent_empty', text="Parent empty to active object")
         layout.separator()
         layout.prop(preference.operator.mirror, 'revert', text="Revert Gizmo handlers")
+        layout.separator()
+        layout.prop(preference.operator.mirror, 'symmetrize_selected', text="Symmetrize only selected mesh")
         layout.separator()
 
 

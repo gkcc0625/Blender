@@ -17,6 +17,9 @@ def shape(op, context, event):
     if (op.shape_type == 'NGON' or op.ngon_fit) and preference.shape.lasso:
         return
 
+    ngon = op.shape_type == 'NGON' or op.ngon_fit
+    boxgon = op.shape_type == 'BOX' and not op.ngon_fit and (op.ngon_point_index != -1 or op.ngon_point_bevel)
+
     snap = preference.snap.enable and preference.snap.incremental
 
     straight_edge = preference.shape.straight_edges or bc.q_back_only
@@ -50,10 +53,10 @@ def shape(op, context, event):
             break
 
     if not m:
-        for mod in modifier.collect(bc.shape, type='WELD'):
+        for mod in modifier.collect(bc.shape, types={'WELD', 'VERTEX_WEIGHT_EDIT', 'VERTEX_WEIGHT_MIX'}):
             bc.shape.modifiers.remove(mod)
 
-        vertex_only = (op.shape_type == 'NGON' or op.ngon_fit) and not op.extruded
+        vertex_only = ngon and not op.extruded
         quad_bevel = not preference.shape.quad_bevel or (preference.shape.quad_bevel and not straight_edge)
 
         if vertex_only:
@@ -67,7 +70,7 @@ def shape(op, context, event):
             else:
                 mod.affect = 'VERTICES'
 
-            mod.width = op.last['modifier']['bevel_width'] if op.shape_type != 'NGON' and not op.ngon_fit else clamp_offset
+            mod.width = op.last['modifier']['bevel_width'] if not ngon else clamp_offset
             mod.segments = preference.shape.bevel_segments
             mod.limit_method = 'WEIGHT'
             mod.offset_type = 'OFFSET'
@@ -80,6 +83,7 @@ def shape(op, context, event):
             mod = bc.shape.modifiers.new(name='Bevel Weld', type='WELD')
             mod.show_render = False
             mod.show_expanded = False
+            mod.merge_threshold = max(bc.shape.dimensions) * 0.001
 
             modifier.sort(bc.shape, sort_types=['LATTICE', 'BEVEL'], first=True, ignore_hidden=False, use_index_operator=False)
 
@@ -89,7 +93,7 @@ def shape(op, context, event):
             mod.show_render = False
             mod.show_expanded = False
 
-            mod.width = op.last['modifier']['bevel_width'] if op.shape_type != 'NGON' and not op.ngon_fit else clamp_offset
+            mod.width = op.last['modifier']['bevel_width'] if not ngon and not boxgon else clamp_offset
 
             mod.segments = preference.shape.bevel_segments
             mod.limit_method = 'WEIGHT'
@@ -101,6 +105,7 @@ def shape(op, context, event):
             mod = bc.shape.modifiers.new(name='Bevel Weld', type='WELD')
             mod.show_render = False
             mod.show_expanded = False
+            mod.merge_threshold = max(bc.shape.dimensions) * 0.001
 
             if (op.shape_type == 'NGON' or op.ngon_fit) and not preference.shape.cyclic:
                 modifier.sort(bc.shape, sort_types=['LATTICE', 'BEVEL'], first=True, ignore_hidden=False, use_index_operator=False)
@@ -124,7 +129,7 @@ def shape(op, context, event):
                 mod.limit_method = 'VGROUP'
                 mod.vertex_group = group.name
                 mod.offset_type = 'OFFSET'
-                mod.use_clamp_overlap = op.shape_type == 'NGON' or op.ngon_fit
+                mod.use_clamp_overlap = True if ngon or boxgon else False
 
                 if mod.vertex_group == 'bottom' and not straight_edge:
                     mod.offset_type = 'WIDTH'
@@ -135,6 +140,7 @@ def shape(op, context, event):
                 mod = bc.shape.modifiers.new(name='Quad Bevel Weld', type='WELD')
                 mod.show_render = False
                 mod.show_expanded = False
+                mod.merge_threshold = max(bc.shape.dimensions) * 0.001
 
         if front_bevel:
             mesh.mesh.recalc_normals(bc.shape, face_indices=op.geo['indices']['top_face'], inside=not op.inverted_extrude)
@@ -162,13 +168,16 @@ def shape(op, context, event):
             mod = bc.shape.modifiers.new(name='Front Bevel Weld', type='WELD')
             mod.show_render = False
             mod.show_expanded = False
+            mod.merge_threshold = max(bc.shape.dimensions) * 0.001
 
         elif not bc.q_bevel:
             mesh.mesh.recalc_normals(bc.shape, inside=op.inverted_extrude)
 
+        modifier.sort(bc.shape, sort_types=['MIRROR'], ignore_hidden=False)
+
         return
 
-    if op.shape_type == 'NGON' or op.ngon_fit:
+    if ngon or boxgon:
         # if op.ngon_point_bevel_reset:
         #     clamp_and_visual_weight(op, bc, preference, clamp_offset, set=False)
         #     op.ngon_point_bevel_reset = False
@@ -179,17 +188,29 @@ def shape(op, context, event):
             vert = bc.shape.data.vertices[vindex]
 
             if op.ngon_point_index == -1:
-                if vert.bevel_weight and op.last['vert_weight'][index] + delta <= 0:
-                    for mod in bc.shape.modifiers:
-                        if mod.type == 'BEVEL':
-                            if mod.segments == 1 and op.segment_state:
-                                mod.segments = preference.shape.bevel_segments if preference.shape.bevel_segments != 1 else preference.shape.bevel_segments_default
 
-                            else:
-                                op.segment_state = True
-                                mod.segments = 1
+                segment_state = False
+                for mod in bc.shape.modifiers:
+                    if mod.type != 'BEVEL':
+                        continue
 
-                            break
+                    if not vert.bevel_weight:
+                        continue
+
+                    weighted_width = op.last['vert_weight'][index] + delta
+                    if weighted_width <= 0.001 and not op.width_state or segment_state:
+                        segment_state = True
+                        op.width_state = True
+
+                        if mod.segments == 1 and op.segment_state:
+                            mod.segments = preference.shape.bevel_segments if preference.shape.bevel_segments != 1 else preference.shape.bevel_segments_default
+
+                        else:
+                            op.segment_state = True
+                            mod.segments = 1
+
+                    elif weighted_width > 0.0011 and op.width_state:
+                        op.width_state = False
 
             if vert.index == op.ngon_point_index or op.ngon_point_index == -1:
                 vert.bevel_weight = op.last['vert_weight'][index] + delta
@@ -237,14 +258,14 @@ def shape(op, context, event):
                         continue
 
                     edge.bevel_weight = vert.bevel_weight
+                    bc.shape.data.vertices[edge.vertices[0]].bevel_weight = vert.bevel_weight
+                    bc.shape.data.vertices[edge.vertices[1]].bevel_weight = vert.bevel_weight
 
         if not preference.shape.quad_bevel and op.extruded and op.ngon_point_index == -1 and bc.q_bevel:
             if not op.last['edge_weight']:
                 op.last['edge_weight'] = [edge.bevel_weight for edge in bc.shape.data.edges]
 
-            eindices = op.geo['indices']['bot_edge']
-
-            for index in eindices:
+            for index in op.geo['indices']['bot_edge']:
                 edge = bc.shape.data.edges[index]
                 edge.bevel_weight = op.last['edge_weight'][index] + delta
 
@@ -298,13 +319,17 @@ def clamp(op):
 
     taper = preference.shape.taper
 
-    if (op.shape_type == 'NGON' or op.ngon_fit) and not preference.shape.lasso:
+    ngon = op.shape_type == 'NGON' or op.ngon_fit
+    boxgon = op.shape_type == 'BOX' and not op.ngon_fit and (op.ngon_point_index != -1 or op.ngon_point_bevel)
+
+    if (ngon and not preference.shape.lasso) or boxgon:
+        mesh = bc.shader.widgets.shape if not ngon and bc.shader and bc.shader.widgets else bc.shape.data
         dist = 0
         for index in op.geo['indices']['top_edge']:
             edge = bc.shape.data.edges[index]
 
-            vert1 = bc.shape.data.vertices[edge.vertices[0]]
-            vert2 = bc.shape.data.vertices[edge.vertices[1]]
+            vert1 = mesh.vertices[edge.vertices[0]]
+            vert2 = mesh.vertices[edge.vertices[1]]
 
             length = (vert1.co - vert2.co).length
 
@@ -313,10 +338,10 @@ def clamp(op):
 
         return dist * taper - offset
 
-    vector1 = Vector(bc.shape.bound_box[0][:])
-    vector2 = Vector(bc.shape.bound_box[1][:])
-    vector3 = Vector(bc.shape.bound_box[5][:])
-    vector4 = Vector(bc.shape.bound_box[6][:])
+    vector1 = Vector(bc.bound_object.bound_box[0][:])
+    vector2 = Vector(bc.bound_object.bound_box[1][:])
+    vector3 = Vector(bc.bound_object.bound_box[5][:])
+    vector4 = Vector(bc.bound_object.bound_box[6][:])
 
     distances = [vector4 - vector3, vector3 - vector2]
 

@@ -111,9 +111,13 @@ def header_menu(areas):
 
             bpy.types.Context.__getattribute__ = get_space_data_attribute
 
-            CLayout.use_mouse_over_open = True
-            tp.draw_menus(row, ctx)
-            CLayout.use_mouse_over_open = None
+            if hasattr(tp, "draw_collapsible"):
+                row.emboss = 'PULLDOWN_MENU'
+                tp.draw_collapsible(ctx, row)
+            else:
+                CLayout.use_mouse_over_open = True
+                tp.draw_menus(row, ctx)
+                CLayout.use_mouse_over_open = None
 
     if not isinstance(areas, list):
         areas = [areas]

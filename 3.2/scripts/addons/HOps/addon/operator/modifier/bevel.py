@@ -280,7 +280,7 @@ class HOPS_OT_MODS_bevel_step(bpy.types.Operator):
         segments = (round(segments, 1))
         self.delta_mouse = intersect_point_line(mouse3d, self.backface, self.frontface)
 
-        modifier.segments = segments
+        modifier.segments = int(segments)
         self.segments = modifier.segments
 
         if self.ctrl is False:

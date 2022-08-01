@@ -434,9 +434,9 @@ class PopupOperator:
         self.mx, self.my = -1, -1
         bl_context.reset(context)
 
-        popup_padding = \
-            2 * CC.POPUP_PADDING * uprefs().view.ui_scale + \
-            CC.WINDOW_MARGIN
+        popup_padding = round(
+            2 * CC.POPUP_PADDING * uprefs().view.ui_scale +
+            CC.WINDOW_MARGIN)
         if self.width > context.window.width - popup_padding:
             self.width = context.window.width - popup_padding
 
@@ -451,7 +451,7 @@ class PopupOperator:
             context.window.cursor_warp(mx, my)
 
         else:
-            offset = 30 * uprefs().view.ui_scale
+            offset = round(30 * uprefs().view.ui_scale)
             w2 = self.width >> 1
             mid_x = context.window.width >> 1
             min_x = w2 + CC.POPUP_PADDING + offset

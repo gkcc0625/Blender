@@ -1,22 +1,10 @@
 import bpy
 import bmesh
-from .ke_utils import get_loops, correct_normal, average_vector, get_distance
+from ._utils import vertloops, correct_normal, average_vector, tri_points_order
 from mathutils import Vector, Matrix
 
 
-def tri_points_order(vcoords):
-    # Avoiding the hypotenuse (always longest) for vec
-    vp = vcoords[0], vcoords[1], vcoords[2]
-    vp1 = get_distance(vp[0], vp[1])
-    vp2 = get_distance(vp[0], vp[2])
-    vp3 = get_distance(vp[1], vp[2])
-    vpsort = {"2": vp1, "1": vp2, "0": vp3}
-    r = [int(i) for i in sorted(vpsort, key=vpsort.__getitem__)]
-    r.reverse()
-    return r
-
-
-class MESH_OT_ke_itemize(bpy.types.Operator):
+class KeItemize(bpy.types.Operator):
     bl_idname = "mesh.ke_itemize"
     bl_label = "Itemize"
     bl_description = "Creates new mesh from selection in face or edge mode. Active face/edge(w.connected loop) " \
@@ -49,9 +37,9 @@ class MESH_OT_ke_itemize(bpy.types.Operator):
         active_face = bm.faces.active
         n_v, pos, vec_poslist = [], [], []
 
-        # -----------------------------------------------------------------------------------------
+        #
         # Initial selection
-        # -----------------------------------------------------------------------------------------
+        #
         if sel_mode[1]:
             # EDGE MODE
             bm.edges.ensure_lookup_table()
@@ -62,7 +50,7 @@ class MESH_OT_ke_itemize(bpy.types.Operator):
             if len(sel_edges) >= 2 and active_edge:
                 # Expand Linked
                 bpy.ops.mesh.select_linked()
-                linked_verts = [v for v in bm.verts if v.select]
+                # linked_verts = [v for v in bm.verts if v.select]
                 # Find the active edges loop selection
                 vert_pairs = []
                 for e in sel_edges:
@@ -70,7 +58,7 @@ class MESH_OT_ke_itemize(bpy.types.Operator):
                     vert_pairs.append(vp)
 
                 active_loop_verts = 0
-                loops = get_loops(vert_pairs)
+                loops = vertloops(vert_pairs)
 
                 if loops:
                     # print("loop found")
@@ -97,7 +85,6 @@ class MESH_OT_ke_itemize(bpy.types.Operator):
                         sel_pos_co = [obj_mtx @ v.co for v in sel_verts]
                         pos = Vector(average_vector(sel_pos_co))
 
-
         elif sel_mode[2] and sel_poly and active_face:
             # FACE mode
             n_v = correct_normal(obj_mtx, active_face.normal * -1)
@@ -107,9 +94,9 @@ class MESH_OT_ke_itemize(bpy.types.Operator):
         else:
             self.report({"INFO"}, "Selection Error / Active Element not found?")
 
-        # -----------------------------------------------------------------------------------------
+        #
         # Get settings & Make new item
-        # -----------------------------------------------------------------------------------------
+        #
         if pos and vec_poslist:
 
             h = tri_points_order(vec_poslist)
@@ -171,16 +158,19 @@ class MESH_OT_ke_itemize(bpy.types.Operator):
         return {"FINISHED"}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeItemize,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(MESH_OT_ke_itemize)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(MESH_OT_ke_itemize)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

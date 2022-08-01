@@ -72,7 +72,26 @@ def create_vertex_group(source_obj, group_name, gradient_type, gradient_start, g
     bm.free()
 
     return group
+    
+def get_target_obj(source_obj):
+    if _deform_shrinkwrap_mod_name in source_obj.modifiers:
+        deform_mod = source_obj.modifiers[_deform_shrinkwrap_mod_name]
+        target_obj = deform_mod.target
+        return target_obj
+    grid_object = get_grid_obj(source_obj)
+    if grid_object:
+        for mod in grid_object.modifiers:
+            if mod.type == 'SHRINKWRAP':
+                target_obj = mod.target
+                return target_obj
+    return None
 
+def get_grid_obj(source_obj):
+    if _deform_mod_name in source_obj.modifiers:
+        mod = source_obj.modifiers[_deform_mod_name]
+        grid_object = mod.target
+        return grid_object
+    return None
 
 class CONFORMOBJECT_OT_ToggleGridSnap(bpy.types.Operator):
     """Toggle Surface Blender's Snapping settings when moving an object"""
@@ -574,7 +593,7 @@ class CONFORMOBJECT_OT_Conform(bpy.types.Operator):
             bpy.data.meshes.remove(target_object_data)
 
             if not location:
-                self.report({'ERROR'}, "The bottom of the source object is not pointing towards the target object")
+                self.report({'ERROR'}, "The bottom of the source object is not pointing towards the target object.\n See 'Tips and Troubleshooting' at conform-object-docs.readthedocs.io")
                 return {'CANCELLED'}
 
             world_location = target_obj.matrix_world @ location
@@ -637,8 +656,7 @@ class CONFORMOBJECT_OT_Conform(bpy.types.Operator):
                 mod.target = conform_grid_obj
                 mod.falloff = self.falloff
 
-                source_obj.conform_object.grid_object = conform_grid_obj
-
+               
                 if self.place_mod_at_start:
                     bpy.ops.object.modifier_move_to_index(modifier=_deform_mod_name, index=0)
 
@@ -698,12 +716,6 @@ class CONFORMOBJECT_OT_Conform(bpy.types.Operator):
 
                 source_obj.data.update()
 
-                # bm.free()
-
-
-            # add properties for reference.
-            source_obj.conform_object.target_object = target_obj
-
             if self.conform_type == 'GRID':
 
                 # Now add a shrinkwrap modifer to the grid object.
@@ -749,8 +761,9 @@ class CONFORMOBJECT_OT_Conform(bpy.types.Operator):
 
     def create_grid(self, source_obj, collection):
         # create a grid object directly below.
-        if source_obj.conform_object.grid_object and source_obj.conform_object.grid_object in source_obj.children:
-            conform_grid_obj = source_obj.conform_object.grid_object
+        grid_obj = get_grid_obj(source_obj)
+        if grid_obj and grid_obj in source_obj.children:
+            conform_grid_obj = grid_obj
             mesh = conform_grid_obj.data
             bm = bmesh.new()
             bm.from_mesh(mesh)
@@ -853,9 +866,11 @@ def apply_modifier(obj, m):
 
 
 
-def conform_undo(source_obj, context, remove_grid=True):
+def conform_undo(source_obj, context, remove_grid=True, set_active=True):
     if not source_obj.conform_object.is_conform_obj:
         return
+
+    target_obj = get_target_obj(source_obj)
 
     #remove subdivision modifier.
     if _subd_mod_name in source_obj.modifiers:
@@ -875,6 +890,7 @@ def conform_undo(source_obj, context, remove_grid=True):
     # remove shrinkwrap modifier if preset. 
     if _deform_shrinkwrap_mod_name in source_obj.modifiers:
         source_obj.modifiers.remove(source_obj.modifiers[_deform_shrinkwrap_mod_name])
+
 
     # # remove any related vertex groups.
     if _conform_obj_group_name in source_obj.vertex_groups:
@@ -900,9 +916,9 @@ def conform_undo(source_obj, context, remove_grid=True):
             bpy.data.objects.remove(grid_object)
             bpy.data.meshes.remove(data_to_remove)
 
-    if source_obj.conform_object.target_object and source_obj.conform_object.target_object.name in bpy.data.objects:
+    if set_active and target_obj and target_obj.name in bpy.data.objects:
         try:
-            context.view_layer.objects.active = source_obj.conform_object.target_object
+            context.view_layer.objects.active = target_obj
         except RuntimeError:
             pass
 
@@ -922,7 +938,7 @@ def conform_apply(source_obj, context):
         apply_modifier(source_obj, source_obj.modifiers[_subd_mod_name])
 
     #apply the deform modifier.
-    grid_object = source_obj.conform_object.grid_object
+    grid_object = get_grid_obj(source_obj)
     if _deform_mod_name in source_obj.modifiers:
         mod = source_obj.modifiers[_deform_mod_name]
         apply_modifier(source_obj, mod)

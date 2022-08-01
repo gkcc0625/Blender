@@ -11,8 +11,6 @@ class conform_object(PropertyGroup):
     is_conform_obj : BoolProperty(default=False)
     is_conform_shrinkwrap : BoolProperty(default=False)
     is_grid_obj : BoolProperty(default=False)
-    target_object : PointerProperty(type=bpy.types.Object)
-    grid_object : PointerProperty(type=bpy.types.Object)
     original_location : FloatVectorProperty()
 
 

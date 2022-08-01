@@ -155,6 +155,10 @@ class HOPS_BOOL_OPERATOR():
                 ["Workflow        -   ",  (get_preferences().property.workflow)],
                 ["Boolean Operation complete"]]
 
+            if self.outset:
+                draw_data[0][0] = "OUTSET" + extra_title
+                draw_data.insert(2, ["Outset          -   ", "ON"])
+
             if bpy.app.version > (2, 83, 0):
                  draw_data.insert(1, ["2.9X Solver      -   ",  (get_preferences().property.boolean_solver)])
 
@@ -169,7 +173,7 @@ class HOPS_OT_BoolDifference(HOPS_BOOL_OPERATOR, bpy.types.Operator):
     bl_label = "Hops Difference Boolean"
     bl_options = {'REGISTER', 'UNDO'}
     bl_description = """Difference Boolean
-    
+
 Cuts mesh using Difference Boolean
 
 LMB - Boolean Object (DEFAULT)
@@ -205,7 +209,7 @@ class HOPS_OT_BoolUnion(HOPS_BOOL_OPERATOR, bpy.types.Operator):
     bl_label = "Hops Union Boolean"
     bl_options = {'REGISTER', 'UNDO'}
     bl_description = """Union Boolean
-    
+
 Merges mesh using Union Boolean
 
 LMB - Boolean Object (DEFAULT)
@@ -223,7 +227,7 @@ class HOPS_OT_BoolUnion_hotkey(HOPS_BOOL_OPERATOR, bpy.types.Operator):
     bl_label = "Hops Union Boolean"
     bl_options = {'REGISTER', 'UNDO'}
     bl_description = """Union Boolean
-    
+
 Merges mesh using Union Boolean
 
 LMB - Boolean Object (DEFAULT)
@@ -319,11 +323,11 @@ class HOPS_OT_BoolInset(HOPS_BOOL_OPERATOR, bpy.types.Operator):
     bl_label = "Hops Inset Boolean"
     bl_options = {'REGISTER', 'UNDO'}
     bl_description = """Inset/Outset Boolean
-    
+
 Cuts mesh using Inset/Outset Boolean
 
 LMB - Boolean Object (DEFAULT)
-LMB + Shift - Outset 
+LMB + Shift - Outset
 LMB + CTRL - Bypass Sort / Bstep (Add Bevel)
 
 """
@@ -362,6 +366,21 @@ LMB + Shift - Knife Project
         description="Use Cut Through Mesh",
         default=True)
 
+    projection: bpy.props.EnumProperty(
+        name="Projection",
+        description="Object Projection",
+        items = [
+            ("VIEW", "VIEW", "Project from view"),
+            ("Z-", "Z-", "Project for Z- side of the object"),
+            ("Z+", "Z+", "Project for Z+ side of the object"),
+            ("X-", "X-", "Project for X- side of the object"),
+            ("X+", "X+", "Project for X+ side of the object"),
+            ("Y-", "Y-", "Project for Y- side of the object"),
+            ("Y+", "Y+", "Project for Y+ side of the object"),
+        ],
+        default = 'VIEW',
+    )
+
     @classmethod
     def poll(cls, context):
         obj = context.active_object
@@ -372,6 +391,7 @@ LMB + Shift - Knife Project
         row.prop(self, "knife_project")
         if self.knife_project:
             row.prop(self, "cut_through")
+            self.layout.row().prop(self, "projection")
 
     def invoke(self, context, event):
         self.knife_project = event.shift
@@ -382,4 +402,4 @@ LMB + Shift - Knife Project
             bpy.ops.hops.display_notification(info='Knife Project Used', name="Knife Project")
         else:
             bpy.ops.hops.display_notification(info='Knife Intersect Used', name="Knife Intersect")
-        return operator.knife(context, self.knife_project, material_cut=True, cut_through=self.cut_through)
+        return operator.knife(context, self.knife_project, material_cut=True, cut_through=self.cut_through, projection=self.projection)

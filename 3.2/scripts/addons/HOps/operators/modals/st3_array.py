@@ -544,6 +544,9 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
             ("F / TAB",        "Unpause / Freeze Rotation" if self.freeze_controls else "Pause (DotUI) / Free Rotation")
         ]
 
+        if 'SPACE' in self.base_controls.popover_keys:
+            help_items["STANDARD"].append(('Space', 'Open Select Menu'))
+
         # Mods
         mods_list = get_mods_list(mods=obj.modifiers)
 

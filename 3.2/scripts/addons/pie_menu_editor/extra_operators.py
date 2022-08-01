@@ -617,6 +617,36 @@ class PME_OT_sidearea_toggle(bpy.types.Operator):
         if state[1] > 1:
             SU.toggle_sidebar(area, False, True)
 
+    def close_area(self, main, area):
+        CTU.swap_spaces(area, main, self.area)
+        try:
+            bpy.ops.screen.area_close(dict(area=area))
+            return
+        except:
+            pass
+
+        if area.x < main.x:
+            try:
+                bpy.ops.screen.area_join(
+                    min_x=area.x + 2, min_y=area.y + 2,
+                    max_x=area.x - 2, max_y=area.y + 2)
+            except:
+                bpy.ops.screen.area_join(
+                    cursor=(area.x, area.y + 2))
+
+        else:
+            try:
+                bpy.ops.screen.area_join(
+                    min_x=area.x + area.width - 2,
+                    min_y=area.y + area.height - 2,
+                    max_x=area.x + area.width + 2,
+                    max_y=area.y + area.height - 2)
+            except:
+                bpy.ops.screen.area_swap(
+                    cursor=(area.x + area.width - 2, area.y + 2))
+                bpy.ops.screen.area_join(
+                    cursor=(area.x + area.width - 2, area.y + 2))
+
     def execute(self, context):
         self.ia = set(a.strip() for a in self.ignore_areas.split(","))
         self.ia.add(self.ignore_area)
@@ -668,30 +698,12 @@ class PME_OT_sidearea_toggle(bpy.types.Operator):
 
         elif l and self.side == 'LEFT' and self.action in ('TOGGLE', 'HIDE'):
             self.save_sidebars(l)
-            CTU.swap_spaces(l, a, self.area)
-            try:
-                bpy.ops.screen.area_join(
-                    min_x=a.x + 2, min_y=a.y + 2,
-                    max_x=a.x - 2, max_y=a.y + 2)
-            except:
-                bpy.ops.screen.area_join(
-                    cursor=(a.x, a.y + 2))
-
+            self.close_area(a, l)
             SU.redraw_screen()
 
         elif r and self.side == 'RIGHT' and self.action in ('TOGGLE', 'HIDE'):
             self.save_sidebars(r)
-            CTU.swap_spaces(r, a, self.area)
-            try:
-                bpy.ops.screen.area_join(
-                    min_x=a.x + a.width - 2, min_y=a.y + a.height - 2,
-                    max_x=a.x + a.width + 2, max_y=a.y + a.height - 2)
-            except:
-                bpy.ops.screen.area_swap(
-                    cursor=(a.x + a.width - 2, a.y + 2))
-                bpy.ops.screen.area_join(
-                    cursor=(a.x + a.width - 2, a.y + 2))
-
+            self.close_area(a, r)
             SU.redraw_screen()
 
         elif (not l and self.side == 'LEFT' or

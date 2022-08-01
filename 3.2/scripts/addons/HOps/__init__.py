@@ -23,7 +23,7 @@ bl_info = {
     "name": "Hard Ops 9",
     "description": "Hard Ops 9 - Francium",
     "author": "AR / MX, proxe, bonjorno7, Neerhom / c0, ST3, General Ginsu, MACHIN3, Jacques Lucke, Ivan Santic, Robert Fornoff, Johnathan Mueller, Batfinger, SE, PL, MKB, CGStrive, PG, AX, Adam K, WZ, PW, and you",
-    "version": (0, 9, 87, 28),
+    "version": (0, 9, 87, 32),
     "blender": (2, 83, 0),
     "location": "View3D",
     # "warning": "Hard Ops - The Global Bevelling Offensive V 007x",
@@ -189,7 +189,7 @@ from .operators.modals.accu.operator import HOPS_OT_Accu_Shape_V2
 from .operators.modals.to_shape_1_5 import HOPS_OT_Conv_To_Shape_1_5
 from .operators.modals.ever_scroll.operator import HOPS_OT_Ever_Scroll_V2
 from .operators.modals.map_scroll import HOPS_OT_Map_Scroll
-from .operators.modals.grid_demo import HOPS_OT_Grid_Demo
+from .operators.modals.face_extract import HOPS_OT_FaceExtract
 
 from .operators.preferences.modifiers import *
 from .operators.preferences.set_sharpness import *
@@ -583,7 +583,7 @@ classes = (
     HOPS_OT_Conv_To_Shape_1_5,
     HOPS_OT_Ever_Scroll_V2,
     HOPS_OT_Map_Scroll,
-    HOPS_OT_Grid_Demo,
+    HOPS_OT_FaceExtract,
     HOPS_OT_CursorSnap,
     HOPS_OT_SET_ORIGIN,
     HOPS_OT_Curosr3d,

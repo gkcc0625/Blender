@@ -162,6 +162,13 @@ def boolean_solver(op, context):
                     mod.solver = op.boolean_solver
                     break
 
+    elif operator.mode == 'JOIN':
+        for obj in operator.datablock['targets'] + operator.datablock['slices']:
+            for mod in reversed(obj.modifiers):
+                if mod.type == 'BOOLEAN' and mod.object is bc.shape:
+                    mod.solver = 'EXACT' if addon.preference().behavior.join_exact else op.boolean_solver
+                    break
+
     else:
         for obj in operator.datablock['targets'] + operator.datablock['slices']:
             for mod in reversed(obj.modifiers):

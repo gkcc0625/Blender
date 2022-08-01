@@ -171,7 +171,6 @@ class HOPS_OT_RadialArray(bpy.types.Operator):
                 self.array_mod = b
                 break
 
-
         # Set internal variables
         self.empty_new = not self.empty
         self.displace_new = not self.displace_mod
@@ -267,6 +266,8 @@ class HOPS_OT_RadialArray(bpy.types.Operator):
 
         if self.from_empty:
             self.origin_mode = origin_modes.original
+            self.displace_mod.show_viewport = False
+            self.array_mod.count = self.shared_avg_segments()
 
         # Create driver
         self.direction_prev = str(self.direction)
@@ -460,12 +461,20 @@ class HOPS_OT_RadialArray(bpy.types.Operator):
         self.driver.expression = f"{math.radians(self.rotation)} / count"
 
 
+    def shared_avg_segments(self):
+        if not self.empty: return
+        divisor = math.degrees(self.empty.rotation_euler.z)
+        if divisor <= 0: divisor = 1
+        ret_val = 360 / divisor
+        return int(ret_val) + 1
+
+
     def confirm(self, context):
         modifier.sort(self.obj, sort_types=['WEIGHTED_NORMAL'])
 
         if get_preferences().property.workflow == 'DESTRUCTIVE':
-            modifier.apply(self.displace_mod)
-            modifier.apply(self.array_mod)
+            modifier.apply(self.obj, self.displace_mod)
+            modifier.apply(self.obj, self.array_mod)
             bpy.data.objects.remove(self.empty)
 
         self.from_empty = False

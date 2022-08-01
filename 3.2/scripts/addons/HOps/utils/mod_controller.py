@@ -188,7 +188,7 @@ class Mod_Controller:
 
         for obj_data in self.obj_datas:
             if not self.__validate_index(obj_data): continue
-            mod = obj_data.mod_datas[obj_data.index]
+            mod = obj_data.mod_datas[obj_data.index].mod
             if not mod: continue
             if not hasattr(mod, attr): continue
             setattr(mod, attr, value)

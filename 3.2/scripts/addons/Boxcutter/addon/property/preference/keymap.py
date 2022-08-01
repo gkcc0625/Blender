@@ -171,6 +171,11 @@ class bc(PropertyGroup):
         description = '\n Alt centers the cutter when held while drawing',
         default = True)
 
+    alt_double_extrude: BoolProperty(
+        name = 'Alt Double Extrude',
+        description = '\n Alt extrudes/offset cutter both ways',
+        default = True)
+
     shift_draw: BoolProperty(
         name = 'Shift Uniform',
         description = '\n Shift uniformely expands the cutter when held while drawing',
@@ -290,6 +295,7 @@ def draw(preference, context, layout):
 
     label_row(preference.keymap, 'alt_preserve', layout.row(), label='Preserve Alt')
     label_row(preference.keymap, 'alt_draw', layout.row(), label='Alt Center')
+    label_row(preference.keymap, 'alt_double_extrude', layout.row(), label='Alt Double Extrude')
     label_row(preference.keymap, 'alt_scroll_shape_type', layout.row())
 
     label_row(preference.keymap, 'shift_draw', layout.row(), label='Shift Uniform')

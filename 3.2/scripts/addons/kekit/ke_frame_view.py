@@ -1,9 +1,9 @@
 import bpy
 import bmesh
-from .ke_utils import override_by_active_view3d
+from ._utils import override_by_active_view3d
 
 
-class SCREEN_OT_ke_frame_view(bpy.types.Operator):
+class KeFrameView(bpy.types.Operator):
     bl_idname = "screen.ke_frame_view"
     bl_label = "Frame All or Selected"
     bl_description = "Frame Selection, or everything if nothing is selected."
@@ -128,7 +128,6 @@ class SCREEN_OT_ke_frame_view(bpy.types.Operator):
                 for o in temp_hide:
                     o.hide_viewport = False
 
-
         elif space == "GRAPH_EDITOR":
             sel = []
             for c in context.selected_visible_fcurves:
@@ -190,16 +189,19 @@ class SCREEN_OT_ke_frame_view(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeFrameView,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(SCREEN_OT_ke_frame_view)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(SCREEN_OT_ke_frame_view)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

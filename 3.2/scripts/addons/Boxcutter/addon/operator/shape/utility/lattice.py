@@ -14,11 +14,12 @@ top = (2, 3, 6, 7)
 bottom = (0, 1, 4, 5)
 
 
-def thickness_clamp(context):
+def thickness_clamp(op, context):
+    preference = addon.preference()
     bc = context.scene.bc
     factor = 0.005
     thickness = min(bc.shape.dimensions[:-1]) * factor
-    offset = addon.preference().shape.offset
+    offset = 0 if op.mode == 'JOIN' and preference.behavior.join_exact else preference.shape.offset
 
     return thickness if thickness < offset else offset - 0.001
 
@@ -119,6 +120,7 @@ def draw(op, context, event):
     else:
         origin_offset = op.last['lattice_corner']
 
+    mask_shift = False
     if bc.snap.operator:
         if hasattr(bc.snap.operator, 'grid_handler'):
             grid_handler = bc.snap.operator.grid_handler
@@ -155,6 +157,9 @@ def draw(op, context, event):
             op.view3d['location'].y = location.y
 
             snap = snap_lock = False
+
+            if bc.snap.operator.handler.micro:
+                mask_shift = True
 
     location_x = op.view3d['location'].x - origin_offset.x
     location_y = op.view3d['location'].y - origin_offset.y
@@ -232,7 +237,7 @@ def draw(op, context, event):
     clear = globals()[sides[not index1]]
 
     use_alt = (event.alt and preference.keymap.alt_draw) or ((vert_lock or edge_lock or face_lock) and not event.alt)
-    use_shift = (event.shift and preference.keymap.shift_draw) or (face_lock or vert_lock or (edge_lock and op.shape_type == 'CIRCLE')) and not event.shift
+    use_shift = ((event.shift and preference.keymap.shift_draw) or (face_lock or vert_lock or (edge_lock and op.shape_type == 'CIRCLE')) and not event.shift) and not mask_shift
 
     if op.shape_type == 'CUSTOM':
         if preference.shape.auto_depth:
@@ -426,12 +431,13 @@ def offset(op, context, event):
             offset = 0
 
         elif op.mode == 'JOIN':
-            offset = -offset if preference.shape.offset != 0 else offset
+            offset = 0 if preference.behavior.join_exact else -offset if preference.shape.offset != 0 else offset
     else:
         offset = 0
 
     snap = preference.snap.enable and (preference.snap.incremental or preference.snap.grid)
     snap_lock = snap and preference.snap.increment_lock
+    double_offset = event.alt and preference.keymap.alt_double_extrude and not preference.keymap.alt_preserve
 
     shape = bc.shape
     lat = bc.lattice
@@ -451,12 +457,17 @@ def offset(op, context, event):
         else:
             location_z = round(round(location_z / increment_amount) * increment_amount, increment_length)
 
-    location = location_z + offset
-    matrix = op.start['matrix'] @ Matrix.Translation(Vector((0, 0, location)))
+    # location = location_z + offset
+    # matrix = op.start['matrix'] @ Matrix.Translation(Vector((0, 0, location)))
 
-    thickness = location_z - op.start['extrude']
+    extrude = op.start['extrude']
+    center = op.last['bounds_center']
+    if double_offset:
+        extrude = center.z - (location_z - center.z)
 
-    limit = thickness_clamp(context)
+    thickness = location_z - points[back[0]].co_deform.z
+
+    limit = thickness_clamp(op, context)
 
     if op.mode in {'MAKE', 'JOIN'} or not op.clamp_extrude:
         delta = -thickness
@@ -467,17 +478,22 @@ def offset(op, context, event):
 
             mesh.flip_normals(bc.shape.data)
     else:
+        if location_z <= extrude and double_offset:
+            extrude = center.z
+
         if thickness < limit:
             clamp = limit - thickness
-            quat = lat.matrix_world.to_quaternion()
-            scale = lat.matrix_world.to_scale()
-            clamp_vector = quat @ Vector((0, 0, clamp * scale.z))
+            # quat = lat.matrix_world.to_quaternion()
+            # scale = lat.matrix_world.to_scale()
+            # clamp_vector = quat @ Vector((0, 0, clamp * scale.z))
 
             location_z += clamp
-            matrix.translation += clamp_vector
+            # matrix.translation += clamp_vector
 
     for i in front:
         points[i].co_deform.z = location_z
+
+    op.last['depth'] = extrude
 
     wedge(op, context)
 
@@ -488,6 +504,7 @@ def extrude(op, context, event):
 
     snap = preference.snap.enable and (preference.snap.incremental or (preference.snap.grid and (bc.snap.display or event.ctrl)))
     snap_lock = snap and preference.snap.increment_lock
+    double_extrude = event.alt and preference.keymap.alt_double_extrude and not preference.keymap.alt_preserve
 
     points = bc.lattice.data.points
 
@@ -508,6 +525,11 @@ def extrude(op, context, event):
         else:
             location_z = round(round(location_z / increment_amount) * increment_amount, increment_length)
 
+    offset = op.input_plane.z
+    center = op.last['bounds_center']
+    if double_extrude:
+        offset = center.z - (location_z - center.z)
+
     if op.mode in {'JOIN', 'MAKE'} or not op.clamp_extrude:
         delta = location_z - points[front[0]].co_deform.z
         if (delta > 0 and not op.inverted_extrude) or (delta < 0 and op.inverted_extrude):
@@ -518,8 +540,14 @@ def extrude(op, context, event):
             mesh.flip_normals(bc.shape.data)
 
     else:
-        clamp = points[front[0]].co_deform.z - thickness_clamp(context)
+        if location_z >= offset and double_extrude:
+            offset = center.z
+
+        clamp = offset - thickness_clamp(op, context)
         location_z = location_z if location_z < clamp else clamp
+
+    for i in front:
+        points[i].co_deform.z = offset
 
     dpi_factor = screen.dpi_factor(ui_scale=False, integer=True)
 
@@ -633,7 +661,7 @@ def wedge(op, context, event=None):
     lock = [back[pairs[bc.wedge_point][0]], back[pairs[bc.wedge_point][1]]]
     lock_offset = 0.001
     lock_val = points[front[0]].co_deform.z + (lock_offset if op.inverted_extrude else -lock_offset)
-    clamp = points[front[0]].co_deform.z + thickness_clamp(context)
+    clamp = points[front[0]].co_deform.z + thickness_clamp(op, context)
 
     factor_axis = 'XY'.index(pair_axis[bc.wedge_point])
     width_axis = 1 if factor_axis == 0 else 0
@@ -683,7 +711,7 @@ def taper(op, context, amount=0.0):
         point.co_deform.y = front_center.y + (point.co_deform.y - front_center.y) * amount
 
 
-def fit(op, context):
+def fit(op, context, ngon=True):
     preference = addon.preference()
     bc = context.scene.bc
 
@@ -703,14 +731,14 @@ def fit(op, context):
 
     scale.x = 0.0001 if not scale.x else scale.x
     scale.y = 0.0001 if not scale.y else scale.y
-    scale.z = 0.0001 if not scale.z or not op.extruded else scale.z
+    scale.z = 0.0001 if not scale.z or (not op.extruded and ngon) else scale.z
 
     if op.inverted_extrude:
         scale.z = -scale.z
 
     preference.shape['dimension_x'] = scale.x
     preference.shape['dimension_y'] = scale.y
-    preference.shape['dimension_z'] = scale.z if op.extruded else 0
+    preference.shape['dimension_z'] = scale.z if not ngon or op.extruded else 0
 
     op.datablock['shape_proportions'] = scale / scale.x
     op.datablock['shape_proportions'].z = 1
@@ -733,7 +761,7 @@ def fit(op, context):
     bc.lattice.data.transform(matrix)
     bc.lattice.data.points.update()
 
-    if op.extruded and op.mode not in {'MAKE', 'JOIN'} or not op.ngon_fit:
+    if ngon and op.extruded and op.mode not in {'MAKE', 'JOIN'} or not op.ngon_fit:
         for index in back:
             bc.lattice.data.points[index].co_deform.z = op.last['depth']
 
@@ -743,4 +771,6 @@ def fit(op, context):
     modifier.sort(bc.shape, static_sort=True, sort_types={'LATTICE'}, first=True, use_index_operator=False)
     context.view_layer.update()
     bc.lattice.matrix_world = bc.shape.matrix_world
-    op.draw_dot_index = 1
+
+    if ngon:
+        op.draw_dot_index = 1

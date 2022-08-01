@@ -19,9 +19,15 @@ from .... sound import time_code
 #  - create pref for displaying warning dialogue
 #    - offer in dialogue
 #      ~ pref should warn against disable (i.e. garbage cuts)
+#      - dialogue offers cancel, ok
+#      - op called in prop update and feeds prop path key
 def operator(op, context):
     preference = addon.preference()
     bc = context.scene.bc
+
+    bc.__class__.operator = None
+    bc.__class__.shader = None
+
     bc.running = False
 
     statusbar.remove()
@@ -77,10 +83,9 @@ def operator(op, context):
             if mod.width < 0.0005:
                 bc.shape.modifiers.remove(mod)
 
-            elif not op.ngon_point_bevel:
+            else:
                 width_type = 'bevel_width' if mod.name.startswith('Bevel') else F'{mod.name.split(" ")[0].lower()}_bevel_width'
-
-                last['modifier'][width_type] = mod.width# if mod.width > last['modifier'][width_type] else last['modifier'][width_type]
+                last['modifier'][width_type] = mod.width if not op.ngon_point_bevel else op.ngon_point_bevel_reset
                 last['modifier']['segments'] = mod.segments
 
         elif mod.type == 'SOLIDIFY':

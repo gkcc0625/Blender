@@ -1,7 +1,7 @@
 import bpy
 from ..functions import raycast
 
-from ..autofocus import hide_focus_planes, hide_dof_objects
+from ..autofocus import list_focus_planes, list_dof_objects
 
 def create_target(context,location,obj):
     # Reuse Target if one with camera name exists (workaround for Pointer crash)
@@ -87,8 +87,8 @@ class PHOTOGRAPHER_OT_TargetAdd(bpy.types.Operator):
                         # Restore Focus Planes visibility
                         for o in self.fp:
                             o.hide_viewport = False
-                        for o in self.dof_objects:
-                            o.hide_viewport = False
+                        # for o in self.dof_objects:
+                        #     o.hide_viewport = False
                         return {'FINISHED'}
 
                     else:
@@ -128,8 +128,8 @@ class PHOTOGRAPHER_OT_TargetAdd(bpy.types.Operator):
                         # Restore Focus Planes visibility
                         for o in self.fp:
                             o.hide_viewport = False
-                        for o in self.dof_objects:
-                            o.hide_viewport = False
+                        # for o in self.dof_objects:
+                        #     o.hide_viewport = False
                         return {'FINISHED'}
 
                     # except:
@@ -143,8 +143,8 @@ class PHOTOGRAPHER_OT_TargetAdd(bpy.types.Operator):
                     # Restore Focus Planes visibility
                     for o in self.fp:
                         o.hide_viewport = False
-                    for o in self.dof_objects:
-                        o.hide_viewport = False
+                    # for o in self.dof_objects:
+                    #     o.hide_viewport = False
                     return {'CANCELLED'}
 
         # Cancel Modal with RightClick and ESC
@@ -154,8 +154,8 @@ class PHOTOGRAPHER_OT_TargetAdd(bpy.types.Operator):
             # Restore Focus Planes visibility
             for o in self.fp:
                 o.hide_viewport = False
-            for o in self.dof_objects:
-                o.hide_viewport = False
+            # for o in self.dof_objects:
+            #     o.hide_viewport = False
             return {'CANCELLED'}
 
         return {'RUNNING_MODAL'}
@@ -166,8 +166,8 @@ class PHOTOGRAPHER_OT_TargetAdd(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
 
         # Hide all Focus Planes
-        self.fp = hide_focus_planes()
-        self.dof_objects = hide_dof_objects()
+        self.fp = list_focus_planes()
+        # self.dof_objects = list_dof_objects()
         self.parent = event.shift
         return {'RUNNING_MODAL'}
 

@@ -1,9 +1,10 @@
-import bpy
-from bpy.props import FloatProperty, BoolProperty
+import bpy, bmesh
+from bpy.props import FloatProperty, BoolProperty, EnumProperty
 from . uv_draw import hops_draw_uv
 from ... utils.bmesh import selectSmoothEdges
 from ... preferences import get_preferences
 from ...ui_framework.operator_ui import Master
+from math import radians, degrees, pi
 
 class HOPS_OT_XUnwrapF(bpy.types.Operator):
     bl_idname = "hops.xunwrap"
@@ -11,13 +12,21 @@ class HOPS_OT_XUnwrapF(bpy.types.Operator):
     bl_options = {"REGISTER", "UNDO"}
     bl_description = """Unwrap mesh using automated unwrapping and draw UVs in the 3d view
     CTRL - Only display UVs (No Unwrap)"""
-    
+
     angle_limit:      FloatProperty(name="Angle limit", default=45, min=0.0, max=90)
     rmargin:          FloatProperty(name="Margin", default=0.0002, min=0.0, max=1)
     user_area_weight: FloatProperty(name="User area weight", default=0.03, min=0.0, max=1)
-    rmethod:          BoolProperty(default=True)
-    bweight_as_seams: BoolProperty(default=True)
+    bweight_as_seams: BoolProperty(default=False, )
+    crease_as_seams:  BoolProperty(default=False, description='Convert crease to seeams')
+    sharp_as_seams:   BoolProperty(default=True, description="Use marked sharp edges")
     called_ui = False
+    rmethod:          EnumProperty(
+        name='Method',
+        items = [
+            ('SMART', 'Smart', 'Smart UV project'),
+            ('NORMAL', 'Normal', 'Setup mesh for normal map compatibility'),
+        ],
+    )
 
 
     def __init__(self):
@@ -35,11 +44,17 @@ class HOPS_OT_XUnwrapF(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         box = layout.box()
+        box.prop(self, 'rmethod')
         box.prop(self, "angle_limit")
-        box.prop(self, 'bweight_as_seams', text="convert bevel weight to seams")
         box.prop(self, "rmargin")
-        box.prop(self, "user_area_weight")
-        box.prop(self, 'rmethod', text="use smart method")
+
+        if self.rmethod == 'SMART':
+            box.prop(self, "user_area_weight")
+
+        elif self.rmethod == 'NORMAL':
+            box.prop(self, 'sharp_as_seams', text="Use sharp edges")
+            box.prop(self, 'crease_as_seams', text="Convert crease to seams")
+            box.prop(self, 'bweight_as_seams', text="Convert bevel weight to seams")
 
 
     def invoke(self, context, event):
@@ -66,32 +81,35 @@ class HOPS_OT_XUnwrapF(bpy.types.Operator):
 
         self.lazy_selection(context)
 
-        if self.bweight_as_seams:
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        if self.rmethod == 'NORMAL':
             for obj in bpy.context.selected_objects:
                 bpy.context.view_layer.objects.active = obj
                 me = obj.data
-                #me.show_edge_crease = True
+                me.use_auto_smooth = True
+                me.auto_smooth_angle = pi
 
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.mesh.select_all(action='DESELECT')
-                bpy.ops.mesh.select_mode(type="EDGE")
-                selectSmoothEdges(self, me)
-                bpy.ops.mesh.mark_seam(clear=False)
+                bm = bmesh.from_edit_mesh(me)
+                crease = bm.edges.layers.crease.verify()
+                bevel = bm.edges.layers.bevel_weight.verify()
+                for e in bm.edges:
+                    angle = degrees(e.calc_face_angle(0.0))
+                    e.seam = bool((angle > self.angle_limit) + (e[crease] * self.crease_as_seams) + (e[crease] * self.crease_as_seams) + (e[bevel] * self.bweight_as_seams) + ((not e.smooth) * self.sharp_as_seams))
+                    e.smooth = not e.seam
+
                 bpy.ops.mesh.select_all(action='SELECT')
-                bpy.ops.object.mode_set(mode='OBJECT')
 
-        if self.rmethod:
-            if bpy.app.version <= (2, 90, 0):
-                bpy.ops.uv.smart_project(angle_limit=self.angle_limit, island_margin=self.rmargin, user_area_weight=self.user_area_weight)
-            
-            elif bpy.app.version > (2, 90, 0):
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.uv.smart_project(angle_limit=self.angle_limit, island_margin=self.rmargin, area_weight=self.user_area_weight, correct_aspect=False, scale_to_bounds=False)
-
-        else:
-            bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.uv.unwrap(method='ANGLE_BASED', margin=self.rmargin)
-            bpy.ops.object.mode_set(mode='OBJECT')
+
+        elif self.rmethod == 'SMART':
+            if bpy.app.version <= (2, 90, 0):
+                bpy.ops.uv.smart_project(angle_limit=radians(self.angle_limit), island_margin=self.rmargin, user_area_weight=self.user_area_weight)
+
+            elif bpy.app.version > (2, 90, 0):
+                bpy.ops.uv.smart_project(angle_limit=radians(self.angle_limit), island_margin=self.rmargin, area_weight=self.user_area_weight, correct_aspect=False, scale_to_bounds=False)
+
+        bpy.ops.object.mode_set(mode='OBJECT')
 
         # Operator UI
         if HOPS_OT_XUnwrapF.called_ui == False:

@@ -1,5 +1,5 @@
+import re
 import bpy
-from bpy.types import Image
 from .... addon.utility.screen import dpi_factor
 from ... graphics.draw import render_text, draw_border_lines, render_quad, render_image
 from ... graphics.load import load_image_file
@@ -28,7 +28,7 @@ class Button:
         callback=None, pos_args=None, neg_args=None,
         alt_callback=None, alt_args=None,
         ctrl_callback=None, ctrl_args=None,
-        highlight_hook=None, highlight_hook_args=None,
+        highlight_hook=None, highlight_hook_args=None, highlight_hook_obj=None, highlight_hook_attr=None,
         shift_ctrl_callback=None, shift_ctrl_args=None,
         popup=None, popup_modifier_key='',
         obj=None, attr="", attr_index=None):
@@ -61,6 +61,8 @@ class Button:
         self.tips = Tips(tips, tip_size) if tips else None
         self.highlight_hook = highlight_hook
         self.highlight_hook_args = highlight_hook_args
+        self.highlight_hook_obj = highlight_hook_obj
+        self.highlight_hook_attr = highlight_hook_attr
         self.use_padding = use_padding
         self.shift_ctrl_callback = shift_ctrl_callback
         self.shift_ctrl_args = shift_ctrl_args
@@ -153,7 +155,13 @@ class Button:
 
         # Attributes
         if db.clicked or db.increment:
-            if self.__attribute_setter(): return
+            valid = True
+            
+            if self.scroll_enabled == False and db.increment:
+                valid = False
+            
+            if valid:    
+                if self.__attribute_setter(): return
 
         # No default call back
         if not self.callback: return
@@ -182,15 +190,8 @@ class Button:
         self.border_color = db.color.border
 
         # Attributes
-        if self.obj:
-            if hasattr(self.obj, self.attr):
-                val = getattr(self.obj, self.attr)
-                if self.attr_index != None:
-                    val = val[self.attr_index]
-                if val: self.border_color = db.color.mods_highlight
-                else: self.border_color = db.color.border
-                return
-
+        if self.__obj_attr_colors(db): return True
+        
         if self.__highlight_hook_color(db): return
 
         if self.mouse_over:
@@ -202,6 +203,7 @@ class Button:
 
 
     def __highlight_hook_color(self, db):
+
         if self.highlight_hook:
 
             if self.highlight_hook_args:
@@ -215,8 +217,30 @@ class Button:
                     self.bg_color = db.color.cell_background
                     return True
 
+        if self.highlight_hook_obj:
+            if self.highlight_hook_attr:
+                if hasattr(self.highlight_hook_obj, self.highlight_hook_attr):
+                    val = getattr(self.highlight_hook_obj, self.highlight_hook_attr)
+                    if val: self.border_color = db.color.mods_highlight
+                    else: self.border_color = db.color.border
+
+        if self.__obj_attr_colors(db): return True
+
         return False
 
+
+    def __obj_attr_colors(self, db):
+        if not self.obj: return False
+    
+        if not hasattr(self.obj, self.attr): return False
+    
+        val = getattr(self.obj, self.attr)
+        if self.attr_index != None:
+            val = val[self.attr_index]
+        if val: self.border_color = db.color.mods_highlight
+        else: self.border_color = db.color.border
+        return True
+    
 
     def __scroll_event(self, event, db):
         if db.increment > 0:

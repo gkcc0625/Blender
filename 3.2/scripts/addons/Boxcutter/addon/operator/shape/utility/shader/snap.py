@@ -9,6 +9,7 @@ from gpu.types import GPUShader
 from bgl import glEnable, glDisable, glPointSize, GL_BLEND
 
 from mathutils import Vector, Matrix
+from mathutils.geometry import closest_point_on_tri
 
 from .. modal.ray import view_matrix, surface_matrix, planar_matrix
 
@@ -18,6 +19,9 @@ from ...... utility import method_handler, addon, screen, view3d, ray, math
 
 
 class display_handler:
+    micro: bool = False
+    local: bool = True
+
     exit: bool = False
     force_exit: bool = False
 
@@ -74,31 +78,31 @@ class display_handler:
         bc = context.scene.bc
 
         self.mouse = Vector((mouse.x, mouse.y))
+        self.offset = Vector()
         self.face_index = -1
 
         self.fade = True
 
         self.grid: type = type('GridNull', tuple(), dict(display=False, update=lambda *_: None, fade=False, exit=True, remove=lambda *_, **__: None))
+        self.sub_grid: type = type('GridNull', tuple(), dict(display=False, update=lambda *_: None, fade=False, exit=True, remove=lambda *_, **__: None))
         # self.points: type = type('PointsNull', tuple(), dict(display=False, update=lambda *_: None, fade=False, exit=True, remove=lambda *_, **__: None))
 
         self.obj = None
+        self.obj_name = ''
+        self.obj_matrix = Matrix()
         self.eval = False
 
-        self._view_transform = context.region_data.view_rotation.to_matrix().to_4x4()
+        self.view_transform = context.region_data.view_rotation.to_matrix().to_4x4()
 
-        hit = False
         self.normal = Vector((0, 0, -1))
+
         active = context.active_object and context.active_object.type == 'MESH'
         selected = context.selected_objects
 
+        hit = False
+
         if active and preference.surface != 'VIEW':
             hit = self._ray_cast(context)
-
-        axis = {
-            'X': 'Y',
-            'Y': 'X',
-            'Z': 'Z'}
-        angle = radians(-90 if preference.axis in {'X', 'Y'} else 90)
 
         if preference.surface == 'OBJECT' and hit:
             self.type = 'OBJECT'
@@ -111,16 +115,7 @@ class display_handler:
 
         elif preference.surface == 'CURSOR':
             self.type = 'CURSOR'
-
-            cursor = context.scene.cursor
-            matrix = cursor.rotation_euler.to_matrix().to_4x4()
-
-            rotation = Matrix.Rotation(angle, 4, axis[preference.axis])
-            matrix @= rotation
-
-            self.location = cursor.location
-            self.normal = Vector((0, 0, -1))
-            self.matrix = matrix
+            self._cursor_matrix()
 
         elif preference.surface == 'WORLD' or not selected or not active:
             self.type = 'WORLD'
@@ -139,8 +134,13 @@ class display_handler:
 
         types_enabled = [t for t in types if types[t]] if not preference.snap.grid and hit else ['GRID']
 
+        fallback = Vector() if self.type != 'CURSOR' else context.scene.cursor.location
+        self._offset(self.obj.location if self.obj and self.type != 'CURSOR' else fallback)
+
         if 'GRID' in types_enabled:
             self.grid = grid(self, context)
+            self.sub_grid = grid(self, context)
+            self.sub_grid.main = False
 
         self.points = points(self, context, types_enabled)
 
@@ -151,12 +151,19 @@ class display_handler:
         preference = addon.preference()
         bc = context.scene.bc
 
+        if self.obj_name not in context.scene.objects:
+            self.obj = None
+
+        elif self.obj_name:
+            self.obj = context.scene.objects[self.obj_name]
+
         if not context.region_data:
             self.remove(force=True)
 
             return
 
-        view = context.region_data.view_rotation.to_matrix().to_4x4()
+        view_transform = context.region_data.view_rotation.to_matrix().to_4x4()
+        cursor_location = context.scene.cursor.location
 
         if self.exit:
             self.remove()
@@ -172,15 +179,24 @@ class display_handler:
 
                     if self._ray_cast(context):
                         self._surface_matrix()
+                        self._offset(self.obj.location)
 
             if not bc.snap.display and not self.eval:
                 self.eval = True
 
-        if self.type == 'VIEW' and self._view_transform != view:
-            self._view_transform = view
-            self.location, self.normal, self.matrix = view_matrix(context, *self.mouse)
+        if self.view_transform != view_transform:
+            self.view_transform = view_transform
+
+            if self.type == 'VIEW':
+                self.location, self.normal, self.matrix = view_matrix(context, *self.mouse)
+                self._offset(self.obj.location if self.obj else Vector())
+
+        if self.type == 'CURSOR' and self.location != cursor_location:
+            self._cursor_matrix()
+            self._offset(cursor_location)
 
         self.grid.update(self, context)
+        self.sub_grid.update(self, context)
         self.points.update(self, context)
 
         self.fade = self.grid.fade or self.points.fade
@@ -199,14 +215,14 @@ class display_handler:
         face_index = -2
         obj = None
 
-        if toolbar.option().active_only:
+        if toolbar.option() and toolbar.option().active_only:
             hit, location, normal, face_index, obj, _ = ray.cast(*self.mouse, selected=True)
 
             if hit and self.obj != obj:
                 self._eval_obj(context, obj)
 
         elif context.active_object and context.selected_objects:
-            if self.obj != context.active_object:
+            if self.obj != context.active_object or 'invalid' in str(self.mesh):
                 self._eval_obj(context, context.active_object)
 
             bm = bmesh.new()
@@ -230,19 +246,75 @@ class display_handler:
         bc = context.scene.bc
 
         self.obj = obj
+        self.obj_name = obj.name
+        self.obj_matrix = obj.matrix_world
 
         self.mesh = obj.evaluated_get(context.evaluated_depsgraph_get()).data.copy()
-        self.mesh.transform(self.obj.matrix_world)
+        self.mesh.transform(self.obj_matrix)
         self.mesh.bc.removeable = True
 
 
     def _surface_matrix(self):
         preference = addon.preference()
 
-        matrix = self.obj.matrix_world.decompose()[1].to_matrix().to_4x4()
+        matrix = self.obj_matrix.decompose()[1].to_matrix().to_4x4()
 
         orient_method = 'EDIT' if self.obj.mode == 'EDIT' and preference.behavior.orient_active_edge else preference.behavior.orient_method
-        self.matrix = surface_matrix(self.obj, matrix, self.location, self.normal, Vector(), orient_method if self.grid.display else 'LOCAL', self.face_index)[1]
+        self.matrix = surface_matrix(self.obj, matrix, self.location, self.normal, Vector(), orient_method if preference.snap.grid else 'LOCAL', self.face_index)[1]
+
+
+    def _cursor_matrix(self):
+        preference = addon.preference()
+
+        axis = {
+            'X': 'Y',
+            'Y': 'X',
+            'Z': 'Z'}
+        angle = radians(-90 if preference.axis in {'X', 'Y'} else 90)
+
+        cursor = bpy.context.scene.cursor
+        matrix = cursor.rotation_euler.to_matrix().to_4x4()
+
+        rotation = Matrix.Rotation(angle, 4, axis[preference.axis])
+        matrix @= rotation
+
+        self.location = cursor.location.copy()
+        self.normal = Vector((0, 0, -1))
+        self.matrix = matrix
+
+
+    def _offset(self, location):
+        preference = addon.preference()
+
+        if not self.local or not self.obj:
+            return
+
+        matrix = self.matrix.copy() if self.type != 'VIEW' else self.view_transform.copy()
+
+        size = 1000
+        triangle = [
+            matrix @ Vector((-size, -size, 0.0)),
+            matrix @ Vector((size, -size, 0.0)),
+            matrix @ Vector((0.0, size, 0.0))]
+
+        loc = closest_point_on_tri(location, *triangle)
+
+        increment = preference.snap.increment
+
+        nearest_increment = lambda n: increment * (n // increment)
+        increment_offset = lambda v: Vector((a - nearest_increment(a) for a in v))
+
+        offset = increment_offset(matrix.inverted() @ loc)
+        offset.z = 0.0
+        self.offset = offset.copy()
+
+        offset = matrix @ offset
+
+        self.view_transform.translation = offset
+        # self.location = offset
+
+        if self.type != 'VIEW':
+            self.matrix.translation = offset
 
 
     def remove(self, force=False):
@@ -252,14 +324,17 @@ class display_handler:
         self.eval = False
 
         self.grid.exit = True
+        self.sub_grid.exit = True
         self.points.exit = True
 
         if force:
             self.grid.remove(force=True)
+            self.sub_grid.remove(force=True)
             self.points.remove(force=True)
 
 
 class grid:
+    main: bool = True
     exit: bool = False
     display: bool = True
 
@@ -277,6 +352,8 @@ class grid:
         self._size = 0.0
         self._indices = ((0, 1, 3), (0, 3, 2))
         self._uv = ((-1, -1), (1, -1), (-1, 1), (1, 1))
+
+        self._offset = handler.offset
 
         self.update(handler, context)
 
@@ -296,11 +373,17 @@ class grid:
             self.remove()
 
         else:
-            transform = handler.matrix if handler.type != 'VIEW' else context.region_data.view_rotation.to_matrix().to_4x4()
+            transform = handler.matrix if handler.type != 'VIEW' else handler.view_transform
             intersect = view3d.intersect_plane(*handler.mouse, handler.location, transform)
 
+            check = ['X', 'Y', 'Z']
+
             while not intersect:
-                transform = transform @ Matrix.Rotation(radians(90), 4, 'X' if preference.axis == 'Z' else 'Y')
+                if not len(check):
+                    return
+
+                axis = check.pop()
+                transform = transform @ Matrix.Rotation(radians(90), 4, axis)
                 intersect = view3d.intersect_plane(*handler.mouse, handler.location, transform)
 
             else:
@@ -313,6 +396,8 @@ class grid:
             self._count = preference.snap.grid_units if preference.snap.grid else 0
             self._increment = preference.snap.increment
             self._update_size()
+
+            self._offset = handler.offset
 
         # self._background = Vector(preference.color.grid[:-1]) # TODO
         handler.update_alpha(self, self._color[-1], preference.display.grid_fade_time_out)
@@ -345,7 +430,7 @@ class grid:
     def _draw(self):
         preference = addon.preference()
 
-        if not self.handler or not preference.snap.grid:
+        if not self.handler or not preference.snap.grid or not hasattr(self, '_frame'):
             return
 
         region_data = bpy.context.region_data
@@ -354,15 +439,15 @@ class grid:
 
         self._shader.uniform_float('projection', region_data.window_matrix @ region_data.view_matrix)
         self._shader.uniform_float('transform', self.transform)
-        self._shader.uniform_float('intersect', self.intersect)
+        self._shader.uniform_float('intersect', self.intersect - self._offset)
 
-        self._shader.uniform_float('count', self._count)
+        self._shader.uniform_float('count', self._count if self.main else self._count * 10)
         self._shader.uniform_float('increment', self._increment)
         self._shader.uniform_float('size', self._size)
 
         self._shader.uniform_float('color', self._color[:-1])
         # self._shader.uniform_float('background', self._background) # TODO
-        self._shader.uniform_float('alpha', self.alpha)
+        self._shader.uniform_float('alpha', self.alpha if self.main else self.alpha * 0.15)
 
         self._shader.uniform_float('thickness', self._thickness)
 
@@ -393,7 +478,8 @@ class points:
 
     @staticmethod
     def _grid_intersect(handler, increment):
-        return Vector((*math.increment_round_2d(*handler.grid.intersect[:-1], increment), handler.grid.intersect[2]))
+        intersect = handler.grid.intersect - handler.offset
+        return Vector((*math.increment_round_2d(*intersect[:-1], increment), intersect[2]))
 
 
     @staticmethod
@@ -484,7 +570,7 @@ class points:
 
             if point.type == 'GRID' and not point.exit:
                 intersect = None
-                location = self._grid_intersect(handler, preference.snap.increment)
+                location = self._grid_intersect(handler, preference.snap.increment if not handler.micro else preference.snap.increment * 0.1)
 
                 if point.location == location:
                     continue
@@ -513,11 +599,11 @@ class points:
                 bc.snap.location = closest.transform @ closest.location
                 bc.snap.normal = handler.normal if closest.type != 'GRID' else closest.transform @ Vector((0, 0, -1))
 
-                if hasattr(handler.obj, 'matrix_world'):
-                    rot_mat = handler.obj.matrix_world.decompose()[1].to_matrix().to_4x4()
-                    bc.snap.matrix = closest.transform if closest.type == 'GRID' else surface_matrix(handler.obj, rot_mat, handler.location, Vector(bc.snap.normal[:]), Vector(bc.snap.location[:]), handler.face_index)
-                else:
-                    bc.snap.matrix = closest.transform
+                # if hasattr(handler.obj, 'matrix_world'):
+                rot_mat = handler.obj_matrix.decompose()[1].to_matrix().to_4x4()
+                bc.snap.matrix = closest.transform if closest.type == 'GRID' or handler.obj_name not in bpy.data.objects else surface_matrix(handler.obj, rot_mat, handler.location, Vector(bc.snap.normal[:]), Vector(bc.snap.location[:]), face_index=handler.face_index)
+                # else:
+                #     bc.snap.matrix = closest.transform
 
             elif bc.snap.hit and self.active:
                 bc.snap.hit = False
@@ -650,4 +736,3 @@ class point:
             self.handler = SpaceView3D.draw_handler_remove(self.handler, 'WINDOW')
 
             shader.handlers = [handler for handler in shader.handlers if handler != self]
-

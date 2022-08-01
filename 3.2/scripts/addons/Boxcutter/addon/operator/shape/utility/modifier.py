@@ -5,6 +5,7 @@ from mathutils import Vector, Matrix
 
 from ..... utility import addon, object, mesh
 from ..... utility.modifier import apply, sort, new, unmodified_bounds, bevels, move_to_index
+from ..... utility.ct_modifier import mod_move_to_index, mod_move_down, mod_move_up
 
 sort_types = [
     'ARRAY',
@@ -180,6 +181,70 @@ def clean(op, modifier_only=False):
         op.datablock['slices'] = list()
         op.datablock['insets'] = list()
 
+def move(op, context, down:bool):
+    if op.behavior == 'DESTRUCTIVE' : return
+
+    bc = context.scene.bc
+    move_func = mod_move_up if not down else mod_move_down
+
+    # if mod doesn't exist mid cut, then something else went wrong
+    def bool_mod(obj, bool_obj):
+        for mod in reversed(obj.modifiers):
+            if mod.type == 'BOOLEAN' and mod.object == bool_obj:
+                return mod
+
+    if op.mode != 'INSET':
+        for col in (op.datablock['targets'],  op.datablock['slices']):
+            for obj in col:
+                mod = bool_mod(obj, bc.shape)
+                move_func(mod)
+                obj.data.update()
+
+    else:
+        for i, target in enumerate(op.datablock['targets']):
+            inset = op.datablock['insets'][i]
+            mod = bool_mod(target, inset)
+            move_func(mod)
+
+            # rebuild inset
+            inset.name = 'temp'
+            new_inset = target.copy()
+            new_inset.data = inset.data
+            mod.object = new_inset
+            op.datablock['insets'][i] = new_inset
+            new_inset.name = 'Inset'
+
+            # do we really need to have this?
+            default_bool = bool_mod(new_inset, bc.shape)
+            if default_bool:
+                new_inset.modifiers.remove(default_bool)
+
+            for mod in reversed(new_inset.modifiers):
+                if mod.type == 'BOOLEAN' and mod.object == inset:
+                    mod.object = bc.shape
+                    mod.operation = 'INTERSECT'
+                    break
+
+                new_inset.modifiers.remove(mod)
+
+            solidify = new_inset.modifiers.new(name='Solidify', type='SOLIDIFY')
+            solidify.thickness = op.last['thickness']
+            solidify.offset = 0
+            solidify.show_on_cage = True
+            solidify.use_even_offset = True
+            solidify.use_quality_normals = True
+            mod_move_up(solidify)
+
+            bc.collection.objects.link(new_inset)
+            new_inset.bc.inset = True
+            new_inset.hide_set(True)
+            new_inset.display_type = 'WIRE'
+
+            bpy.data.objects.remove(inset)
+            target.data.update()
+            new_inset.data.update()
+
+
 
 # TODO: move array here
 class create:
@@ -220,7 +285,7 @@ class create:
                 mod = obj.modifiers.new(name='Boolean', type='BOOLEAN')
 
                 if hasattr(mod, 'solver'):
-                    mod.solver = addon.preference().behavior.boolean_solver
+                    mod.solver = 'EXACT' if op.mode == 'JOIN' and preference.behavior.join_exact else addon.preference().behavior.boolean_solver
 
                 mod.show_viewport = show
                 mod.show_expanded = False
@@ -239,7 +304,7 @@ class create:
                     bvls = bevels(obj, weight=ignore_weight, vertex_group=ignore_vgroup, props=props if ignore_verts else {})
 
                     if op.behavior == 'DESTRUCTIVE':
-                        move_to_index(mod, 0)
+                        mod_move_to_index(mod, 0, force=True)
                     elif op.mode != 'KNIFE':
                         sort(obj, option=preference.behavior, ignore=bvls, sort_depth=preference.behavior.sort_depth, ignore_flag=preference.behavior.sort_ignore_char, stop_flag=preference.behavior.sort_stop_char)
                 elif op.mode != 'KNIFE':

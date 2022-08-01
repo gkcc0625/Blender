@@ -2,10 +2,10 @@ import bpy
 import bmesh
 from mathutils import Vector
 from bpy.types import Operator
-from .ke_utils import vertloops, get_vert_nearest_mouse, get_area_and_type
+from ._utils import vertloops, get_vert_nearest_mouse, get_area_and_type
 
 
-class MESH_OT_merge_to_mouse(Operator):
+class KeMergeToMouse(Operator):
     bl_idname = "mesh.merge_to_mouse"
     bl_label = "Merge to Mouse"
     bl_description = "Vert & Face Mode: Merge selected verts to the vert nearest the Mouse (selected + linked verts!)\n" \
@@ -88,7 +88,8 @@ class MESH_OT_merge_to_mouse(Operator):
 
                 for row in collapse_rows:
                     target = [i for i in row if i in start_line][0]
-                    if not target: target = row[0]
+                    if not target:
+                        target = row[0]
                     bmesh.ops.pointmerge(bm, verts=row, merge_co=target.co)
                     bmesh.update_edit_mesh(mesh)
 
@@ -124,7 +125,7 @@ class MESH_OT_merge_to_mouse(Operator):
         return {'FINISHED'}
 
 
-class MESH_OT_ke_merge_to_active(Operator):
+class KeMergeToActive(Operator):
     bl_idname = "mesh.ke_merge_to_active"
     bl_label = "Merge to Active"
     bl_description = "Vert Mode: Merge selected verts to the Active vert (as 'Merge To Last')\n" \
@@ -197,7 +198,8 @@ class MESH_OT_ke_merge_to_active(Operator):
 
                 for row in collapse_rows:
                     target = [i for i in row if i in start_line][0]
-                    if not target: target = row[0]
+                    if not target:
+                        target = row[0]
                     bmesh.ops.pointmerge(bm, verts=row, merge_co=target.co)
                     bmesh.update_edit_mesh(mesh)
 
@@ -218,18 +220,22 @@ class MESH_OT_ke_merge_to_active(Operator):
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (
+    KeMergeToMouse,
+    KeMergeToActive
+)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(MESH_OT_merge_to_mouse)
-    bpy.utils.register_class(MESH_OT_ke_merge_to_active)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(MESH_OT_ke_merge_to_active)
-    bpy.utils.unregister_class(MESH_OT_merge_to_mouse)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

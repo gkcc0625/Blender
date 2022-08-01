@@ -163,10 +163,12 @@ class DECALmachinePreferences(bpy.types.AddonPreferences):
     importdecallibpath: StringProperty(name="Import Path", description="Choose a Folder or .zip File to load a Library from", subtype='FILE_PATH', default="", update=update_importdecallibpath)
     newdecallibraryname: StringProperty(name="New Library Name", description="Enter a name to create a new empty Decal Library", update=update_newdecallibraryname)
 
+    libs_corrupted: BoolProperty(name="Corrupted Decal Sheet Libraries in Assets Location", default=False)
     libs_invalid: BoolProperty(name="Invalid Decal Libraries in Assets Location", default=False)
     libs_incompatible: BoolProperty(name="Incompatible Decal Libraries in Assets Location", default=False)
     libs_ambiguous: BoolProperty(name="Ambiguous Decal Libraries in Assets Location", default=False)
 
+    trim_libs_corrupted: BoolProperty(name="Corrupted Trim Sheet Libraries in Assets Location", default=False)
     trim_libs_invalid: BoolProperty(name="Invalid Trim Sheet Libraries in Assets Location", default=False)
     trim_libs_incompatible: BoolProperty(name="Incompatible Trim Sheet Libraries in Assets Location", default=False)
     trim_libs_ambiguous: BoolProperty(name="Ambiguous Trim Sheet Libraries in Assets Location", default=False)
@@ -308,6 +310,8 @@ class DECALmachinePreferences(bpy.types.AddonPreferences):
         elif self.tabs == "ABOUT":
             self.draw_about_tab(box)
 
+        self.draw_thank_you()
+
 
 
     def draw_general_tab(self, box):
@@ -381,9 +385,12 @@ class DECALmachinePreferences(bpy.types.AddonPreferences):
 
         legacylibs = get_legacy_libs()
 
-        if any(legacylibs) or any([self.libs_incompatible, self.libs_ambiguous, self.libs_invalid, self.trim_libs_incompatible, self.trim_libs_ambiguous, self.trim_libs_invalid]):
+        if any(legacylibs) or any([self.libs_corrupted, self.libs_incompatible, self.libs_ambiguous, self.libs_invalid, self.trim_libs_corrupted, self.trim_libs_incompatible, self.trim_libs_ambiguous, self.trim_libs_invalid]):
             b = box.box()
             column = b.column()
+
+            if self.libs_corrupted:
+                column.label(text="There are corrupted Decal Libraries in your assets location!", icon_value=get_icon('error'))
 
             if self.libs_incompatible:
                 column.label(text="There are incompatible Decal Libraries in your assets location!", icon_value=get_icon('error'))
@@ -393,6 +400,9 @@ class DECALmachinePreferences(bpy.types.AddonPreferences):
 
             if self.libs_invalid:
                 column.label(text="There are invalid Decal Libraries in your assets location!", icon_value=get_icon('error'))
+
+            if self.trim_libs_corrupted:
+                column.label(text="There are corrupted Trim Sheet Libraries in your assets location!", icon_value=get_icon('error'))
 
             if self.trim_libs_incompatible:
                 column.label(text="There are incompatible Trim Sheet Libraries in your assets location!", icon_value=get_icon('error'))
@@ -822,3 +832,18 @@ class DECALmachinePreferences(bpy.types.AddonPreferences):
         row = column.row()
         row.scale_y = 16
         row.operator("wm.url_open", text="Get More Decals", icon='URL').url = "https://machin3.io/DECALmachine/docs/decal_resources"
+
+
+
+    def draw_thank_you(self):
+        thankypou_path = os.path.join(get_path(), 'thank_you')
+        message = ["Thank you for purchasing DECALmachine!",
+                   "",
+                   "Your support allows me to keep developing this addon and future ones, keeps updates free for everyone, and most importantly enables me to provide for my family.",
+                   "If you haven't purchased DECALmachine, please consider doing so."]
+
+        if not os.path.exists(thankypou_path):
+            with open(thankypou_path, mode='w') as f:
+                f.write('\n'.join(m for m in message))
+
+            popup_message(message)

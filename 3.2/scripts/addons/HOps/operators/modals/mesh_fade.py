@@ -157,7 +157,7 @@ def capture_selected_mesh_data(context, omit_subd):
                 for mod, show in subd_mod_map.items():
                     mod.show_viewport = show
 
-        Data.lines = numpy.concatenate(coords, axis=0)
+        Data.lines = numpy.concatenate(coords, axis=0).tolist()
 
         #remap indices
         add_index = 0
@@ -166,7 +166,7 @@ def capture_selected_mesh_data(context, omit_subd):
             add_index += len(coords[i-1])
             index_array += add_index
 
-        Data.indices = numpy.concatenate(index_list, axis=0)
+        Data.indices = numpy.concatenate(index_list, axis=0).tolist()
 
     Data.set_batch()
 

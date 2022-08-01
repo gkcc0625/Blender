@@ -103,7 +103,7 @@ def get_python_paths(log):
         pythonlibpath = os.path.join(os.path.dirname(os.path.dirname(pythonbinpath)), "lib")
 
     else:
-        pythonlibpath = os.path.join(os.path.dirname(os.path.dirname(pythonbinpath)), "lib", f'python{sys.version[:3]}')
+        pythonlibpath = os.path.join(os.path.dirname(os.path.dirname(pythonbinpath)), "lib", os.path.basename(pythonbinpath))
 
     ensurepippath = os.path.join(pythonlibpath, "ensurepip")
     sitepackagespath = os.path.join(pythonlibpath, "site-packages")

@@ -6,7 +6,7 @@ from mathutils.bvhtree import BVHTree as BVH
 from mathutils.geometry import intersect_line_plane
 from math import radians
 import sys
-from . math import average_locations
+from . math import average_locations, get_sca_matrix
 
 from . draw import draw_point
 
@@ -159,8 +159,9 @@ def get_bvh_ray_distance_from_verts(target, source, ray_direction, backtrack=Non
     front = max(front_distances) if front_distances else 0
     back = max(back_distances) if back_distances else 0
 
+    scalemx = get_sca_matrix(tmxw.to_scale())
 
-    return front, back
+    return (scalemx @ Vector((0, 0, front))).z, (scalemx @ Vector((0, 0, back))).z
 
 
 def cast_bvh_ray_from_mouse(mousepos, candidates=None, depsgraph=None, exclude_decals=True, debug=False):

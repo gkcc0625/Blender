@@ -408,8 +408,13 @@
 
 <hr />
 <h3 id="failed-asset-registration">Failed Asset Registration</h3>
-<p><img alt="FailedAssetRegistration" src="../img/preferences/failed_registration.jpg" />
-<em>Decal and Trim Sheet Libraries can fail to register for 3 reasons</em></p>
+<p><img alt="FailedAssetRegistration" src="../img/preferences/failed_registration.png" />
+<em>Decal and Trim Sheet Libraries can fail to register for 4 reasons</em></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you <a href="../faq/index.html#get-support">report your issue properly</a>, I will be able to tell you exactly what libraries are failing and for what reason.<br />
+Blender's <a href="https://docs.blender.org/manual/en/2.79/advanced/command_line/introduction.html">System Console</a> will also tell you that.</p>
+</div>
 <h4 id="incompatible">Incompatible</h4>
 <p>Incompatible libraries do not match the version DECALmachine expects.<br />
 For instance DECALmachine 2.5 when run in Blender 3.0 expects libraries to be of version 2.5, whereas DECALmachine 2.5 run in Blender 2.93 still expects version 2.1.</p>
@@ -421,6 +426,9 @@ For instance DECALmachine 2.5 when run in Blender 3.0 expects libraries to be of
 </div>
 <h4 id="ambiguous">Ambiguous</h4>
 <p>Ambiguous libraries contain multiple version indicators. This should never happen and requires individual investigation.  </p>
+<h4 id="corrupted">Corrupted</h4>
+<p>All folders in a Decal or Trimsheet library are expected to be Decal Or Trim Decal folders.<br />
+If there are any other folders in a library, DECALmachine will consider it corrupted and will not register it or attempt to update it.</p>
 <h4 id="invalid">Invalid</h4>
 <p>Invalid libraries are folders in the assets location without any version indicatior.  </p>
 <h3 id="legacy-line-smoothing">Legacy Line Smoothing</h3>

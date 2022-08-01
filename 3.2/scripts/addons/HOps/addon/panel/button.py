@@ -260,7 +260,7 @@ class HOPS_PT_Button(Panel):
                 box.separator()
                 # if get_preferences().property.st3_meshtools:
                 box.operator("hops.edit_mesh_macro", text="EM Macro", icon="RADIOBUT_OFF")
-                box.menu("HOPS_MT_ST3MeshToolsSubmenu", text="ST3 Mesh Tools", icon="MESH_ICOSPHERE")
+                box.menu("HOPS_MT_ST3MeshToolsSubmenu", text="Mesh Tools", icon="MESH_ICOSPHERE")
                 box.separator()
                 # else:
                 #     box.prop(get_preferences().property, 'st3_meshtools', text='ST3 Meshtools Unlock')

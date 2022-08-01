@@ -2,10 +2,20 @@ import bpy
 import bmesh
 from mathutils import Vector
 from bpy.types import Operator
-from .ke_utils import mouse_raycast, get_selected
+from ._utils import mouse_raycast, get_selected
 
 
-class VIEW3D_OT_ke_get_set_editmesh(Operator):
+def history_verts(bm_history):
+    pre_verts = []
+    for sel in bm_history:
+        if type(sel).__name__ == "BMFace" or type(sel).__name__ == "BMEdge":
+            pre_verts.extend(sel.verts)
+        else:
+            pre_verts.append(sel)
+    return pre_verts
+
+
+class KeGetSetEditMesh(Operator):
     bl_idname = "view3d.ke_get_set_editmesh"
     bl_label = "Get & Set Object in Edit Mode"
     bl_description = "Switch to object under mouse pointer (and set Edit Mode) from either Object or Edit Mode"
@@ -17,15 +27,6 @@ class VIEW3D_OT_ke_get_set_editmesh(Operator):
     @classmethod
     def poll(cls, context):
         return context.space_data.type == "VIEW_3D"
-
-    def history_verts(self, bm_history):
-        pre_verts = []
-        for sel in bm_history:
-            if type(sel).__name__ == "BMFace" or type(sel).__name__ == "BMEdge":
-                pre_verts.extend(sel.verts)
-            else:
-                pre_verts.append(sel)
-        return pre_verts
 
     def invoke(self, context, event):
         self.mouse_pos[0] = event.mouse_region_x
@@ -41,11 +42,12 @@ class VIEW3D_OT_ke_get_set_editmesh(Operator):
             return {"FINISHED"}
 
         if context.mode != "OBJECT":
-            # sel by viewpicker since raycasting is only good for "real mesh" ?
+            # sel by viewpicker since raycasting is more trouble...
             bpy.ops.object.mode_set(mode='OBJECT')
 
         og_obj = get_selected(context, use_cat=True, cat=cat)
-        og_obj.select_set(False)
+        if og_obj:
+            og_obj.select_set(False)
 
         bpy.ops.view3d.select(extend=self.extend, location=(int(self.mouse_pos[0]), int(self.mouse_pos[1])))
         hit_obj = context.object
@@ -71,7 +73,7 @@ class VIEW3D_OT_ke_get_set_editmesh(Operator):
                 bm = bmesh.from_edit_mesh(context.object.data)
 
                 if bm.select_history:
-                    pre_verts = self.history_verts(bm.select_history)
+                    pre_verts = history_verts(bm.select_history)
                 else:
                     pre_verts = []
 
@@ -80,7 +82,7 @@ class VIEW3D_OT_ke_get_set_editmesh(Operator):
                 bpy.ops.view3d.select(extend=self.extend, location=(int(self.mouse_pos[0]), int(self.mouse_pos[1])))
 
                 if bm.select_history:
-                    last_verts = self.history_verts(bm.select_history)
+                    last_verts = history_verts(bm.select_history)
                     element = type(bm.select_history[-1]).__name__
 
                     if pre_verts:
@@ -106,7 +108,7 @@ class VIEW3D_OT_ke_get_set_editmesh(Operator):
         return {'FINISHED'}
 
 
-class VIEW3D_OT_ke_get_set_material(Operator):
+class KeGetSetMaterial(Operator):
     bl_idname = "view3d.ke_get_set_material"
     bl_label = "Get & Set Material"
     bl_description = "Samples material under mouse pointer and applies it to the selection"
@@ -117,7 +119,7 @@ class VIEW3D_OT_ke_get_set_material(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.space_data.type == "VIEW_3D"
+        return context.space_data.type == "VIEW_3D" and context.selected_objects
 
     def invoke(self, context, event):
         self.mouse_pos[0] = event.mouse_region_x - self.offset[0]
@@ -231,19 +233,16 @@ class VIEW3D_OT_ke_get_set_material(Operator):
             self.report({"INFO"}, "GetSetMaterial: No Material found")
             return {'CANCELLED'}
 
-        if sel_mode == "EDIT_MESH":
-            bpy.ops.object.mode_set(mode='EDIT')
 
-        return {'FINISHED'}
-
-
-# -------------------------------------------------------------------------------------------------
+#
 # Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
 classes = (
-    VIEW3D_OT_ke_get_set_editmesh,
-    VIEW3D_OT_ke_get_set_material,
+    KeGetSetEditMesh,
+    KeGetSetMaterial,
     )
+
+modules = ()
 
 
 def register():

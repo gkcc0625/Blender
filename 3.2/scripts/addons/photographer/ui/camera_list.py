@@ -2,6 +2,7 @@ import bpy
 
 from ..functions import list_collections, traverse_tree, list_cameras
 from ..constants import addon_name
+from ..rigs.build_rigs import get_camera_rig
 
 
 def camera_row(context,cam,col):
@@ -29,6 +30,12 @@ def camera_row(context,cam,col):
                     icon="%s" % 'RESTRICT_SELECT_OFF'if cam_obj.select_get()
                     else 'RESTRICT_SELECT_ON').obj_name = cam
 
+    if cam_obj.get('is_rigged', False):
+        rig_obj = get_camera_rig(cam_obj)
+        if rig_obj:
+            row.operator("photographer.select", text='',
+                        icon="%s" % 'OUTLINER_OB_ARMATURE'if rig_obj.select_get()
+                        else 'ARMATURE_DATA').obj_name = rig_obj.name
 
     row.prop(bpy.data.objects[cam], "name", text='')
     if cam_settings.show_focus_plane:

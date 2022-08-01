@@ -202,6 +202,51 @@ class PME_OT_panel_menu(bpy.types.Operator):
     bl_options = {'INTERNAL'}
 
     panel: bpy.props.StringProperty()
+    is_right_region: bpy.props.BoolProperty()
+
+    def extend_ui_operator(self, label, icon, mode, pm_name):
+        pr = prefs()
+        if pm_name in pr.pie_menus:
+            lh.operator(
+                WM_OT_pm_select.bl_idname,
+                label, icon, pm_name=pm_name)
+        else:
+            lh.operator(
+                PME_OT_pm_add.bl_idname,
+                label, icon, mode=mode, name=pm_name)
+
+
+    def draw_header_menu(self, menu, context):
+        lh.lt(menu.layout, operator_context='INVOKE_DEFAULT')
+
+        pr = prefs()
+        pm = pr.selected_pm
+
+        right_suffix = CC.F_RIGHT if self.is_right_region else ""
+        self.extend_ui_operator(
+            "Extend Header", 'TRIA_LEFT', 'DIALOG',
+            self.panel + right_suffix + CC.F_PRE)
+
+        self.extend_ui_operator(
+            "Extend Header", 'TRIA_RIGHT', 'DIALOG',
+            self.panel + right_suffix)
+
+        lh.operator(
+            PME_OT_clipboard_copy.bl_idname, "Copy Menu ID", 'COPYDOWN',
+            text=self.panel)
+
+        lh.sep()
+
+        lh.operator(
+            WM_OT_pm_select.bl_idname, None, 'COLLAPSEMENU',
+            pm_name="", use_mode_icons=False)
+        lh.operator(
+            PME_OT_pm_search_and_select.bl_idname, None, 'VIEWZOOM')
+
+        lh.sep()
+
+        lh.prop(pr, "debug_mode")
+        lh.prop(pr, "interactive_panels")
 
     def draw_menu_menu(self, menu, context):
         lh.lt(menu.layout, operator_context='INVOKE_DEFAULT')
@@ -215,24 +260,19 @@ class PME_OT_panel_menu(bpy.types.Operator):
 
             if pm.mode in {'PMENU', 'RMENU', 'DIALOG'}:
                 lh.operator(
-                    PME_OT_pm_edit.bl_idname, "Add as Menu to " + pm.name,
+                    PME_OT_pm_edit.bl_idname, "Add as Menu to '%s'" % pm.name,
                     'ZOOMIN',
                     auto=False,
                     name=label, mode='CUSTOM',
                     text="L.menu(menu='%s', text=slot, icon=icon, "
                     "icon_value=icon_value)" % self.panel)
 
-        lh.operator(
-            PME_OT_pm_add.bl_idname,
-            "Extend Menu", 'TRIA_UP',
-            mode='RMENU',
-            name=self.panel + "_pre")
+                lh.sep()
 
-        lh.operator(
-            PME_OT_pm_add.bl_idname,
-            "Extend Menu", 'TRIA_DOWN',
-            mode='RMENU',
-            name=self.panel)
+        self.extend_ui_operator(
+            "Extend Menu", 'TRIA_UP', 'RMENU', self.panel + CC.F_PRE)
+        self.extend_ui_operator(
+            "Extend Menu", 'TRIA_DOWN', 'RMENU', self.panel)
 
         lh.operator(
             PME_OT_clipboard_copy.bl_idname, "Copy Menu ID", 'COPYDOWN',
@@ -269,7 +309,8 @@ class PME_OT_panel_menu(bpy.types.Operator):
 
             if pm.mode in {'PMENU', 'RMENU', 'DIALOG', 'SCRIPT'}:
                 lh.operator(
-                    PME_OT_pm_edit.bl_idname, "Add as Button to " + pm.name,
+                    PME_OT_pm_edit.bl_idname,
+                    "Add as Button to '%s'" % pm.name,
                     'ZOOMIN',
                     auto=False,
                     name=label, mode='COMMAND',
@@ -280,8 +321,8 @@ class PME_OT_panel_menu(bpy.types.Operator):
 
                 if is_28():
                     lh.operator(
-                        PME_OT_pm_edit.bl_idname, "Add as Popover to " +
-                        pm.name,
+                        PME_OT_pm_edit.bl_idname,
+                        "Add as Popover to '%s'" % pm.name,
                         'ZOOMIN',
                         auto=False,
                         name=label, mode='CUSTOM',
@@ -293,36 +334,32 @@ class PME_OT_panel_menu(bpy.types.Operator):
 
             if pm.mode == 'PANEL':
                 lh.operator(
-                    PME_OT_panel_add.bl_idname, "Add as Panel to " + pm.name,
+                    PME_OT_panel_add.bl_idname,
+                    "Add as Panel to '%s'" % pm.name,
                     'ZOOMIN',
                     panel=self.panel, mode='BLENDER')
 
             elif pm.mode == 'DIALOG':
                 lh.operator(
                     PME_OT_panel_add.bl_idname,
-                    "Add as Panel to " + pm.name, 'ZOOMIN',
+                    "Add as Panel to '%s'" % pm.name, 'ZOOMIN',
                     panel=self.panel, mode='DIALOG')
 
             elif pm.mode == 'PMENU':
                 lh.operator(
                     PME_OT_pm_edit.bl_idname,
-                    "Add as Panel to " + pm.name, 'ZOOMIN',
+                    "Add as Panel to '%s'" % pm.name, 'ZOOMIN',
                     auto=False,
                     name=label, mode='CUSTOM',
                     text="panel('%s', area='%s')" % (
                         self.panel, context.area.type))
 
-        lh.operator(
-            PME_OT_pm_add.bl_idname,
-            "Extend Panel", 'TRIA_UP',
-            mode='DIALOG',
-            name=self.panel + "_pre")
+            lh.sep()
 
-        lh.operator(
-            PME_OT_pm_add.bl_idname,
-            "Extend Panel", 'TRIA_DOWN',
-            mode='DIALOG',
-            name=self.panel)
+        self.extend_ui_operator(
+            "Extend Panel", 'TRIA_UP', 'DIALOG', self.panel + CC.F_PRE)
+        self.extend_ui_operator(
+            "Extend Panel", 'TRIA_DOWN', 'DIALOG', self.panel)
 
         lh.operator(
             PME_OT_clipboard_copy.bl_idname, "Copy Panel ID", 'COPYDOWN',
@@ -342,10 +379,15 @@ class PME_OT_panel_menu(bpy.types.Operator):
         lh.prop(pr, "interactive_panels")
 
     def execute(self, context):
-        if '_MT_' in self.panel:
-            context.window_manager.popup_menu(self.draw_menu_menu)
+        if '_HT_' in self.panel:
+            context.window_manager.popup_menu(
+                self.draw_header_menu, title=self.panel)
+        elif '_MT_' in self.panel:
+            context.window_manager.popup_menu(
+                self.draw_menu_menu, title=self.panel)
         else:
-            context.window_manager.popup_menu(self.draw_panel_menu)
+            context.window_manager.popup_menu(
+                self.draw_panel_menu, title=self.panel)
         return {'FINISHED'}
 
 
@@ -390,7 +432,7 @@ class PME_OT_interactive_panels_toggle(bpy.types.Operator):
 
         lh.operator(
             PME_OT_panel_menu.bl_idname,
-            "PME Panel Tools", 'COLOR', panel=tp_name)
+            "PME Tools", 'COLOR', panel=tp_name)
 
         # lh.operator(
         #     PME_OT_interactive_panels_toggle.bl_idname, "", 'QUIT',
@@ -413,7 +455,24 @@ class PME_OT_interactive_panels_toggle(bpy.types.Operator):
 
         lh.operator(
             PME_OT_panel_menu.bl_idname,
-            "PME Menu Tools", 'COLOR', panel=tp_name)
+            "PME Tools", 'COLOR', panel=tp_name)
+
+    @staticmethod
+    def _draw_header(self, context):
+        if panel.active:
+            return
+
+        tp = self.__class__
+        tp_name = tp.bl_idname if hasattr(tp, "bl_idname") else tp.__name__
+
+        lh.lt(self.layout)
+        lh.layout.alert = True
+        lh.sep()
+
+        lh.operator(
+            PME_OT_panel_menu.bl_idname,
+            "PME Tools", 'COLOR', panel=tp_name,
+            is_right_region=context.region.alignment == 'RIGHT')
 
     def execute(self, context):
         pr = prefs()

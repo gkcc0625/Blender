@@ -74,6 +74,7 @@ def set_hdri_rotation(self,value):
             for node in nodes:
                 if node.bl_idname == 'ShaderNodeMapping':
                     node.inputs[2].default_value[2]=value
+                    world['hdri_rotation']=value
             # for link in links:
             #     if type(link.to_node) is bpy.types.ShaderNodeTexEnvironment:
             #         if type(link.from_node) is bpy.types.ShaderNodeMapping:
@@ -138,6 +139,7 @@ def update_cam_world(self,context,world):
     if context.scene.camera:
         settings = context.scene.camera.data.photographer
         settings.cam_world = world.name
+        context.scene.lightmixer.hdri_rotation = world.get('hdri_rotation',0)
         return settings.cam_world
 
 def update_hdri_tex(self,context):
@@ -158,18 +160,22 @@ def update_hdri_tex(self,context):
 
                             name = os.path.splitext(node.image.name)[0]
                             world['hdri_name'] = name
-                            # Don't increment against itself, ignoring numbers at the end
-                            if world.name.rsplit('.',1)[0] != name.rsplit('.',1)[0]:
-                                counter = 0
-                                # Increment name if world already exists
-                                while name in bpy.data.worlds:
-                                    counter += 1
-                                    numbers = "." + str(counter).zfill(3)
-                                    name = os.path.splitext(node.image.name)[0] + numbers
-                                world.name = name
 
-                                # Update Cam World value
-                                update_cam_world(self,context,world)
+                            # If automatic World renaming is enabled in the preferences
+                            prefs = context.preferences.addons[__package__].preferences
+                            if prefs.hdri_auto_world_rename:
+                                # Don't increment against itself, ignoring numbers at the end
+                                if world.name.rsplit('.',1)[0] != name.rsplit('.',1)[0]:
+                                    counter = 0
+                                    # Increment name if world already exists
+                                    while name in bpy.data.worlds:
+                                        counter += 1
+                                        numbers = "." + str(counter).zfill(3)
+                                        name = os.path.splitext(node.image.name)[0] + numbers
+                                    world.name = name
+
+                                    # Update Cam World value
+                                    update_cam_world(self,context,world)
 
 
 class LIGHTMIXER_OT_World_HDRI_Add(bpy.types.Operator):

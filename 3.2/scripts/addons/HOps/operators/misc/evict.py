@@ -18,10 +18,11 @@ class HOPS_OT_EVICT(bpy.types.Operator):
     bl_options = {"REGISTER", 'UNDO'}
     bl_description = """Scene/Mod Assistant
 
-LMB - Unify all renderable shapes into collection of active object
-CTRL - Evict cutters from selection into Cutters
-SHIFT - Sync mod render settings to viewport settings
-ALT - Purify cutters that are unused
+LMB - Unify all renderable shapes into active collection
+CTRL - Evict cutters into cutter collection
+SHIFT - Sync mod render/viewport settings
+ALT - Purify unused cutters
+CTRL + SHIFT - Wash invalid modifiers
 
 """
 
@@ -52,6 +53,7 @@ ALT - Purify cutters that are unused
             ('SYNC', "Sync", "Sync mod render settings to viewport settings"),
             ('COLLECT', "Collect", "Collect all renderable items into a collection"),
             ('PURIFY', "Purify", "Delete all meshes from Cutters collection that aren't Cutters"),
+            ('WASH', "Wash", "Delete all mods with missing Object requrimentss"),
             ],
         default='UNIFY')
 
@@ -74,7 +76,10 @@ ALT - Purify cutters that are unused
 
         # Set the operation mode
         self.mode = 'UNIFY'
-        if event.ctrl == True:
+
+        if event.ctrl == True and event.shift == True:
+            self.mode = 'WASH'
+        elif event.ctrl == True:
             self.mode = 'EVICT'
         elif event.shift == True:
             self.mode = 'SYNC'
@@ -188,6 +193,11 @@ ALT - Purify cutters that are unused
             substat = purify_conut
             info = "Meshes purged"
 
+        elif self.mode == 'WASH':
+            text = 'Wash'
+            substat = wash(context)
+            info = 'Modifiers washed'
+
         # Operator UI
         if not HOPS_OT_EVICT.called_ui:
             HOPS_OT_EVICT.called_ui = True
@@ -290,6 +300,36 @@ def purify(col_name = 'Cutters', obj_keep_names = ('Extraction', 'Slice')):
         override = {'active_object': None, 'object' : None, 'selected_objects' : objects}
         bpy.ops.object.delete(override, use_global=False)
     return ret_counter
+
+def wash(context) -> int:
+    count = 0
+
+    for obj in context.selected_objects:
+        for mod in obj.modifiers[:]:
+            if mod.type == "BOOLEAN":
+                operand = getattr(mod,'operand', 'OBJECT')
+
+                if operand == 'OBJECT' and not mod.object:
+                    obj.modifiers.remove(mod)
+                    count += 1
+
+                elif operand == 'COLLECTION' and not mod.collection:
+                    obj.modifiers.remove(mod)
+                    count += 1
+
+            elif mod.type == 'WARP' and not mod.object_to and not mod.object_from:
+                    obj.modifiers.remove(mod)
+                    count += 1
+
+            elif mod.type in {'SURFACE_DEFORM', 'VERTEX_WEIGHT_PROXIMITY', 'SHRINKWRAP'} and not mod.target:
+                    obj.modifiers.remove(mod)
+                    count += 1
+
+            elif mod.type in {'ARMATURE', 'CURVE', 'HOOK', 'LATTICE', 'DATA_TRANSFER', 'VOLUME_TO_MESH', 'MESH_DEFORM', } and not mod.object:
+                    obj.modifiers.remove(mod)
+                    count += 1
+
+    return count
 
 class HOPS_OT_COLLECT(bpy.types.Operator):
     bl_idname = "hops.collect"

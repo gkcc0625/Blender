@@ -1,5 +1,6 @@
 import bpy
-from .ke_utils import point_axis_raycast
+from bpy_types import Operator
+from ._utils import point_axis_raycast
 
 
 def zmove(value, zonly=True):
@@ -14,7 +15,7 @@ def zmove(value, zonly=True):
                                 use_proportional_projected=False, release_confirm=True)
 
 
-class VIEW3D_OT_ke_ground(bpy.types.Operator):
+class KeGround(Operator):
     bl_idname = "view3d.ke_ground"
     bl_label = "Ground (or Center)"
     bl_description = "Ground (or Center) selected Object(s), or selected elements (snap to world Z0 only)"
@@ -37,6 +38,9 @@ class VIEW3D_OT_ke_ground(bpy.types.Operator):
     ke_ground_raycasting: bpy.props.BoolProperty(
         name="Raycast:", description="Stops on obstructions on the way down (Nothing: Z0)", default=True)
 
+    ke_ignore_selected: bpy.props.BoolProperty(
+        name="Ignore Selected", description="Ignore selected Objects when raycasting", default=False)
+
     @classmethod
     def poll(cls, context):
         return context.object is not None
@@ -56,7 +60,14 @@ class VIEW3D_OT_ke_ground(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action="DESELECT")
 
+        if self.ke_ignore_selected:
+            for o in sel_obj:
+                o.hide_set(True)
+
         for o in sel_obj:
+            if self.ke_ignore_selected:
+                o.hide_set(False)
+
             o.select_set(True)
             context.view_layer.objects.active = o
 
@@ -72,7 +83,6 @@ class VIEW3D_OT_ke_ground(bpy.types.Operator):
             else:
                 vc = [o.location, o.location]
                 zs = [vc[0][2], vc[1][2]]
-
 
             if self.ke_ground_raycasting and vc:
                 coords = sorted(vc, key=lambda x: x[2])
@@ -91,6 +101,9 @@ class VIEW3D_OT_ke_ground(bpy.types.Operator):
                         print("Ground: Raycast error. Aborting.")
                         for ob in sel_obj:
                             ob.select_set(True)
+                        if self.ke_ignore_selected:
+                            for obj in sel_obj:
+                                obj.hide_set(False)
                         return {"CANCELLED"}
 
             if editmode:
@@ -133,6 +146,12 @@ class VIEW3D_OT_ke_ground(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='OBJECT')
             o.select_set(False)
+            if self.ke_ignore_selected:
+                o.hide_set(True)
+
+        if self.ke_ignore_selected:
+            for o in sel_obj:
+                o.hide_set(False)
 
         for ob in sel_obj:
             ob.select_set(True)
@@ -143,16 +162,19 @@ class VIEW3D_OT_ke_ground(bpy.types.Operator):
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeGround,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_ke_ground)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_ke_ground)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

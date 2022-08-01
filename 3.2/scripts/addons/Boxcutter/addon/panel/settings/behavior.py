@@ -83,6 +83,7 @@ class BC_PT_behavior_settings(Panel):
         self.label_row(layout.row(), preference.behavior, 'autohide_shapes', label='Auto Hide')
         self.label_row(layout.row(), preference.behavior, 'surface_extract', label='Surface Extract')
         self.label_row(layout.row(), preference.behavior, 'accucut')
+        self.label_row(layout.row(), preference.behavior, 'join_exact', label='Join Jump to Exact')
         # self.label_row(layout.row(), preference.behavior, 'simple_trace')
         self.label_row(layout.row(), preference.behavior, 'orient_active_edge')
         self.label_row(layout.row(), preference.behavior, 'orient_method')

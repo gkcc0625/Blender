@@ -5,7 +5,7 @@ import re
 from uuid import uuid4
 import shutil
 from mathutils import Vector
-from .. utils.registration import get_templates_path, get_prefs, reload_infotextures, reload_infofonts, reload_instant_decals, set_new_decal_index, reload_decal_libraries, reload_trim_libraries, get_version_from_blender, get_version_filename_from_blender, get_version_as_float
+from .. utils.registration import get_templates_path, get_prefs, reload_infotextures, reload_infofonts, reload_instant_decals, set_new_decal_index, reload_decal_libraries, reload_trim_libraries, get_version_from_blender, get_version_filename_from_blender, get_version_as_float, is_library_corrupted
 from .. utils.append import append_scene, append_material, append_object
 from .. utils.math import get_bbox_dimensions
 from .. utils.system import makedir, get_new_directory_index, abspath
@@ -20,7 +20,7 @@ from .. utils.create import create_decal_blend, create_info_decal_textures, crea
 from .. utils.pil import pack_textures, text2img, split_alpha, create_new_masks_texture, create_dummy_texture
 from .. utils.ui import init_prefs, popup_message
 from .. utils.object import update_local_view
-from .. utils.library import get_legacy_libs
+from .. utils.library import get_legacy_libs, reset_legacy_libs_check
 from .. import bl_info
 
 
@@ -577,6 +577,11 @@ class Update18DecalLibrary(bpy.types.Operator):
             dm.update18librarypath = ''
 
         else:
+
+            if is_library_corrupted(sourcepath):
+                popup_message(message=["The library appears to be corrupted, it contains non-Decal folders!", "Remove them and try again!"], title="Corrupted Library!")
+                return {'CANCELLED'}
+
             librarypath = os.path.join(assetspath, 'Decals', scene.userdecallibs)
             inplacepath = makedir(os.path.join(assetspath, 'Decals', '__IN_PLACE__')) if inplace else ''
             startidx = '001' if inplace else context.window_manager.newdecalidx
@@ -609,6 +614,8 @@ class Update18DecalLibrary(bpy.types.Operator):
 
                 else:
                     reload_decal_libraries(library=scene.userdecallibs, default=decalname)
+
+        reset_legacy_libs_check()
 
         return {'FINISHED'}
 
@@ -791,6 +798,11 @@ class Update20DecalLibrary(bpy.types.Operator):
             dm.update20librarypath = ''
 
         else:
+
+            if is_library_corrupted(sourcepath):
+                popup_message(message=["The library appears to be corrupted, it contains non-Decal folders!", "Remove them and try again!"], title="Corrupted Library!")
+                return {'CANCELLED'}
+
             legacydecals, metafiles = self.get_20_decals(sourcepath, istrimsheet=istrimsheet)
 
             if legacydecals:
@@ -845,6 +857,8 @@ class Update20DecalLibrary(bpy.types.Operator):
 
                     else:
                         reload_decal_libraries(library=scene.userdecallibs, default=decalname)
+
+        reset_legacy_libs_check()
 
         return {'FINISHED'}
 
@@ -1038,6 +1052,11 @@ class Update21DecalLibrary(bpy.types.Operator):
             dm.update21librarypath = ''
 
         else:
+
+            if is_library_corrupted(sourcepath):
+                popup_message(message=["The library appears to be corrupted, it contains non-Decal folders!", "Remove them and try again!"], title="Corrupted Library!")
+                return {'CANCELLED'}
+
             legacydecals, metafiles = self.get_21_decals(sourcepath, istrimsheet=istrimsheet)
 
             if legacydecals:
@@ -1092,6 +1111,8 @@ class Update21DecalLibrary(bpy.types.Operator):
 
                     else:
                         reload_decal_libraries(library=scene.userdecallibs, default=decalname)
+
+        reset_legacy_libs_check()
 
         return {'FINISHED'}
 

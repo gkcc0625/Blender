@@ -62,7 +62,7 @@ class PHOTOGRAPHER_OT_CopySpotSize(bpy.types.Operator):
 class PHOTOGRAPHER_OT_SwitchColorMode(bpy.types.Operator):
     bl_idname = "photographer.switchcolormode"
     bl_label = "Switch Color Mode"
-    bl_description = "Choosee between Temperature in Kelvin and Color RGB"
+    bl_description = "Choose between Temperature in Kelvin and Color RGB"
 
     light: bpy.props.StringProperty()
 
@@ -269,6 +269,8 @@ class PHOTOGRAPHER_PT_Panel_Light(bpy.types.Panel):
             col.prop(light.cycles, "max_bounces")
             col.prop(light.cycles, "cast_shadow")
             col.prop(light.cycles, "use_multiple_importance_sampling")
+            if bpy.app.version >= (3,2,0):
+                col.prop(light.cycles, "is_caustics_light")
             if light.type == 'AREA':
                 col.prop(light.cycles, "is_portal", text="Portal")
 

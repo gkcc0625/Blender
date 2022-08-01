@@ -27,6 +27,9 @@ def option():
 
 def change_prop(context, prop, value):
     for tooldef in context.workspace.tools:
+        if not tooldef:
+            continue
+
         if tooldef.idname == tool.active().idname:
             setattr(option(), prop, value)
 
@@ -324,7 +327,8 @@ def boxcutter():
                     sub.active = tool.active().mode == 'OBJECT'
                 sub.prop(op, 'behavior', text='')
                 sub = row.row(align=True)
-                sub.operator('bc.smart_apply', text='', icon='IMPORT')
+                ot = sub.operator('bc.smart_apply', text='', icon='IMPORT')
+                ot.use_loose = True
 
 
             if preference.display.topbar_pad and preference.display.pad_menus:
@@ -340,7 +344,16 @@ def boxcutter():
             layout.operator('bc.help_link', text='', icon='QUESTION', emboss=False)
 
             layout.separator()
-            layout.label(text=version)
+
+            row = layout.row()
+            from .. utility import handled_error
+            row.alert = handled_error
+            row.label(text=version)
+
+            if handled_error:
+                sub = row.row()
+                sub.alert = False
+                sub.operator('bc.error_log', text='', icon='ERROR', emboss=False)
 
     return dict(
         idname=addon.name,

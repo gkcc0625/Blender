@@ -13,7 +13,7 @@ from ... utility.base_modal_controls import Base_Modal_Controls
 from ... utils.toggle_view3d_panels import collapse_3D_view_panels
 
 
-OPERATIONS = ('INTERSECT', 'UNION', 'DIFFERENCE', 'SLASH', 'INSET', 'OUTSET', 'KNIFE_BOOLEAN', 'KNIFE_PROJECT')
+OPERATIONS = ('INTERSECT', 'UNION', 'DIFFERENCE', 'SLASH', 'INSET', 'OUTSET', 'KNIFE_BOOLEAN')
 
 DESC = """Bool Modal
 LMB - Create a new boolean relationship
@@ -36,8 +36,8 @@ class HOPS_OT_BoolModal(bpy.types.Operator):
             ('SLASH', "Slash", "Peform a slash operation"),
             ('INSET', "Inset", "Peform an inset operation"),
             ('OUTSET', "Outset", "Peform an outset operation"),
-            ('KNIFE_BOOLEAN', "Knife Boolean", "Peform a knife boolean operation"),
-            ('KNIFE_PROJECT', "Knife Project", "Peform a knife project operation")],
+            ('KNIFE_BOOLEAN', "Knife Boolean", "Peform a knife boolean operation"),],
+            #('KNIFE_PROJECT', "Knife Project", "Peform a knife project operation")],
         default='DIFFERENCE')
 
     thickness: bpy.props.FloatProperty(
@@ -208,27 +208,27 @@ class HOPS_OT_BoolModal(bpy.types.Operator):
 
         elif context.active_object.mode == 'EDIT':
             if self.operation == 'INTERSECT':
-                edit_bool_intersect(context, False)
+                edit_bool_intersect(context, False, False, False, 0.0, get_preferences().property.boolean_solver)
                 self.reset_overlays(context)
 
             elif self.operation == 'UNION':
-                edit_bool_union(context, False)
+                edit_bool_union(context, False, False, False, 0.0, get_preferences().property.boolean_solver)
                 self.reset_overlays(context)
 
             elif self.operation == 'DIFFERENCE':
-                edit_bool_difference(context, False)
+                edit_bool_difference(context, False, False, False, 0.0, get_preferences().property.boolean_solver)
                 self.reset_overlays(context)
 
             elif self.operation == 'SLASH':
-                edit_bool_slash(context, False)
+                edit_bool_slash(context, False, False, False, 0.0, get_preferences().property.boolean_solver)
                 self.reset_overlays(context)
 
             elif self.operation == 'INSET':
-                edit_bool_inset(context, False, False, self.thickness)
+                edit_bool_inset(context, False, False, self.thickness, False, False, 0.0, get_preferences().property.boolean_solver)
                 self.reset_overlays(context)
 
             elif self.operation == 'OUTSET':
-                edit_bool_inset(context, False, True, self.thickness)
+                edit_bool_inset(context, False, True, self.thickness, False, False, 0.0, get_preferences().property.boolean_solver)
                 self.reset_overlays(context)
 
             elif self.operation == 'KNIFE_BOOLEAN':
@@ -349,7 +349,7 @@ def popup_draw(self, context):
     for operation in OPERATIONS:
         row = layout.row()
         row.scale_y = 2
-        props = row.operator(broadcaster, text=operation)
+        props = row.operator(broadcaster, text=operation.title())
         props.calling_ops = 'BOOL_MODAL'
         props.str_1 = operation
         

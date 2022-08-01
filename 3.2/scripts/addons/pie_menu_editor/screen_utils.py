@@ -19,6 +19,14 @@ def redraw_screen(area=None):
     view.ui_scale = s
 
 
+def toggle_header(context, area):
+    try:
+        bpy.ops.screen.header(context)
+    except:
+        area.spaces.active.show_region_header = \
+            not area.spaces.active.show_region_header
+
+
 def move_header(area=None, top=None, visible=None, auto=None):
     if top is None and visible is None and auto is None:
         return True
@@ -47,22 +55,20 @@ def move_header(area=None, top=None, visible=None, auto=None):
     if auto:
         if top:
             if is_top:
-                bpy.ops.screen.header(d)
+                toggle_header(d, area)
             else:
-                # bpy.ops.screen.header_flip(d)
                 bpy.ops.screen.region_flip(d)
-                not is_visible and bpy.ops.screen.header(d)
+                not is_visible and toggle_header(d, area)
         else:
             if is_top:
-                # bpy.ops.screen.header_flip(d)
                 bpy.ops.screen.region_flip(d)
-                not is_visible and bpy.ops.screen.header(d)
+                not is_visible and toggle_header(d, area)
             else:
-                bpy.ops.screen.header(d)
+                toggle_header(d, area)
     else:
         top is not None and top != is_top and bpy.ops.screen.region_flip(d)
-        visible is not None and visible != is_visible and \
-            bpy.ops.screen.header(d)
+        if visible is not None and visible != is_visible:
+            toggle_header(d, area)
 
     return True
 

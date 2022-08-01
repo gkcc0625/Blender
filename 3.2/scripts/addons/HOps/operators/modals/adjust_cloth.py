@@ -242,29 +242,29 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
             self.restart()
         
         # Freeze
-        elif event.type == 'F' and event.value == 'PRESS':
-            self.frozen = not self.frozen
+        # elif event.type == 'F' and event.value == 'PRESS':
+        #     self.frozen = not self.frozen
         
         # Presets
-        elif event.type in self.numbers and event.value == 'PRESS':
-            key = self.numpad_map[event.type] if event.type in self.numpad_map else event.type
-            value_map = None
+        # elif event.type in self.numbers and event.value == 'PRESS':
+        #     key = self.numpad_map[event.type] if event.type in self.numpad_map else event.type
+        #     value_map = None
 
-            if self.active_param == 'uniform_pressure_force':
-                value_map = self.pressure_presets
+        #     if self.active_param == 'uniform_pressure_force':
+        #         value_map = self.pressure_presets
 
-            elif self.active_param == 'shrink_min':
-                value_map = self.shrink_presets                
+        #     elif self.active_param == 'shrink_min':
+        #         value_map = self.shrink_presets                
 
-            if value_map:
-                value  =  value_map[key]
-                if event.shift:
-                    value *=-1
-                self.set_params(self.active_param, value)
+        #     if value_map:
+        #         value  =  value_map[key]
+        #         if event.shift:
+        #             value *=-1
+        #         self.set_params(self.active_param, value)
         
-        # Invert value
-        elif event.type == 'X' and event.value == 'PRESS':
-            self.change_params(self.active_param , -1, lambda attr, val: attr*val)
+        # # Invert value
+        # elif event.type == 'X' and event.value == 'PRESS':
+        #     self.change_params(self.active_param , -1, lambda attr, val: attr*val)
 
 
     def draw_ui(self, context):
@@ -278,14 +278,14 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
                 if not self.frozen:
                     win_list.append("{:.3f}".format(getattr(self.active_mod.settings, self.active_param)))
                 else:
-                    win_list.append("Window Mode")
+                    win_list.append("Cloth Adjust")
                 
             else:
                 if not self.frozen:
                     win_list.append(self.param_names[self.active_param])
                     win_list.append("{:.3f}".format(getattr(self.active_mod.settings, self.active_param)))
                 else:
-                    win_list.append("Window Mode")
+                    win_list.append("Cloth Adjust")
 
             # Help
             help_items = {"GLOBAL" : [], "STANDARD" : []}
@@ -298,23 +298,23 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
 
             h_append = help_items["STANDARD"].append
 
-            h_append(["Shift Space", "Toggle play timeline"])
-            h_append(["Ctrl Space", "Apply mods and Exit"])
-            if not self.frozen:
-                h_append(["0", "set value to 0"])
+            #h_append(["Shift Space", "Toggle play timeline"])
+            # if not self.frozen:
+            #     h_append(["0", "set value to 0"])
 
-            var = "ON" if self.frozen else "OFF"
-            h_append(["F", f"Mouse Controls {var}"])
+            # var = "ON" if self.frozen else "OFF"
+            # h_append(["F", f"Mouse Controls {var}"])
 
-            h_append(["X", "Set value to negative"])
-            h_append(["1 - 5", "Value presets; Shift for negative values"])
+            #h_append(["X", "Set value to negative"])
+            #h_append(["1 - 5", "Value presets; Shift for negative values"])
+            h_append(["Ctrl + Space", "Apply mods and Exit"])
             h_append(["R", "Reset timeline"])
-            h_append(["S", "Start/Play"])
-            h_append(["LMB", "Apply"])
+            h_append(["S / Shift + Space", "Start/Play Timeline"])
+            h_append(["LMB", "Apply / Close"])
             h_append(["RMB", "Cancel"])
-            if not self.frozen:
-                h_append(["Scroll  ", "Cycle Parameter"])
-                h_append(["Mouse   ", "Adjust Value"])
+            # if not self.frozen:
+            #     h_append(["Scroll  ", "Cycle Parameter"])
+            #     h_append(["Mouse   ", "Adjust Value"])
 
             # Mods
             mods_list = get_mods_list(mods=bpy.context.active_object.modifiers if context.active_object else [])
@@ -445,6 +445,8 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
                 if should_break:
                     break
+        
+        bpy.ops.hops.display_notification(info=F'Cloth Modifier Applied ')
 
 
     def confirm_exit(self):

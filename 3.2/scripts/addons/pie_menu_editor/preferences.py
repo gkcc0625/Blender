@@ -20,7 +20,7 @@ from .debug_utils import *
 from .panel_utils import (
     hide_panel, unhide_panel, add_panel,
     hidden_panel, rename_panel_group, remove_panel_group,
-    panel_context_items, bl_panel_types, bl_menu_types)
+    panel_context_items, bl_panel_types, bl_menu_types, bl_header_types)
 from .macro_utils import add_macro, remove_macro, update_macro
 from .modal_utils import encode_modal_data
 from . import compatibility_fixes
@@ -39,7 +39,7 @@ from .ui import (
 from .ui_utils import (
     get_pme_menu_class, execute_script
 )
-from .utils import extract_str_flags, isclose
+from . import utils as U
 from .property_utils import PropertyData, to_py_value
 from .types import Tag, PMItem, PMIItem, PMLink, EdProperties, UserProperties
 from .ed_base import (
@@ -1334,7 +1334,7 @@ class PME_UL_pm_tree(bpy.types.UIList):
 
             for pmi in pm.pmis:
                 if pmi.mode == 'MENU':
-                    name, *_ = extract_str_flags(
+                    name, *_ = U.extract_str_flags(
                         pmi.text, CC.F_EXPAND, CC.F_EXPAND)
                     if name not in pr.pie_menus or \
                             pr.use_filter and \
@@ -2095,6 +2095,14 @@ class PMEPreferences(bpy.types.AddonPreferences):
 
         PME_OT_interactive_panels_toggle.active = self.interactive_panels
 
+        for tp in bl_header_types():
+            if self.interactive_panels:
+                if isinstance(tp.append, MethodType) and hasattr(tp, "draw"):
+                    tp.append(PME_OT_interactive_panels_toggle._draw_header)
+            else:
+                if isinstance(tp.remove, MethodType) and hasattr(tp, "draw"):
+                    tp.remove(PME_OT_interactive_panels_toggle._draw_header)
+
         for tp in bl_menu_types():
             if self.interactive_panels:
                 if isinstance(tp.append, MethodType) and hasattr(tp, "draw"):
@@ -2742,8 +2750,8 @@ class PMEPreferences(bpy.types.AddonPreferences):
                 if tpr.prop_data.path:
                     lh.row(subcol)
                     pd = tpr.prop_data
-                    min_active = not isclose(pd.min, tpr.modal_item_prop_min)
-                    max_active = not isclose(pd.max, tpr.modal_item_prop_max)
+                    min_active = not U.isclose(pd.min, tpr.modal_item_prop_min)
+                    max_active = not U.isclose(pd.max, tpr.modal_item_prop_max)
                     step_active = tpr.modal_item_prop_step_is_set
                     lh.prop(tpr, "modal_item_prop_min", active=min_active)
                     lh.prop(tpr, "modal_item_prop_max", active=max_active)
@@ -3284,7 +3292,7 @@ class PMEPreferences(bpy.types.AddonPreferences):
             if 'MENU' in pm.ed.supported_slot_modes:
                 for pmi in pm.pmis:
                     if pmi.mode == 'MENU':
-                        menu_name, mouse_over, _ = extract_str_flags(
+                        menu_name, mouse_over, _ = U.extract_str_flags(
                             pmi.text, CC.F_EXPAND, CC.F_EXPAND)
                         if mouse_over and menu_name in pr.pie_menus and \
                                 pr.pie_menus[menu_name].mode == 'RMENU':
@@ -3372,7 +3380,7 @@ class PMEPreferences(bpy.types.AddonPreferences):
         def parse_children(pmis):
             for pmi in pmis:
                 if pmi.mode == 'MENU':
-                    menu_name, _, _ = extract_str_flags(
+                    menu_name, _, _ = U.extract_str_flags(
                         pmi.text, CC.F_EXPAND, CC.F_EXPAND)
                     if menu_name in pr.pie_menus:
                         if menu_name not in pms_to_export:

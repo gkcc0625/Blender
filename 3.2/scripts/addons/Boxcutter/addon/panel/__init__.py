@@ -7,7 +7,7 @@ from .. operator.property.operation import shift_operations
 from ... utility import addon
 from .. import toolbar
 from . utility import preset
-from . import behavior, grid, mode, operation, release_lock, set_origin, shape, surface, snap, settings, help
+from . import behavior, error, grid, mode, operation, release_lock, set_origin, shape, surface, snap, settings, help
 
 
 class BC_PT_shift_operation(Panel):
@@ -59,6 +59,7 @@ classes = [
     help.start_operation.BC_PT_help_start_operation_npanel_tool,
     help.start_operation.BC_PT_help_start_operation_npanel,
     behavior.BC_PT_helper,
+    error.BC_PT_error_log,
     mode.BC_PT_mode,
     shape.BC_PT_shape,
     release_lock.BC_PT_release_lock,

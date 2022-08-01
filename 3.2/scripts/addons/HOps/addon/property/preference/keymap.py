@@ -244,6 +244,8 @@ def draw(preference, context, layout):
     split = box.split()
     col = split.column()
 
+    col.label(text='Do not remove hotkeys, disable them instead.')
+
     # Modal Controls
     sub_box = col.box()
     header_row(sub_box.row(align=True), 'expand_modals', label='Modal Operators')
@@ -269,7 +271,6 @@ def draw(preference, context, layout):
         sub_box.prop(preference.keymap, "sharp_shift_ctrl", text="Ctrl + Shift")
         sub_box.separator()
         sub_box.separator()
-        sub_box.label(text='Do not remove hotkeys, disable them instead.')
 
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.user

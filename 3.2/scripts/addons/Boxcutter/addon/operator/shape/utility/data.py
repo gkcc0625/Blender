@@ -632,7 +632,7 @@ def clean(op, context, clean_all=False):
                     for collection in bc.original_active.users_collection:
                         collection.objects.link(bc.shape)
                 else:
-                    context.scene.collection.objects.link(bc.shape)
+                    context.collection.objects.link(bc.shape)
 
                 context.view_layer.objects.active = bc.shape
 
@@ -789,15 +789,15 @@ def clean(op, context, clean_all=False):
             if hasattr(bc.shape, 'hops'):
                 bc.shape.hops.status = 'BOOLSHAPE' if op.mode != 'MAKE' else 'UNDEFINED'
 
-            clean_welds = False
+            clean_welds = True
+            if op.shape_type == 'CUSTOM' or bc.shape.data.bc.q_beveled:
+                clean_welds = False
+            # if op.shape_type == 'NGON' or op.ngon_fit:
+            #     clean_welds = False
             for mod in bc.shape.modifiers[:]:
                 mod.show_render = True
 
-                if mod.type == 'ARRAY' or op.shape_type == 'NGON' or op.ngon_fit or op.shape_type == 'CUSTOM' or bc.shape.data.bc.q_beveled:
-                    clean_welds = False
-                    break
-
-                if mod.type == 'BEVEL':
+                if mod.type in {'ARRAY', 'BEVEL'}:
                     clean_welds = False
 
                 if mod.name.startswith('Bevel'):
@@ -1058,6 +1058,11 @@ def clean(op, context, clean_all=False):
 
         if bc.lattice:
             bpy.data.objects.remove(bc.lattice)
+
+        if op.ngon_point_bevel_reset:
+            op.last['modifier']['bevel_width'] = op.ngon_point_bevel_reset
+            op.last['modifier']['quad_bevel_width'] = op.ngon_point_bevel_reset
+            op.last['modifier']['front_bevel_width'] = op.ngon_point_bevel_reset
 
     op.datablock['targets'] = []
     op.datablock['slices'] = []

@@ -814,6 +814,23 @@ class Bool_Tracker:
         self.start_recursive(op.obj, context, op)
         op.late_update = True
 
+
+    def isolate_mod(self, mod):
+        self.current_mod = mod
+        self.recursive_active = False
+
+        for index, mod in enumerate(self.bools):
+            if mod == self.current_mod:
+                mod.show_viewport = True
+                self.index = index
+                if bool_mod_valid_obj(bpy.context, mod):
+                    mod.object.hide_set(False)
+            else:
+                mod.show_viewport = False
+                if bool_mod_valid_obj(bpy.context, mod):
+                    if mod.object not in self.tracked_bools:
+                        mod.object.hide_set(True)
+
     # --- FAS --- #
 
     def FAS_data(self):
@@ -832,7 +849,6 @@ class Bool_Tracker:
                 data.append(self.current_mod.object.name)
 
         return data
-
 
 # --- UTILS --- #
 

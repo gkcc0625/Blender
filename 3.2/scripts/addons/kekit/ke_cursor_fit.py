@@ -1,15 +1,15 @@
 import bpy
 import bmesh
 from mathutils import Vector
-from .ke_utils import rotation_from_vector, mouse_raycast, correct_normal, average_vector, \
-    tri_points_order, get_loops, flatten
+from ._utils import rotation_from_vector, mouse_raycast, correct_normal, average_vector, \
+    tri_points_order, vertloops, flatten
 
 
-def set_cursor(rotmat, pos=[]):
+def set_cursor(rotmat, pos=None):
     q = rotmat.to_quaternion()
     bpy.context.scene.cursor.rotation_mode = "QUATERNION"
     bpy.context.scene.cursor.rotation_quaternion = q
-    if pos:
+    if pos is not None:
         bpy.context.scene.cursor.location = pos
     else:
         bpy.ops.view3d.snap_cursor_to_selected()
@@ -17,9 +17,9 @@ def set_cursor(rotmat, pos=[]):
     bpy.context.tool_settings.transform_pivot_point = "CURSOR"
 
 
-class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
+class KeCursorFitAlign(bpy.types.Operator):
     bl_idname = "view3d.cursor_fit_selected_and_orient"
-    bl_label = "Cursor snap to selected and orient"
+    bl_label = "Cursor Fit & Align"
     bl_description = "Snap Cursor to selected + orient to FACE/VERT/EDGE normal. \n" \
                      "No selection = Cursor reset\n" \
                      "Object mode: Mouse over object places Cursor on face center OR\n" \
@@ -38,16 +38,64 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
 
     def execute(self, context):
         og_cursor_setting = str(context.scene.cursor.rotation_mode)
-        self.cursorOP = bpy.context.scene.kekit.cursorfit
+        self.cursorOP = context.scene.kekit.cursorfit
+        scale_check = True
 
-        if not self.cursorOP:
-            # GRAB CURRENT ORIENT & PIVOT (to restore at the end)
-            og_orientation = str(bpy.context.scene.transform_orientation_slots[0].type)
-            og_pivot = str(bpy.context.scene.tool_settings.transform_pivot_point)
+        # GRAB CURRENT ORIENT & PIVOT (to restore at the end)
+        og_orientation = str(context.scene.transform_orientation_slots[0].type)
+        og_pivot = str(context.scene.tool_settings.transform_pivot_point)
 
-        if bpy.context.mode == "EDIT_MESH":
-            sel_mode = bpy.context.tool_settings.mesh_select_mode[:]
-            obj = bpy.context.edit_object
+        if context.object:
+            if round(sum(context.object.scale), 6) % 3 != 0:
+                scale_check = False
+
+        if context.object and context.object.type in {'CURVE', 'GPENCIL'}:
+            obj_mtx = context.object.matrix_world
+            cos = []
+
+            if context.object.type == "CURVE":
+                if context.object.data.splines:
+                    for s in context.object.data.splines:
+                        if s.type == 'BEZIER':
+                            for p in s.bezier_points:
+                                if p.select_control_point:
+                                    cos.append(obj_mtx @ p.co)
+                        if s.type == 'NURBS':
+                            for p in s.points:
+                                co = p.co.copy()
+                                co.resize_3d()
+                                if p.select:
+                                    cos.append(obj_mtx @ co)
+
+            if context.object.type == "GPENCIL":
+                for gplayer in context.object.data.layers:
+                    for frame in gplayer.frames:
+                        for stroke in frame.strokes:
+                            for p in stroke.points:
+                                if p.select:
+                                    cos.append(obj_mtx @ p.co)
+
+            if len(cos) > 1:
+                n = Vector(cos[0] - cos[-1]).normalized()
+                z = n.cross(Vector((0, 0, 1)))
+                t_v = n.cross(z)
+                if t_v.dot(n) < 0.00001:
+                    y = n.cross(Vector((0, 1, 0)))
+                    t_v = n.cross(y)
+                rot_mtx = rotation_from_vector(n, t_v)
+                set_cursor(rot_mtx)
+            elif cos:
+                bpy.ops.view3d.snap_cursor_to_selected()
+            else:
+                bpy.ops.view3d.snap_cursor_to_center()
+
+            # Bleh
+            if cos and context.object.type == "GPENCIL":
+                bpy.ops.gpencil.snap_cursor_to_selected()
+
+        elif context.mode == "EDIT_MESH":
+            sel_mode = context.tool_settings.mesh_select_mode[:]
+            obj = context.edit_object
             obj_mtx = obj.matrix_world.copy()
             bm = bmesh.from_edit_mesh(obj.data)
 
@@ -63,7 +111,9 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
                 bpy.ops.view3d.snap_cursor_to_center()
                 return {'FINISHED'}
 
-            # POLY MODE -----------------------------------------------------------------------
+            #
+            # POLY MODE
+            #
             if sel_mode[2]:
                 sel_poly = [p for p in bm.faces if p.select]
 
@@ -97,9 +147,12 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
 
                 vert_mode = False
 
-
-            # EDGE MODE -----------------------------------------------------------------------
+            #
+            # EDGE MODE
+            #
             if sel_mode[1]:
+                n = Vector((0,0,1))
+                t_v = Vector((1,0,0))
 
                 loop_mode = False
                 line_mode = False
@@ -109,7 +162,7 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
 
                 if e_count > 1:
                     vps = [e.verts[:] for e in sel_edges]
-                    loops = get_loops(vps, legacy=True)
+                    loops = vertloops(vps)
                     if len(loops) >= 1 and loops[0][0] != loops[0][-1]:
                         fl = list(set(flatten(vps)))
                         if len(fl) == len(loops[0]):
@@ -156,7 +209,6 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
 
                         vert_mode = False
 
-
                 elif e_count > 2:
                     loop_mode = True
 
@@ -193,8 +245,9 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
 
                     set_cursor(rot_mtx)
 
-
-            # VERT (& GENERAL AVERAGE) MODE -----------------------------------------------------------------------
+            #
+            # VERT (& GENERAL AVERAGE) MODE
+            #
             if sel_mode[0] or vert_mode:
 
                 if sel_count == 2:
@@ -246,8 +299,8 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
                         if sel_count == 1:
                             if not sel_verts[0].link_edges:
                                 # floater vert check -> world rot
-                                t_c = Vector((1,0,0))
-                                n = Vector((0,0,1))
+                                t_c = Vector((1, 0, 0))
+                                n = Vector((0, 0, 1))
                             else:
                                 t_c = sel_verts[0].co - sel_verts[0].link_edges[0].other_vert(sel_verts[0]).co
                         else:
@@ -265,14 +318,17 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
                 bm.select_flush_mode()
                 bmesh.update_edit_mesh(obj.data)
 
-        # OBJECT MODE -----------------------------------------------------------------------
-        elif bpy.context.mode == "OBJECT":
+        #
+        # OBJECT MODE
+        #
+        elif context.mode == "OBJECT":
 
             sel_obj = [o for o in context.selected_objects]
+            active_object = context.active_object if context.active_object in sel_obj else None
             hit_obj, hit_wloc, hit_normal, hit_face = mouse_raycast(context, self.mouse_pos)
+            nohitsel = True if hit_obj not in sel_obj else False
 
             if hit_normal and hit_obj:
-
                 mfs = []
                 # Terrible workaround for raycast index issue
                 if len(hit_obj.modifiers) > 0:
@@ -284,6 +340,11 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
                     hit_obj, hit_wloc, hit_normal, hit_face = mouse_raycast(context, self.mouse_pos)
 
                 obj_mtx = hit_obj.matrix_world.copy()
+
+                if round(sum(hit_obj.scale), 6) % 3 != 0:
+                    scale_check = False
+                else:
+                    scale_check = True
 
                 bm = bmesh.new()
                 bm.from_mesh(hit_obj.data)
@@ -301,31 +362,50 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
                     for m in mfs:
                         m.show_viewport = True
 
-            elif len(sel_obj) == 1 and hit_obj not in sel_obj:
-                context.scene.cursor.location = sel_obj[0].location
-                context.scene.cursor.rotation_euler = sel_obj[0].rotation_euler
+            elif len(sel_obj) == 1 and nohitsel:
+                # LOC - as bo
+                context.scene.cursor.location = sel_obj[0].matrix_world.to_translation()
+                # ROT - as obj
+                context.scene.cursor.rotation_euler = sel_obj[0].matrix_world.to_euler()
                 if self.cursorOP:
                     bpy.ops.transform.select_orientation(orientation="CURSOR")
-                    bpy.context.tool_settings.transform_pivot_point = "CURSOR"
+                    context.tool_settings.transform_pivot_point = "CURSOR"
 
-            elif len(sel_obj) > 1 and hit_obj not in sel_obj:
-                v = Vector(sel_obj[0].location - sel_obj[-1].location).normalized()
-                if round(abs(v.dot(Vector((1,0,0)) )),3) == 1:
-                    u = Vector((0,0,1))
+            elif len(sel_obj) == 2 and nohitsel:
+                # LOC
+                context.scene.cursor.location = average_vector([o.matrix_world.to_translation() for o in sel_obj])
+                # ROT - towards active
+                if active_object is not None:
+                    if sel_obj[0] == active_object:
+                        target, start = active_object, sel_obj[-1]
+                    else:
+                        target, start = active_object, sel_obj[0]
                 else:
-                    u = Vector((-1,0,0))
+                    start, target = sel_obj[0], sel_obj[-1]
+                v = Vector(target.matrix_world.to_translation() - start.matrix_world.to_translation()).normalized()
+                if round(abs(v.dot(Vector((1, 0, 0)))), 3) == 1:
+                    u = Vector((0, 0, 1))
+                else:
+                    u = Vector((-1, 0, 0))
                 t = v.cross(u).normalized()
                 rot_mtx = rotation_from_vector(v, t, rw=False)
                 context.scene.cursor.rotation_euler = rot_mtx.to_euler()
-                context.scene.cursor.location = average_vector([o.location for o in sel_obj])
 
+            elif len(sel_obj) >= 3 and nohitsel:
+                # LOC
+                context.scene.cursor.location = average_vector([o.matrix_world.to_translation() for o in sel_obj])
+                # ROT - as active
+                if active_object:
+                    context.scene.cursor.rotation_euler = active_object.matrix_world.to_euler()
+                else:
+                    context.scene.cursor.rotation_euler = sel_obj[-1].matrix_world.to_euler()
             else:
                 bpy.ops.view3d.snap_cursor_to_center()
 
         if not self.cursorOP:
             # RESET OP TRANSFORMS
             bpy.ops.transform.select_orientation(orientation=og_orientation)
-            bpy.context.scene.tool_settings.transform_pivot_point = og_pivot
+            context.scene.tool_settings.transform_pivot_point = og_pivot
 
         if og_cursor_setting != "QUATERNION":
             # just gonna go ahead and assume no one uses this as default, for back-compatibility reasons...
@@ -333,19 +413,25 @@ class VIEW3D_OT_cursor_fit_selected_and_orient(bpy.types.Operator):
         else:
             context.scene.cursor.rotation_mode = 'XYZ'
 
+        if not scale_check:
+            self.report({"INFO"}, "Object Scale is not applied")
+
         return {'FINISHED'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeCursorFitAlign,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_cursor_fit_selected_and_orient)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_cursor_fit_selected_and_orient)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

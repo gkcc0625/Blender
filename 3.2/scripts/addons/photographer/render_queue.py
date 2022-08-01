@@ -205,13 +205,15 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
                 self.rendering = False
                 for file in self.file_outputs:
                     file[0].path = file[1]
-                bpy.context.scene.render.filepath = self.fpath
+                bpy.data.scenes.get(scene.name).render.filepath = self.fpath
+                # bpy.context.scene.render.filepath = self.fpath
         else:
             self.shots.pop(0)
             self.rendering = False
             for file in self.file_outputs:
                 file[0].path = file[1]
-            bpy.context.scene.render.filepath = self.fpath
+            bpy.data.scenes.get(scene.name).render.filepath = self.fpath
+            # bpy.context.scene.render.filepath = self.fpath
             if self.shots:
                 bump_render_slot(bpy.context)
 
@@ -219,7 +221,8 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
         self.stop = True
         for file in self.file_outputs:
             file[0].path = file[1]
-        bpy.context.scene.render.filepath = self.fpath
+        bpy.data.scenes.get(scene.name).render.filepath = self.fpath
+        # bpy.context.scene.render.filepath = self.fpath
 
     def execute(self, context):
         self.stop = False
@@ -345,10 +348,22 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
                     else:
                         file[0].path = fname + '_' + file[1]
 
+                # Adding support for Turbo Tools render operators
+                import addon_utils
+                is_tt_enabled,is_tt_loaded = addon_utils.check('blender_turbo_boost')
+                if is_tt_loaded:
+                    print ("Photographer Render Queue: Turbo Tools enabled, using add-on render commands")
+
                 if scene.renderqueue.frame_mode == 'ANIM':
-                    bpy.ops.render.render("INVOKE_DEFAULT", animation=True, write_still=True)
+                    if is_tt_loaded:
+                        bpy.ops.threedi.render_animation()
+                    else:
+                        bpy.ops.render.render("INVOKE_DEFAULT", animation=True, write_still=True)
                 else:
-                    bpy.ops.render.render("INVOKE_DEFAULT", write_still=True)
+                    if is_tt_loaded:
+                        bpy.ops.threedi.render_still(write_still=True)
+                    else:
+                        bpy.ops.render.render("INVOKE_DEFAULT", write_still=True)
 
         return {"PASS_THROUGH"}
 
@@ -494,6 +509,9 @@ class PHOTOGRAPHER_OT_RenderQueueExport(bpy.types.Operator, ImportHelper):
 
         # Get camera names
         shots = get_cameras(context,mode=self.mode)
+        if not shots:
+            self.report({'ERROR'}, 'Found no camera to export. Choose which cameras to export in the File browser Options panel that opens.')
+            return {'CANCELLED'}
 
         # Fix incorrect slashes like // for relative path instead of \\
         opath = context.scene.render.filepath = context.scene.render.filepath.replace(os.path.sep, '/')

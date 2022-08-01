@@ -139,6 +139,12 @@ class PHOTOGRAPHER_PT_ViewPanel_Camera(bpy.types.Panel):
         sub.active = cam.show_passepartout
         sub.prop(cam, "passepartout_alpha", text="")
 
+        # Composition guides
+        col.popover(
+            panel="ADD_CAMERA_RIGS_PT_composition_guides",
+            text="Composition Guides",)
+
+
         # World Override per camera
         if bpy.app.version >= (2, 90, 1):
             col = layout.column(align=False, heading='World Override')
@@ -214,6 +220,7 @@ class PHOTOGRAPHER_PT_ViewPanel_Lens(bpy.types.Panel):
         layout.use_property_decorate = False
 
         cam = context.scene.camera.data
+        cam_name = context.scene.camera.name
         settings = cam.photographer
 
         master_col = layout.column(align=True)
@@ -233,18 +240,20 @@ class PHOTOGRAPHER_PT_ViewPanel_Lens(bpy.types.Panel):
 
         if context.scene.render.engine == 'CYCLES':
             col.prop(settings, 'fisheye')
+        if context.scene.render.engine == 'CYCLES' and settings.fisheye:
+            col.prop(cam.cycles,'fisheye_fov')
+            col.separator()
 
         # col.prop(settings, 'breathing')
         col = master_col.column(align=True)
-        col.use_property_split = False
-        split = col.split(factor=0.4,align=True)
-        row = split.row(align=True)
-        row.alignment='RIGHT'
-        row.label(text='Lens Shift')
-        split.prop(settings,'lens_shift', text='', slider=True)
-        split = col.split(factor=0.4, align=True)
-        split.separator()
-        split.operator('photographer.auto_lens_shift')
+        col.use_property_split = True
+
+        row = col.row(align=True)
+        row.prop(settings,'lens_shift', slider=True)
+        row.operator('photographer.auto_lens_shift', text='', icon='EVENT_A').camera=cam_name
+        row = col.row(align=True)
+        row.prop(settings,'lens_shift_x', slider=True)
+        col.prop(settings,'lens_shift_compensated')
 
         if context.scene.render.engine == 'CYCLES':
             col.enabled = not settings.fisheye
@@ -254,19 +263,20 @@ class PHOTOGRAPHER_PT_ViewPanel_Lens(bpy.types.Panel):
         col.operator('photographer.dollyzoom', icon='VIEW_ZOOM')
         col.operator('photographer.dollyzoom_set_key', icon='KEY_HLT')
 
-# Function to add Focus Plane to Camera Properties UI
+# Function to add Lens Shift to Camera Properties UI
 def lens_shift_ui(self, context):
     layout = self.layout
     settings = context.camera.photographer
+    cam_name = context.view_layer.objects.active.name
 
     col = layout.column(align=True)
+    row = col.row(align=True)
 
-    col.prop(settings,'lens_shift', slider=True)
-    split = col.split(factor=0.37, align=False)
-    # row = col.row(align=True)
-    split.separator()
-    split.operator('photographer.auto_lens_shift')
-
+    row.prop(settings,'lens_shift', slider=True)
+    row.operator('photographer.auto_lens_shift', text='', icon='EVENT_A').camera=cam_name
+    row = col.row(align=True)
+    row.prop(settings,'lens_shift_x', slider=True)
+    col.prop(settings,'lens_shift_compensated')
 
 #### DEPTH OF FIELD PANEL ####
 class PHOTOGRAPHER_PT_ViewPanel_DOF_Char(bpy.types.Panel):
@@ -349,9 +359,11 @@ class PHOTOGRAPHER_PT_ViewPanel_DOF(bpy.types.Panel):
                 row.prop(settings, 'aperture', slider=True, text="")
             sub = layout.row(align=False)
             sub.scale_x = 1.26
-            sub.prop(settings,'aperture_slider_enable', icon='SETTINGS', text='',emboss=False)
+            sub.prop(settings,'aperture_slider_enable', icon='SETTINGS',
+                text='',emboss=False)
 
-            layout.enabled = settings.use_dof #or (settings.exposure_mode == 'MANUAL' and settings.exposure_enabled)
+            layout.enabled = settings.use_dof
+            #or (settings.exposure_mode == 'MANUAL' and settings.exposure_enabled)
 
     def draw(self, context):
         layout = self.layout
@@ -472,7 +484,8 @@ def exposure_settings(self,context,settings,parent_ui,guide,image_editor):
                     auto_col.enabled = False
             if engine == 'BLENDER_EEVEE':
                 if context.scene.eevee.use_soft_shadows:
-                    col.operator("photographer.disablesoftshadows",icon="INFO", text="Soft shadows might cause issues")
+                    col.operator("photographer.disablesoftshadows",icon="INFO",
+                        text="Soft shadows might cause issues")
             auto_col.prop(settings, 'center_weight', slider=True)
             auto_col.prop(settings, 'ae_speed', text='Speed', slider=True)
             # auto_col.separator()

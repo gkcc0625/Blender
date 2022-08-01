@@ -361,9 +361,9 @@ class HOPS_OT_MODS_array_step(bpy.types.Operator):
 
         count = ((self.offset) + (p2_to_m3d - (self.p2_to_m3d)))
         self.delta = count
-        count = (round(count, 1))
+        count = abs(round(count, 1))
 
-        modifier.count = count
+        modifier.count = abs(int(count))
         self.count = (round(count))
 
         if self.ctrl is False:

@@ -1,11 +1,11 @@
 import bpy
 import blf
-from .ke_utils import get_selected, get_distance, set_status_text
+from ._utils import get_selected, get_distance, set_status_text
 from mathutils import Vector, Matrix
 from bpy_extras.view3d_utils import region_2d_to_location_3d
 
 
-class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
+class KeLinearArray(bpy.types.Operator):
     bl_idname = "view3d.ke_lineararray"
     bl_label = "Linear Array"
     bl_description = "Creates an array in a line where instances are spaced automatically between start and end " \
@@ -19,21 +19,21 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
     region = None
     rv3d = None
     help = False
-    set_pos = Vector((0,0,0))
+    set_pos = Vector((0, 0, 0))
     mouse_pos = Vector((0, 0))
     count = 2
     snap = False
     snapval = 0
     axis_lock = False
     imperial = []
-    hcol = (1,1,1,1)
-    tcol = (1,1,1,1)
-    scol = (1,1,1,1)
+    hcol = (1, 1, 1, 1)
+    tcol = (1, 1, 1, 1)
+    scol = (1, 1, 1, 1)
     fs = [64, 64, 10, 68, 20, 13, 98, 13, 45, 27, 9, 9, 10, 29, 40, 12, 45]
     tm = Matrix().to_3x3()
     axis = True, False, True
     axis_int = 1
-    start_v = Vector((0,1,0))
+    start_v = Vector((0, 1, 0))
     adjust_mode = False
     array = None
     obj = None
@@ -45,6 +45,8 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
     tick = 0
     tock = 0
     input_nrs = []
+    is_gpencil = False
+    offset = (0, 0, 0)
 
     numbers = ('ZERO', 'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE')
     numpad = ('NUMPAD_0', 'NUMPAD_1', 'NUMPAD_2', 'NUMPAD_3', 'NUMPAD_4', 'NUMPAD_5', 'NUMPAD_6', 'NUMPAD_7',
@@ -53,12 +55,12 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         cat = {'MESH', 'CURVE', 'SURFACE', 'META', 'FONT', 'HAIR', 'GPENCIL'}
-        return context.object is not None and context.object.type in cat and not context.object.data.is_editmode
+        return context.object is not None and context.object.type in cat and context.mode == "OBJECT"
 
     def draw_callback_px(self, context, pos):
-        # fs = [64, 64, 10, 68, 20, 13, 98, 13, 45, 27, 9, 9, 10, 29, 40, 12, 45]
         hpos, vpos = self.fs[0], self.fs[1]
-        if pos: hpos = pos - self.fs[2]
+        if pos:
+            hpos = pos - self.fs[2]
         title = ""
 
         if self.axis_lock:
@@ -126,11 +128,6 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
                 blf.draw(font_id, "Apply: Enter/Spacebar/LMB  Cancel: Esc/RMB")
                 blf.position(font_id, hpos, vpos - self.fs[14], 0)
                 blf.draw(font_id, "Navigation: Blender (-MMB) or Ind.Std (Alt-MB's)")
-            # else:
-            #     blf.size(font_id, self.fs[15], 72)
-            #     blf.color(font_id, self.scol[0], self.scol[1], self.scol[2], self.scol[3])
-            #     blf.position(font_id, hpos, vpos + self.fs[16], 0)
-            #     blf.draw(font_id, "(H) Toggle Help")
         else:
             context.window_manager.event_timer_remove(self._timer)
             bpy.types.SpaceView3D.draw_handler_remove(self._handle_px, 'WINDOW')
@@ -154,7 +151,10 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
     def upd_array(self):
         self.array.count = self.count
         oc = self.count - 1
-        self.array.constant_offset_displace[self.axis_int] = self.dval / oc
+        if self.is_gpencil:
+            self.array.constant_offset[self.axis_int] = self.dval / oc
+        else:
+            self.array.constant_offset_displace[self.axis_int] = self.dval / oc
 
     def set_snap(self, val):
         if self.snap and self.snapval == val:
@@ -163,10 +163,9 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             self.snapval = val
             self.snap = True
 
-
     def invoke(self, context, event):
         # INITIAL EVENT INFO & SETTINGS
-        k = context.preferences.addons['kekit'].preferences
+        k = context.preferences.addons[__package__].preferences
         self.hcol = k.modal_color_header
         self.tcol = k.modal_color_text
         self.scol = k.modal_color_subtext
@@ -182,12 +181,11 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
 
         self.region = context.region
         self.rv3d = context.space_data.region_3d
-        self.screen_x = int(self.region.width *.5)
+        self.screen_x = int(self.region.width * 0.5)
         self.mouse_pos[0] = int(event.mouse_region_x)
         self.mouse_pos[1] = int(event.mouse_region_y)
 
         return self.execute(context)
-
 
     def execute(self, context):
         # SELECTION
@@ -202,31 +200,49 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
 
         self.set_pos = self.obj.location.copy()
         self.tm = self.obj.matrix_world.copy()
+        if self.obj.type == "GPENCIL":
+            self.is_gpencil = True
         # initial mouse vector
         mp = region_2d_to_location_3d(self.region, self.rv3d, self.mouse_pos, self.set_pos)
         self.start_v = Vector((self.tm.inverted() @ self.set_pos) - (self.tm.inverted() @ mp)).normalized()
 
-        # CHECK OBJECT FOR ADJUSTMENT MODE -------------------------------------------------------------------
-        for m in self.obj.modifiers:
+        # CHECK OBJECT FOR ADJUSTMENT MODE
+        if self.is_gpencil:
+            mods = self.obj.grease_pencil_modifiers
+        else:
+            mods = self.obj.modifiers
+
+        for m in mods:
             if "Linear Array" in m.name:
                 self.array = m
                 self.count = int(self.array.count)
                 self.og_count = int(self.array.count)
-                self.og_spacing = self.array.constant_offset_displace[:]
+                if not self.is_gpencil:
+                    self.og_spacing = self.array.constant_offset_displace[:]
+                else:
+                    self.og_spacing = self.array.constant_offset[:]
                 self.adjust_mode = True
                 # spacing & axis will be instantly recalculated in modal
                 break
 
-        # NEW SETUP --------------------------------------------------------------------------------------------
+        # NEW SETUP
         if not self.adjust_mode:
             # CREATE ARRAY MODIFIER
-            self.array = self.obj.modifiers.new("Linear Array", 'ARRAY')
+            if self.is_gpencil:
+                self.array = self.obj.grease_pencil_modifiers.new("Linear Array", 'GP_ARRAY')
+            else:
+                self.array = self.obj.modifiers.new("Linear Array", 'ARRAY')
+
+            self.offset = (0, 0, 0)
             self.array.use_relative_offset = False
             self.array.use_constant_offset = True
-            self.array.constant_offset_displace = (0, 0, 0)
             self.array.count = 2
 
-        # GO MODAL  --------------------------------------------------------------------------------------------
+        if not self.array:
+            print("Linear Array: No Array Found")
+            return {"CANCELLED"}
+
+        # GO MODAL
         self._timer = context.window_manager.event_timer_add(0.5, window=context.window)
         context.window_manager.modal_handler_add(self)
         args = (context, self.screen_x)
@@ -247,11 +263,10 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
 
         return {'RUNNING_MODAL'}
 
-
     def modal(self, context, event):
-        # -------------------------------------------------------------------------------------------------
+        #
         # STEPVALUES OR NUMERICAL MODE
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.type == 'A' and event.value == 'PRESS':
             self.array_input_mode = not self.array_input_mode
             context.area.tag_redraw()
@@ -298,9 +313,9 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             elif event.type == 'FOUR' and event.value == 'PRESS':
                 self.set_snap(3)
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # MAIN
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.type == 'MOUSEMOVE':
             new_mouse_pos = Vector((int(event.mouse_region_x), int(event.mouse_region_y)))
             newpos = region_2d_to_location_3d(self.region, self.rv3d, new_mouse_pos, self.set_pos)
@@ -333,7 +348,10 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
                         self.axis_int = 2
 
                     # Reset for update constraint axis
-                    self.array.constant_offset_displace = (0, 0, 0)
+                    if self.is_gpencil:
+                        self.array.constant_offset = (0, 0, 0)
+                    else:
+                        self.array.constant_offset_displace = (0, 0, 0)
 
             # UPDATE OFFSET OBJ PO
             self.dval = get_distance(newpos, self.set_pos)
@@ -341,9 +359,9 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
                 self.dval *= -1
             self.upd_array()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # WHEEL COUNT UPDATE
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.type == 'WHEELUPMOUSE':
             self.count += 1
             context.area.tag_redraw()
@@ -354,18 +372,18 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             context.area.tag_redraw()
             self.upd_array()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # NAV
-        # -------------------------------------------------------------------------------------------------
+        #
         if event.alt and event.type == "LEFTMOUSE" or event.type == "MIDDLEMOUSE" or \
                 event.alt and event.type == "RIGHTMOUSE" or \
                 event.shift and event.type == "MIDDLEMOUSE" or \
                 event.ctrl and event.type == "MIDDLEMOUSE":
             return {'PASS_THROUGH'}
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # MISC HOTKEYS
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.shift and event.type == 'TAB' and event.value == 'PRESS':
             self.snap = not self.snap
 
@@ -378,7 +396,7 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             self.axis = False, True, True
             self.axis_int = 0
             context.area.tag_redraw()
-            self.array.constant_offset_displace = (0, 0, 0)
+            self.offset = (0, 0, 0)
             self.upd_array()
 
         elif event.type in {'Y', 'GRLESS'} and event.value == 'PRESS':
@@ -386,7 +404,7 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             self.axis = True, False, True
             self.axis_int = 1
             context.area.tag_redraw()
-            self.array.constant_offset_displace = (0, 0, 0)
+            self.offset = (0, 0, 0)
             self.upd_array()
 
         elif event.type == 'Z' and event.value == 'PRESS':
@@ -394,16 +412,19 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             self.axis = True, True, False
             self.axis_int = 2
             context.area.tag_redraw()
-            self.array.constant_offset_displace = (0, 0, 0)
+            if self.is_gpencil:
+                self.array.constant_offset = (0, 0, 0)
+            else:
+                self.array.constant_offset_displace = (0, 0, 0)
             self.upd_array()
 
         elif event.type == 'C' and event.value == 'PRESS':
             self.axis_lock = False
             context.area.tag_redraw()
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # APPLY
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.type in {'RET', 'SPACE'} or event.type == 'LEFTMOUSE' and event.value == 'RELEASE':
             context.area.tag_redraw()
             context.window_manager.event_timer_remove(self._timer)
@@ -411,9 +432,9 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
             context.workspace.status_text_set(None)
             return {'FINISHED'}
 
-        # -------------------------------------------------------------------------------------------------
+        #
         # CANCEL
-        # -------------------------------------------------------------------------------------------------
+        #
         elif event.type == 'ESC' or event.type == 'RIGHTMOUSE' and event.value == 'RELEASE':
             context.area.tag_redraw()
             context.window_manager.event_timer_remove(self._timer)
@@ -422,23 +443,29 @@ class VIEW3D_OT_ke_lineararray(bpy.types.Operator):
                 bpy.ops.object.modifier_remove(modifier=self.array.name)
             else:
                 self.array.count = self.og_count
-                self.array.constant_offset_displace = self.og_spacing
+                if self.is_gpencil:
+                    self.array.constant_offset = (0, 0, 0)
+                else:
+                    self.array.constant_offset_displace = (0, 0, 0)
             context.workspace.status_text_set(None)
             return {'CANCELLED'}
 
         return {'RUNNING_MODAL'}
 
 
-# -------------------------------------------------------------------------------------------------
-# Class Registration & Unregistration
-# -------------------------------------------------------------------------------------------------
+#
+# CLASS REGISTRATION
+#
+classes = (KeLinearArray,)
+
+modules = ()
+
+
 def register():
-    bpy.utils.register_class(VIEW3D_OT_ke_lineararray)
+    for c in classes:
+        bpy.utils.register_class(c)
 
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_OT_ke_lineararray)
-
-
-if __name__ == "__main__":
-    register()
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

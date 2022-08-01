@@ -68,8 +68,8 @@ class HOPS_OT_SetAutoSmooth(bpy.types.Operator):
 
     def execute(self, context):
 
-        context.object.data.use_auto_smooth = True
         bpy.ops.object.shade_smooth()
+        context.object.data.use_auto_smooth = True
         context.object.data.auto_smooth_angle = self.angle
         bpy.ops.hops.display_notification(info=f'Autosmooth {degrees(bpy.context.object.data.auto_smooth_angle):.0f} ', subtext="Set Smooth / Autosmooth Enabled")
 
