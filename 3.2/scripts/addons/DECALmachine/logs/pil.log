@@ -1,0 +1,94 @@
+
+DECALmachine: Installing PIL 9.0.1
+
+Platform: Windows
+Python Binary: C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\bin\python.EXE True
+Python Library: C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\lib True
+Ensurepip: C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\lib\ensurepip True
+
+Modules: C:\Program Files\Blender Foundation\Blender 3.2\3.2\scripts\modules True
+Modules: C:\Users\giuse\AppData\Roaming\Blender Foundation\Blender\3.2\scripts\modules False
+Site-Packages: C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\lib\site-packages True
+User Site-Packages: C:\Users\giuse\AppData\Roaming\Python\Python310\site-packages True
+EasyInstall Path: C:\Program Files\Blender Foundation\Blender 3.2\3.2\python\lib\site-packages\easy_install.py False
+EasyInstall User Path: C:\Users\giuse\AppData\Roaming\Python\Python310\site-packages\easy_install.py False
+
+
+
+Looking in links: c:\Users\giuse\AppData\Local\Temp\tmp13lvy0pp
+Requirement already satisfied: setuptools in c:\program files\blender foundation\blender 3.2\3.2\python\lib\site-packages (58.1.0)
+Requirement already satisfied: pip in c:\users\giuse\appdata\roaming\python\python310\site-packages (22.0.3)
+Requirement already satisfied: pip in c:\users\giuse\appdata\roaming\python\python310\site-packages (22.0.3)
+Collecting pip
+Downloading pip-22.2.2-py3-none-any.whl (2.0 MB)
+---------------------------------------- 2.0/2.0 MB 6.2 MB/s eta 0:00:00
+Installing collected packages: pip
+Attempting uninstall: pip
+Found existing installation: pip 22.0.3
+Uninstalling pip-22.0.3:
+Successfully uninstalled pip-22.0.3
+Successfully installed pip-22.2.2
+WARNING: The scripts pip.exe, pip3.10.exe and pip3.exe are installed in 'C:\Users\giuse\AppData\Roaming\Python\Python310\Scripts' which is not on PATH.
+Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+Requirement already satisfied: wheel in c:\users\giuse\appdata\roaming\python\python310\site-packages (0.37.1)
+Collecting Pillow==9.0.1
+Downloading Pillow-9.0.1-cp310-cp310-win_amd64.whl (3.2 MB)
+---------------------------------------- 3.2/3.2 MB 6.7 MB/s eta 0:00:00
+Installing collected packages: Pillow
+Successfully installed Pillow-9.0.1
+
+Found C:\Users\giuse\AppData\Roaming\Python\Python310\site-packages in sys.path.
+Successfully imported PIL's Image module. PIL is ready to go.
+
+ENVIRONMENT
+ADSK_3DSMAX_X64_2020: C:\Program Files\Autodesk\3ds Max 2020\
+ALLUSERSPROFILE: C:\ProgramData
+APPDATA: C:\Users\giuse\AppData\Roaming
+COMMONPROGRAMFILES: C:\Program Files\Common Files
+COMMONPROGRAMFILES(X86): C:\Program Files (x86)\Common Files
+COMMONPROGRAMW6432: C:\Program Files\Common Files
+COMPUTERNAME: DESKTOP-M3BB0RA
+COMSPEC: C:\WINDOWS\system32\cmd.exe
+CUDA_PATH: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4
+CUDA_PATH_V11_4: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4
+DRIVERDATA: C:\Windows\System32\Drivers\DriverData
+FPS_BROWSER_APP_PROFILE_STRING: Internet Explorer
+FPS_BROWSER_USER_PROFILE_STRING: Default
+GIT_LFS_PATH: C:\Program Files\Git LFS
+HOMEDRIVE: C:
+HOMEPATH: \Users\giuse
+INTEL_DEV_REDIST: C:\Program Files (x86)\Common Files\Intel\Shared Libraries\
+KEYSHOT10: C:\Users\giuse\Documents\KeyShot 10
+LOCALAPPDATA: C:\Users\giuse\AppData\Local
+LOGONSERVER: \\DESKTOP-M3BB0RA
+MIC_LD_LIBRARY_PATH: C:\Program Files (x86)\Common Files\Intel\Shared Libraries\compiler\lib\mic
+NUMBER_OF_PROCESSORS: 8
+NVCUDASAMPLES11_4_ROOT: C:\ProgramData\NVIDIA Corporation\CUDA Samples\v11.4
+NVCUDASAMPLES_ROOT: C:\ProgramData\NVIDIA Corporation\CUDA Samples\v11.4
+NVTOOLSEXT_PATH: C:\Program Files\NVIDIA Corporation\NvToolsExt\
+OMP_WAIT_POLICY: PASSIVE
+ONEDRIVE: C:\Users\giuse\OneDrive
+ONEDRIVECONSUMER: C:\Users\giuse\OneDrive
+OS: Windows_NT
+PATH: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4\bin;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.4\libnvvp;C:\Program Files (x86)\Common Files\Intel\Shared Libraries\redist\intel64\compiler;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Windows\System32\OpenSSH\;C:\Program Files\Intel\WiFi\bin\;C:\Program Files\Common Files\Intel\WirelessCommon\;C:\Program Files\Common Files\Autodesk Shared\;C:\Program Files\SlikSvn\bin;C:\Program Files\CMake\bin;C:\Program Files\Git\cmd;C:\Program Files\nodejs\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\Git LFS;C:\Program Files\dotnet\;C:\Program Files (x86)\NVIDIA Corporation\PhysX\Common;C:\Program Files\NVIDIA Corporation\NVIDIA NvDLISR;C:\Program Files\NVIDIA Corporation\Nsight Compute 2021.2.2\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Users\giuse\AppData\Local\Microsoft\WindowsApps;C:\Program Files\Intel\WiFi\bin\;C:\Program Files\Common Files\Intel\WirelessCommon\;C:\Users\giuse\.dotnet\tools;C:\Users\giuse\AppData\Local\GitHubDesktop\bin;C:\Users\giuse\AppData\Roaming\npm;C:\Users\giuse\AppData\Local\Microsoft\WindowsApps;C:\Users\giuse\AppData\Local\atom\bin;C:\Users\giuse\.dotnet\tools;
+PATHEXT: .COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC
+PROCESSOR_ARCHITECTURE: AMD64
+PROCESSOR_IDENTIFIER: Intel64 Family 6 Model 158 Stepping 13, GenuineIntel
+PROCESSOR_LEVEL: 6
+PROCESSOR_REVISION: 9e0d
+PROGRAMDATA: C:\ProgramData
+PROGRAMFILES: C:\Program Files
+PROGRAMFILES(X86): C:\Program Files (x86)
+PROGRAMW6432: C:\Program Files
+PSMODULEPATH: C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+PUBLIC: C:\Users\Public
+SESSIONNAME: Console
+SYSTEMDRIVE: C:
+SYSTEMROOT: C:\WINDOWS
+TEMP: C:\Users\giuse\AppData\Local\Temp
+TMP: C:\Users\giuse\AppData\Local\Temp
+USERDOMAIN: DESKTOP-M3BB0RA
+USERDOMAIN_ROAMINGPROFILE: DESKTOP-M3BB0RA
+USERNAME: Giuseppe
+USERPROFILE: C:\Users\giuse
+WINDIR: C:\WINDOWS
