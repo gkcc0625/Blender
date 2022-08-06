@@ -1,0 +1,109 @@
+
+"Scatter5" plugin for blender 3d.
+Copyright (C) 2021 'BD3D DIGITAL DESIGN, SLU'
+
+------------------------------------------------------
+----                     AUTHOR                   ---- 
+------------------------------------------------------
+
+Copyright holder:
+  'BD3D DIGITAL DESIGN, SLU'
+
+Created by:
+   'Dorian Borremans' (online pseudonym: 'BD3D')
+   'Jakub Uhlik' (online pseudonym: 'Carbon2') https://jakubuhlik.com/
+
+------------------------------------------------------
+----     TERMS OF USE AND LICENSE AGREEMENT       ---- 
+------------------------------------------------------
+
+Scatter5 plugin is composed of digital assets and scripts, 
+they both have two different licenses:
+
+for the Digital 3D objects, .blend files, and associated image textures the license is the following: "Standard Royalty Free".
+
+    The Standard Royalty Free license grants you, the purchaser, the ability to make use of the purchased 
+    product for personal, educational, or commercial purposes as long as those purposes  do not violate any 
+    of the following: You may not resell, redistribute, or repackage the purchased product without explicit
+    permission from the original author.
+
+for the Python Scripts, the license is the following: "GPL 3.0".
+
+    This program is a free software: you can redistribute it and/or modify it under the terms of the GNU General 
+    Public License (GPL) as published by the Free Software Foundation, either version 3 of the License, or (at
+    your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT 
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+    See the GNU General Public License for more details.You should have received a copy of the GNU General 
+    Public License along with this program. If not, see http://www.gnu.org/licenses/.
+    <pep8 compliant>
+
+------------------------------------------------------
+----                 LICENSE FAQ                  ---- 
+------------------------------------------------------
+
+Q1 >>>>>> "Can I share or redistribute artworks & renders made with Scatter5 ?"
+
+Yes, of course! 
+
+
+Q2 >>>>>> "Can I share or redistribute assets and textures from Scatter5 library?"
+
+No. 
+They are under royalty free license.
+
+
+Q3 >>>>>> "Can I share the Scatter5 nodegroups contained in my .blend scene that I want to redistribute or share to friends/customers?"
+
+Yes, sharing a blender scene with a Scatter5 geometry node nodegroup still present in the scene is allowed. 
+You have the author permission to do so, as long as the goal is sharing your art, and not sharing the nodetree by itself. Note that there's a handy operator available in the node's header to purge all unused node.
+
+
+Q4 >>>>>> "Can I redistribute Scatter5 nodegroup on my own website or in my own product ?"
+
+No, You cannot redistribute the Scatter5 nodegroup by yourself in your own plugin or product. 
+Not without the author explicit permission. Q3 is an exception.
+
+
+Q5 >>>>>> "Can I share or redistribute the biomes or presets I created with Scatter"
+
+If you used your own assets, Yes of course!  
+You can also contact us, if your pack is well made, We can inform the users about your creation. 
+
+
+Q6 >>>>>> "Can I share or redistribute this plugin and its content ?"
+
+No. 
+You can share everything that is under GPL license (that means the scripts).
+The digital assets, nodetree, images or blends files cannot be redistributed without the author permission as they are released under "Standard Royalty Free".
+See Q7 for Team licenses. 
+
+
+Q7 >>>>>> "Can I share or redistribute this plugin and its content to Colleagues/Collaborators/Employees of my company?"
+
+If you have a 'personal': Only up to 2 seats, otherwise No.
+If you have a 'team' license: Yes.
+
+
+
+
+
+Any doubt? ask for permissions? just contact us. 
+
+------------------------------------------------------
+----                   CONTACT                    ---- 
+------------------------------------------------------
+
+Please contact us via blendermarket messaging 
+https://www.blendermarket.com/creators/bd3d-store
+
+------------------------------------------------------
+----          ADDITIONAL INFORMATION              ---- 
+------------------------------------------------------
+
+-The author is not the reseller of this product.
+ Please address the BlenderMarket/Gumroad for any additional information regarding VAT handling, refunds, or else.
+
+-If you want more information about the icon licenses, contact the author directly. 
+
+
+
