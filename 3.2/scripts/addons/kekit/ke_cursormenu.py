@@ -59,6 +59,7 @@ class VIEW3D_PT_KCM(Panel):
         cf.operator("view3d.snap_cursor_to_center", text="Clear Loc")
         cf.prop(context.scene.cursor, "rotation_euler", text="Cursor Rotation", expand=True)
         cf.operator("view3d.ke_cursor_clear_rot", text="Clear Rot")
+        c.operator("view3d.snap_cursor_to_center", text="Reset Cursor (Loc & Rot)")
 
 
 class KeCursorRotation(Operator):

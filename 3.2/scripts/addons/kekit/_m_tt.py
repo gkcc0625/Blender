@@ -341,7 +341,7 @@ class KeVPTransform(bpy.types.Operator):
         elif og_transform == "LOCAL" or og_transform == "NORMAL":
             if og_transform == "NORMAL":
                 og_transform = "LOCAL"
-            self.tm = self.obj.matrix_world.to_3x3().inverted()
+            self.tm = self.obj.matrix_world.to_3x3()
 
         elif og_transform == "VIEW":
             self.tm = context.space_data.region_3d.view_matrix.inverted().to_3x3()

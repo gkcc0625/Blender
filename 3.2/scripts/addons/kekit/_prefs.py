@@ -22,7 +22,7 @@ from bpy.props import (
 from ._m_tt import KeTTHeader
 
 
-kekit_version = 2014
+kekit_version = 2015
 new_version = None
 old_pf = False
 
