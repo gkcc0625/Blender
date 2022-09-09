@@ -1,0 +1,13 @@
+[Bookmarks]
+C:\Users\giuse\Dropbox\Blender Library\
+[Recent]
+C:\Users\giuse\Downloads\
+C:\Users\giuse\Downloads\[Blender] Welder v1.3.2\
+X:\Blender\AutoSave\
+Y:\Projects\Characters\Maty\Scan 03\
+Y:\Projects\Characters\Maty\Scan 01\
+Y:\Projects\Characters\Maty\Scan 02\
+X:\Blender\3D Models\Vehicles\
+X:\Blender\3D Models\Robots\
+X:\Blender\3D Models\Props\
+X:\Blender\3D Models\Humans\
