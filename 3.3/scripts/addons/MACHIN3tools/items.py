@@ -4,6 +4,10 @@ axis_items = [('X', 'X', ''),
               ('Y', 'Y', ''),
               ('Z', 'Z', '')]
 
+axis_index_mapping = {'X': 0,
+                      'Y': 1,
+                      'Z': 2}
+
 axis_vector_mappings = {'X': Vector((1, 0, 0)),
                         'Y': Vector((0, 1, 0)),
                         'Z': Vector((0, 0, 1))}
@@ -125,6 +129,13 @@ cursor_spin_angle_preset_items = [('None', 'None', ''),
                                   ('135', '135', ''),
                                   ('180', '180', '')]
 
+
+create_assembly_asset_empty_location_items = [('AVG', 'Average', ''),
+                                              ('AVGFLOOR', 'Average Floor', ''),
+                                              ('WORLDORIGIN', 'World Origin', '')]
+
+create_assembly_asset_empty_collection_items = [('SCENECOL', 'Add to Scene Collection', ''),
+                                                ('OBJCOLS', 'Add to Object Collections', '')]
 
 
 eevee_preset_items = [('NONE', 'None', ''),

@@ -35,7 +35,7 @@ class PieModes(Menu):
         pie = layout.menu_pie()
 
         if active:
-            if context.mode in ['OBJECT', 'EDIT_MESH', 'EDIT_ARMATURE', 'POSE', 'EDIT_CURVE', 'EDIT_TEXT', 'EDIT_SURFACE', 'EDIT_METABALL', 'EDIT_LATTICE', 'EDIT_GPENCIL', 'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL']:
+            if context.mode in ['OBJECT', 'EDIT_MESH', 'EDIT_ARMATURE', 'POSE', 'EDIT_CURVE', 'EDIT_TEXT', 'EDIT_SURFACE', 'EDIT_METABALL', 'EDIT_LATTICE', 'EDIT_GPENCIL', 'PAINT_GPENCIL', 'SCULPT_GPENCIL', 'WEIGHT_GPENCIL', 'SCULPT_CURVES']:
                 if active.type == 'MESH':
                     if context.area.type == "VIEW_3D":
 
@@ -184,6 +184,46 @@ class PieModes(Menu):
                     else:
                         pie.separator()
 
+                elif active.type == 'CURVES':
+
+                    pie.separator()
+
+                    pie.separator()
+
+                    pie.separator()
+
+                    pie.separator()
+
+                    self.draw_hair_modes(context, pie)
+
+                    if context.mode == 'SCULPT_CURVES':
+                        box = pie.split()
+                        column = box.column()
+                        column.scale_y = 1.5
+                        column.scale_x = 1.5
+
+                        row = column.row(align=True)
+
+                        domain = active.data.selection_domain
+
+                        if domain == 'POINT':
+                            row.prop(active.data, "use_sculpt_selection", text="", icon='CURVE_BEZCIRCLE')
+                        else:
+                            row.operator("curves.set_selection_domain", text="", icon='CURVE_BEZCIRCLE').domain = 'POINT'
+
+                        if domain == 'CURVE':
+                            row.prop(active.data, "use_sculpt_selection", text="", icon='CURVE_PATH')
+                        else:
+                            row.operator("curves.set_selection_domain", text="", icon='CURVE_PATH').domain = 'CURVE'
+
+                    else:
+                        pie.separator()
+
+                    pie.separator()
+
+                    pie.separator()
+
+
                 elif active.type == 'GPENCIL':
                     gpd = context.gpencil_data
 
@@ -254,11 +294,11 @@ class PieModes(Menu):
 
                 elif active.type == 'EMPTY':
 
-                    if get_prefs().activate_assetbrowser_tools and get_prefs().show_collection_instance_assembly_in_modes_pie:
+                    if get_prefs().activate_assetbrowser_tools and get_prefs().show_instance_collection_assembly_in_modes_pie:
 
 
                         if active.instance_collection and active.instance_type == 'COLLECTION':
-                            pie.operator("machin3.assemble_collection_instance", text="Assemble Collection Instance")
+                            pie.operator("machin3.assemble_instance_collection", text="Assemble Instance Collection")
 
                         else:
                             pie.separator()
@@ -519,6 +559,22 @@ class PieModes(Menu):
         r.active = False if context.mode == 'EDIT_MESH' else True
         r.operator("object.mode_set", text="", icon="EDITMODE_HLT").mode = 'EDIT'
 
+    def draw_hair_modes(self, context, pie):
+        box = pie.split()
+        column = box.column()
+        column.scale_y = 1.5
+        column.scale_x = 1.5
+
+        row = column.row(align=True)
+
+        r = row.row(align=True)
+        r.active = False if context.mode == 'SCULPT_CURVES' else True
+        r.operator("object.mode_set", text="", icon="SCULPTMODE_HLT").mode = 'SCULPT_CURVES'
+
+        r = row.row(align=True)
+        r.active = False if context.mode == 'OBJECT' else True
+        r.operator("object.mode_set", text="", icon="OBJECT_DATA").mode = 'OBJECT'
+
 
 class PieSave(Menu):
     bl_idname = "MACHIN3_MT_save_pie"
@@ -709,6 +765,8 @@ class PieShading(Menu):
         pie.operator("machin3.switch_shading", text=text, icon=icon, depress=shading.type == 'RENDERED' and overlay.show_overlays).shading_type = 'RENDERED'
 
     def draw_overlay_box(self, context, active, view, layout):
+        m3 = context.scene.M3
+
         overlay = context.space_data.overlay
         perspective_type = view.region_3d.view_perspective
 
@@ -756,7 +814,7 @@ class PieShading(Menu):
         r.prop(view.overlay, "show_axis_z", text="Z", toggle=True)
 
         row = column.split(factor=0.4, align=True)
-        icon = 'wireframe_xray' if context.scene.M3.show_edit_mesh_wire else 'wireframe'
+        icon = 'wireframe_xray' if m3.show_edit_mesh_wire else 'wireframe'
         row.operator("machin3.toggle_wireframe", text="Wireframe", icon_value=get_icon(icon), depress=context.mode=='OBJECT' and overlay.show_wireframes)
 
         r = row.row(align=True)
@@ -766,15 +824,15 @@ class PieShading(Menu):
         elif context.mode == "EDIT_MESH":
             r.active = view.shading.show_xray
             r.prop(view.shading, "xray_alpha", text="X-Ray")
-
-        hasobjectaxes = True if bpy.app.driver_namespace.get('draw_object_axes') else False
+        hasobjectaxes = m3.draw_active_axes or any([obj.M3.draw_axes for obj in context.visible_objects])
 
         row = column.split(factor=0.4, align=True)
-        row.operator("machin3.toggle_object_axes", text="(E) Object Axes", depress=hasobjectaxes)
+        row.prop(m3, "draw_active_axes", text="Active's Axes", icon='EMPTY_AXIS')
+
         r = row.row(align=True)
         r.active = hasobjectaxes
-        r.prop(context.scene.M3, "object_axes_size", text="")
-        r.prop(context.scene.M3, "object_axes_alpha", text="")
+        r.prop(m3, "object_axes_size", text="")
+        r.prop(m3, "object_axes_alpha", text="")
 
     def draw_solid_box(self, context, view, layout):
         shading = context.space_data.shading
@@ -826,7 +884,7 @@ class PieShading(Menu):
             if active.type == 'ARMATURE':
                 r.prop(active.data, "show_axes", text="Axes")
             else:
-                r.prop(active, "show_axis", text="Axis")
+                r.prop(active.M3, "draw_axes", text="Axes")
 
             r = row.row()
             r.prop(active, "show_in_front", text="In Front")
@@ -1930,16 +1988,20 @@ class PieSnapping(Menu):
         ts = scene.tool_settings
 
         absolute_grid = get_prefs().snap_show_absolute_grid
-
+        volume = get_prefs().snap_show_volume
 
         op = pie.operator('machin3.set_snapping_preset', text='Vertex', depress=ts.snap_elements == {'VERTEX'} and ts.snap_target == 'CLOSEST' and not ts.use_snap_align_rotation, icon='SNAP_VERTEX')
         op.element = 'VERTEX'
         op.target = 'CLOSEST'
         op.align_rotation = False
 
-        if absolute_grid:
+        if absolute_grid or (absolute_grid and volume):
             op = pie.operator('machin3.set_snapping_preset', text='Absolute Grid', depress=ts.snap_elements == {'INCREMENT'} and ts.use_snap_grid_absolute, icon='SNAP_GRID')
             op.element = 'INCREMENT'
+
+        elif volume:
+            op = pie.operator('machin3.set_snapping_preset', text='Volume', depress=ts.snap_elements == {'VOLUME'}, icon='SNAP_VOLUME')
+            op.element = 'VOLUME'
 
         else:
             op = pie.operator('machin3.set_snapping_preset', text='Surface', depress=ts.snap_elements == {'FACE'} and ts.snap_target == 'MEDIAN' and ts.use_snap_align_rotation, icon='SNAP_FACE')
@@ -1947,7 +2009,7 @@ class PieSnapping(Menu):
             op.target = 'MEDIAN'
             op.align_rotation = True
 
-        if absolute_grid:
+        if absolute_grid or volume:
             op = pie.operator('machin3.set_snapping_preset', text='Surface', depress=ts.snap_elements == {'FACE'} and ts.snap_target == 'MEDIAN' and ts.use_snap_align_rotation, icon='SNAP_FACE')
             op.element = 'FACE'
             op.target = 'MEDIAN'
@@ -1971,7 +2033,7 @@ class PieSnapping(Menu):
 
         pie.separator()
 
-        if absolute_grid:
+        if absolute_grid or volume:
             op = pie.operator('machin3.set_snapping_preset', text='Edge', depress=ts.snap_elements == {'EDGE'} and ts.snap_target == 'CLOSEST' and not ts.use_snap_align_rotation, icon='SNAP_EDGE')
             op.element = 'EDGE'
             op.target = 'CLOSEST'
@@ -1980,7 +2042,12 @@ class PieSnapping(Menu):
         else:
             pie.separator()
 
-        pie.separator()
+        if absolute_grid and volume:
+            op = pie.operator('machin3.set_snapping_preset', text='Volume', depress=ts.snap_elements == {'VOLUME'}, icon='SNAP_VOLUME')
+            op.element = 'VOLUME'
+
+        else:
+            pie.separator()
 
 
     def draw_center_column(self, tool_settings, layout):
@@ -1992,6 +2059,7 @@ class PieSnapping(Menu):
         row = column.row(align=True)
         row.scale_y = 1.25
         row.popover(panel="VIEW3D_PT_snapping", text="More...")
+        row.prop(get_prefs(), 'snap_show_volume', text='', icon='SNAP_VOLUME')
         row.prop(get_prefs(), 'snap_show_absolute_grid', text='', icon='SNAP_GRID')
 
 
@@ -2334,21 +2402,20 @@ class PieWorkspace(Menu):
         layout = self.layout
         pie = layout.menu_pie()
 
-        pie.operator("machin3.switch_workspace", text="MACHIN3", icon='VIEW3D').name="General"
+        p = get_prefs()
 
-        pie.operator("machin3.switch_workspace", text="Compositing", icon='NODE_COMPOSITING').name="Compositing"
+        for piedir in ['left', 'right', 'bottom', 'top', 'top_left', 'top_right', 'bottom_left', 'bottom_right']:
+            name = getattr(p, f'pie_workspace_{piedir}_name')
+            text = getattr(p, f'pie_workspace_{piedir}_text')
+            icon = getattr(p, f'pie_workspace_{piedir}_icon')
 
-        pie.operator("machin3.switch_workspace", text="Scripting", icon='CONSOLE').name="Scripting"
+            if name:
+                pie.operator("machin3.switch_workspace", text=text if text else name, icon=icon if icon else 'BLENDER').name=name
 
-        pie.operator("machin3.switch_workspace", text="Material", icon='MATERIAL_DATA').name="Material"
+            else:
+                pie.separator()
 
-        pie.operator("machin3.switch_workspace", text="UVs", icon='GROUP_UVS').name="UVs"
 
-        pie.operator("machin3.switch_workspace", text="World", icon='WORLD').name="World"
-
-        pie.separator()
-
-        pie.separator()
 
 
 class PieTools(Menu):

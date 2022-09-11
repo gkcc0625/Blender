@@ -39,10 +39,9 @@ def get_last_operators(context, debug=False):
 
     for op in context.window_manager.operators:
         idname = op.bl_idname.replace('_OT_', '.').lower()
-        label = op.bl_label.replace('MACHIN3: ', '')
+        label = op.bl_label.replace('MACHIN3: ', '').replace('Macro', '').strip()
         addon = get_parent_addon(idname)
         prop = ''
-
 
 
         if idname.startswith('machin3.call_'):
@@ -150,6 +149,34 @@ def get_last_operators(context, debug=False):
             if op.properties.get('method', 0) == 1:
                 prop = 'LocalView'
 
+        elif idname == 'machin3.mirror':
+            removeall = getattr(op, 'removeall')
+
+            if removeall:
+                label = "Remove All Mirrors"
+
+            else:
+                axis = getattr(op, 'axis')
+                remove = getattr(op, 'remove')
+
+                if remove:
+                    label = "Remove Mirror"
+
+                    across = getattr(op, 'removeacross')
+                    cursor = getattr(op, 'removecursor')
+
+                else:
+                    cursor = getattr(op, 'cursor')
+                    across = getattr(op, 'across')
+
+                if cursor:
+                    prop = f'Cursor {axis}'
+                elif across:
+                    prop = f'Object {axis}'
+                else:
+                    prop = f'Local {axis}'
+
+
 
         elif idname == 'machin3.decal_library_visibility_preset':
             label = f"{label} {op.properties.get('name')}"
@@ -180,6 +207,31 @@ def get_last_operators(context, debug=False):
 
         elif idname == 'machin3.add_object_at_cursor':
             prop = getattr(op, 'remove', False)
+
+        elif idname == 'machin3.transform_cursor':
+            mode = getattr(op, 'mode', False).capitalize()
+            is_array = getattr(op, 'is_array', False)
+            is_macro = getattr(op, 'is_macro', False)
+            is_duplicate = getattr(op, 'is_duplicate', False)
+
+            if is_macro:
+                geo = 'Mesh Selection' if context.mode == 'EDIT_MESH' else 'Object Selection'
+
+                if is_duplicate:
+                    label = f"Duplicate {mode} {geo}"
+
+                else:
+                    label = f"{mode} {geo}"
+
+            elif is_array:
+
+                if mode == 'Translate':
+                    label = f"Linear Array"
+                elif mode == 'Rotate':
+                    label = f"Radial Array"
+
+            else:
+                label = f"{mode} Cursor"
 
 
 

@@ -2,6 +2,7 @@ import bpy
 from mathutils import Vector, Matrix
 import gpu
 from gpu_extras.batch import batch_for_shader
+from gpu_extras.presets import draw_circle_2d
 import blf
 from . wm import get_last_operators
 from . registration import get_prefs
@@ -9,48 +10,24 @@ from . ui import require_header_offset
 from .. colors import red, green, blue, black, white
 
 
-def add_object_axes_drawing_handler(dns, context, objs, draw_cursor):
-    handler = bpy.types.SpaceView3D.draw_handler_add(draw_object_axes, ([context, objs, draw_cursor],), 'WINDOW', 'POST_VIEW')
-    dns['draw_object_axes'] = handler
-
-
-def remove_object_axes_drawing_handler(handler=None):
-
-    if not handler:
-        handler = bpy.app.driver_namespace.get('draw_object_axes')
-
-
-    if handler:
-
-        bpy.types.SpaceView3D.draw_handler_remove(handler, 'WINDOW')
-        del bpy.app.driver_namespace['draw_object_axes']
-
-
-def draw_object_axes(args):
-    context, objs, draw_cursor = args
-
+def draw_axes_HUD(context, objects):
     if context.space_data.overlay.show_overlays:
-        axes = [(Vector((1, 0, 0)), red), (Vector((0, 1, 0)), green), (Vector((0, 0, 1)), blue)]
+        m3 = context.scene.M3
 
-        size = context.scene.M3.object_axes_size
-        alpha = context.scene.M3.object_axes_alpha
+        size = m3.object_axes_size
+        alpha = m3.object_axes_alpha
+
+        axes = [(Vector((1, 0, 0)), red), (Vector((0, 1, 0)), green), (Vector((0, 0, 1)), blue)]
 
         for axis, color in axes:
             coords = []
 
-            for obj in objs:
+            for obj in objects:
                 mx = obj.matrix_world
                 origin = mx.decompose()[0]
 
                 coords.append(origin + mx.to_3x3() @ axis * size * 0.1)
                 coords.append(origin + mx.to_3x3() @ axis * size)
-
-            if draw_cursor and context.space_data.overlay.show_cursor:
-                cmx = context.scene.cursor.matrix
-                corigin = cmx.decompose()[0]
-
-                coords.append(corigin + cmx.to_3x3() @ axis * size * 0.1 * 0.5)
-                coords.append(corigin + cmx.to_3x3() @ axis * size * 0.5)
 
 
             if coords:
@@ -435,6 +412,23 @@ def draw_vectors(vectors, origins, mx=Matrix(), color=(1, 1, 1), width=1, alpha=
         bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW')
 
 
+def draw_circle(coords, size=10, width=1, segments=64, color=(1, 1, 1), alpha=1, xray=True, modal=True):
+    def draw():
+        gpu.state.depth_test_set('NONE' if xray else 'LESS_EQUAL')
+        gpu.state.blend_set('ALPHA' if alpha < 1 else 'NONE')
+        gpu.state.line_width_set(width)
+
+        use_legacy_line_smoothing(alpha, width)
+
+        draw_circle_2d(coords, (*color, alpha), size, segments=segments)
+
+    if modal:
+        draw()
+
+    else:
+        bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW')
+
+
 def draw_mesh_wire(batch, color=(1, 1, 1), width=1, alpha=1, xray=True, modal=True):
     def draw():
         nonlocal batch
@@ -461,6 +455,101 @@ def draw_mesh_wire(batch, color=(1, 1, 1), width=1, alpha=1, xray=True, modal=Tr
 
     else:
         bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW')
+
+
+def draw_bbox(bbox, mx=Matrix(), color=(1, 1, 1), corners=0, width=1, alpha=1, xray=True, modal=True):
+
+    def draw():
+        if corners:
+            length = corners
+
+            coords = [bbox[0], bbox[0] + (bbox[1] - bbox[0]) * length, bbox[0] + (bbox[3] - bbox[0]) * length, bbox[0] + (bbox[4] - bbox[0]) * length,
+                      bbox[1], bbox[1] + (bbox[0] - bbox[1]) * length, bbox[1] + (bbox[2] - bbox[1]) * length, bbox[1] + (bbox[5] - bbox[1]) * length,
+                      bbox[2], bbox[2] + (bbox[1] - bbox[2]) * length, bbox[2] + (bbox[3] - bbox[2]) * length, bbox[2] + (bbox[6] - bbox[2]) * length,
+                      bbox[3], bbox[3] + (bbox[0] - bbox[3]) * length, bbox[3] + (bbox[2] - bbox[3]) * length, bbox[3] + (bbox[7] - bbox[3]) * length,
+                      bbox[4], bbox[4] + (bbox[0] - bbox[4]) * length, bbox[4] + (bbox[5] - bbox[4]) * length, bbox[4] + (bbox[7] - bbox[4]) * length,
+                      bbox[5], bbox[5] + (bbox[1] - bbox[5]) * length, bbox[5] + (bbox[4] - bbox[5]) * length, bbox[5] + (bbox[6] - bbox[5]) * length,
+                      bbox[6], bbox[6] + (bbox[2] - bbox[6]) * length, bbox[6] + (bbox[5] - bbox[6]) * length, bbox[6] + (bbox[7] - bbox[6]) * length,
+                      bbox[7], bbox[7] + (bbox[3] - bbox[7]) * length, bbox[7] + (bbox[4] - bbox[7]) * length, bbox[7] + (bbox[6] - bbox[7]) * length]
+
+            indices = [(0, 1), (0, 2), (0, 3),
+                       (4, 5), (4, 6), (4, 7),
+                       (8, 9), (8, 10), (8, 11),
+                       (12, 13), (12, 14), (12, 15),
+                       (16, 17), (16, 18), (16, 19),
+                       (20, 21), (20, 22), (20, 23),
+                       (24, 25), (24, 26), (24, 27),
+                       (28, 29), (28, 30), (28, 31)]
+
+
+        else:
+            coords = bbox
+            indices = [(0, 1), (1, 2), (2, 3), (3, 0),
+                       (4, 5), (5, 6), (6, 7), (7, 4),
+                       (0, 4), (1, 5), (2, 6), (3, 7)]
+
+        shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+        shader.bind()
+        shader.uniform_float("color", (*color, alpha))
+
+        gpu.state.depth_test_set('NONE' if xray else 'LESS_EQUAL')
+        gpu.state.blend_set('ALPHA' if alpha < 1 else 'NONE')
+        gpu.state.line_width_set(width)
+
+        use_legacy_line_smoothing(alpha, width)
+
+        if mx != Matrix():
+            batch = batch_for_shader(shader, 'LINES', {"pos": [mx @ co for co in coords]}, indices=indices)
+
+        else:
+            batch = batch_for_shader(shader, 'LINES', {"pos": coords}, indices=indices)
+
+        batch.draw(shader)
+
+    if modal:
+        draw()
+
+    else:
+        bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW')
+
+
+def draw_cross_3d(co, mx=Matrix(), color=(1, 1, 1), width=1, length=1, alpha=1, xray=True, modal=True):
+    def draw():
+
+        x = Vector((1, 0, 0))
+        y = Vector((0, 1, 0))
+        z = Vector((0, 0, 1))
+
+        coords = [(co - x) * length, (co + x) * length,
+                  (co - y) * length, (co + y) * length,
+                  (co - z) * length, (co + z) * length]
+
+        indices = [(0, 1), (2, 3), (4, 5)]
+
+        shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+        shader.bind()
+        shader.uniform_float("color", (*color, alpha))
+
+        gpu.state.depth_test_set('NONE' if xray else 'LESS_EQUAL')
+        gpu.state.blend_set('ALPHA' if alpha < 1 else 'NONE')
+        gpu.state.line_width_set(width)
+
+        use_legacy_line_smoothing(alpha, width)
+
+        if mx != Matrix():
+            batch = batch_for_shader(shader, 'LINES', {"pos": [mx @ co for co in coords]}, indices=indices)
+
+        else:
+            batch = batch_for_shader(shader, 'LINES', {"pos": coords}, indices=indices)
+
+        batch.draw(shader)
+
+    if modal:
+        draw()
+
+    else:
+        bpy.types.SpaceView3D.draw_handler_add(draw, (), 'WINDOW', 'POST_VIEW')
+
 
 
 def draw_tris(coords, indices=None, mx=Matrix(), color=(1, 1, 1), width=1, alpha=1, xray=True, modal=True):

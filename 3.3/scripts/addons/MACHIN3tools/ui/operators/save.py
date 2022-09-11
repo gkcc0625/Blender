@@ -13,9 +13,9 @@ class New(bpy.types.Operator):
     bl_description = "Start new .blend file"
     bl_options = {'REGISTER'}
 
-
     def execute(self, context):
-        bpy.ops.wm.read_homefile(app_template="", load_ui=True)
+
+        bpy.ops.wm.read_homefile(load_ui=True)
 
         return {'FINISHED'}
 
@@ -23,7 +23,7 @@ class New(bpy.types.Operator):
         if bpy.data.is_dirty:
             return context.window_manager.invoke_confirm(self, event)
         else:
-            bpy.ops.wm.read_homefile(app_template="", load_ui=True)
+            bpy.ops.wm.read_homefile(load_ui=True)
             return {'FINISHED'}
 
 

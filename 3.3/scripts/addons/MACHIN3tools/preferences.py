@@ -25,7 +25,8 @@ has_hud = ['OT_material_picker',
            'OT_group',
            'OT_transform_edge_constrained',
            'OT_focus',
-           'MT_tools_pie']
+           'MT_tools_pie',
+           'OT_mirror']
 
 is_fading = ['OT_material_picker',
              'OT_clean_up',
@@ -236,20 +237,21 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
     obj_mode_rotate_around_active: BoolProperty(name="Rotate Around Selection, but only in Object Mode", default=False)
     custom_views_use_trackball: BoolProperty(name="Force Trackball Navigation when using Custom Views", default=True)
     custom_views_set_transform_preset: BoolProperty(name="Set Transform Preset when using Custom Views", default=True)
-    custom_views_toggle_axes_drawing: BoolProperty(name="Toggle Custom View Axes Drawing", default=True)
     show_orbit_selection: BoolProperty(name="Show Orbit around Active", default=True)
     show_orbit_method: BoolProperty(name="Show Orbit Method Selection", default=True)
 
     cursor_show_to_grid: BoolProperty(name="Show Cursor and Selected to Grid", default=False)
     cursor_set_transform_preset: BoolProperty(name="Set Transform Preset when Setting Cursor", default=True)
-    cursor_toggle_axes_drawing: BoolProperty(name="Toggle Cursor Axes Drawing", default=True)
 
     snap_show_absolute_grid: BoolProperty(name="Show Absolute Grid Snapping", default=False)
+    snap_show_volume: BoolProperty(name="Show Volume Snapping", default=False)
 
     toggle_cavity: BoolProperty(name="Toggle Cavity/Curvature OFF in Edit Mode, ON in Object Mode", default=True)
     toggle_xray: BoolProperty(name="Toggle X-Ray ON in Edit Mode, OFF in Object Mode, if Pass Through or Wireframe was enabled in Edit Mode", default=True)
     sync_tools: BoolProperty(name="Sync Tool if possible, when switching Modes", default=True)
+
     focus_view_transition: BoolProperty(name="Viewport Tweening", default=True)
+    focus_lights: BoolProperty(name="Ignore Lights (keep them always visible)", default=False)
 
     tools_show_boxcutter_presets: BoolProperty(name="Show BoxCutter Presets", default=True)
     tools_show_hardops_menu: BoolProperty(name="Show Hard Ops Menu", default=True)
@@ -263,9 +265,9 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
     preferred_default_catalog: StringProperty(name="Preferred Default Catalog", default="Model")
     preferred_assetbrowser_workspace_name: StringProperty(name="Preferred Workspace for Assembly Asset Creation", default="General.alt")
     show_assembly_asset_creation_in_save_pie: BoolProperty(name="Show Assembly Asset Creation in Save Pie", default=True)
-    show_collection_instance_assembly_in_modes_pie: BoolProperty(name="Show Collection Instance Assembly in Modes Pie", default=True)
+    show_instance_collection_assembly_in_modes_pie: BoolProperty(name="Show Collection Instance Assembly in Modes Pie", default=True)
     hide_wire_objects_when_creating_assembly_asset: BoolProperty(name="Hide Wire Objects when creating Assembly Asset", default=True)
-    hide_wire_objects_when_assembling_collection_instance: BoolProperty(name="Hide Wire Objects when assembling Collection Instance", default=True)
+    hide_wire_objects_when_assembling_instance_collection: BoolProperty(name="Hide Wire Objects when assembling Collection Instance", default=True)
 
     show_screencast: BoolProperty(name="Show Screencast in Save Pie", description="Show Screencast in Save Pie", default=True)
     screencast_operator_count: IntProperty(name="Operator Count", description="Maximum number of Operators displayed when Screen Casting", default=12, min=1, max=100)
@@ -302,6 +304,39 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
     render_show_buttons_in_light_properties: BoolProperty(name="Show Render Buttons in Light Properties Panel", description="Show Render Buttons in Light Properties Panel", default=True)
     render_sync_light_visibility: BoolProperty(name="Sync Light visibility/renderability", description="Sync Light hide_render props based on hide_viewport props", default=True)
     render_adjust_lights_on_render: BoolProperty(name="Ajust Area Lights when Rendering in Cycles", description="Adjust Area Lights when Rendering, to better match Eevee and Cycles", default=True)
+
+
+    pie_workspace_left_name: StringProperty(name="Left Workspace Name", default="Layout")
+    pie_workspace_left_text: StringProperty(name="Left Workspace Custom Label", default="MACHIN3")
+    pie_workspace_left_icon: StringProperty(name="Left Workspace Icon", default="VIEW3D")
+
+    pie_workspace_top_left_name: StringProperty(name="Top-Left Workspace Name", default="UV Editing")
+    pie_workspace_top_left_text: StringProperty(name="Top-Left Workspace Custom Label", default="UVs")
+    pie_workspace_top_left_icon: StringProperty(name="Top-Left Workspace Icon", default="GROUP_UVS")
+
+    pie_workspace_top_name: StringProperty(name="Top Workspace Name", default="Shading")
+    pie_workspace_top_text: StringProperty(name="Top Workspace Custom Label", default="Materials")
+    pie_workspace_top_icon: StringProperty(name="Top Workspace Icon", default="MATERIAL_DATA")
+
+    pie_workspace_top_right_name: StringProperty(name="Top-Right Workspace Name", default="")
+    pie_workspace_top_right_text: StringProperty(name="Top-Right Workspace Custom Label", default="")
+    pie_workspace_top_right_icon: StringProperty(name="Top-Right Workspace Icon", default="")
+
+    pie_workspace_right_name: StringProperty(name="Right Workspace Name", default="Rendering")
+    pie_workspace_right_text: StringProperty(name="Right Workspace Custom Label", default="")
+    pie_workspace_right_icon: StringProperty(name="Right Workspace Icon", default="")
+
+    pie_workspace_bottom_right_name: StringProperty(name="Bottom-Right Workspace Name", default="")
+    pie_workspace_bottom_right_text: StringProperty(name="Bottom-Right Workspace Custom Label", default="")
+    pie_workspace_bottom_right_icon: StringProperty(name="Bottom-Right Workspace Icon", default="")
+
+    pie_workspace_bottom_name: StringProperty(name="Bottom Workspace Name", default="Scripting")
+    pie_workspace_bottom_text: StringProperty(name="Bottom Workspace Custom Label", default="")
+    pie_workspace_bottom_icon: StringProperty(name="Bottom Workspace Icon", default="CONSOLE")
+
+    pie_workspace_bottom_left_name: StringProperty(name="Bottom-Left Workspace Name", default="")
+    pie_workspace_bottom_left_text: StringProperty(name="Bottom-Left Workspace Custom Label", default="")
+    pie_workspace_bottom_left_icon: StringProperty(name="Bottom-Left Workspace Icon", default="")
 
 
 
@@ -361,6 +396,8 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
     HUD_fade_material_picker: FloatProperty(name="Material Picker HUD Fade Time (seconds)", default=0.5, min=0.1)
     HUD_fade_group: FloatProperty(name="Group HUD Fade Time (seconds)", default=1, min=0.1)
     HUD_fade_tools_pie: FloatProperty(name="Tools Pie HUD Fade Time (seconds)", default=0.75, min=0.1)
+
+    mirror_flick_distance: IntProperty(name="Flick Distance", default=75, min=20, max=1000)
 
 
 
@@ -578,6 +615,11 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
             r.prop(self, "HUD_scale", text="")
             r.label(text="HUD Scale")
 
+            if getattr(bpy.types, "MACHIN3_OT_mirror", False):
+                r = row.split(factor=0.3)
+                r.prop(self, "mirror_flick_distance", text="")
+                r.label(text="Mirror Flick Distance")
+
             if any([getattr(bpy.types, f'MACHIN3_{name}', False) for name in is_fading]):
                 column = bb.column()
                 column.label(text="Fade time")
@@ -609,6 +651,8 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
             column = bb.column()
             column.prop(self, "focus_view_transition")
 
+            column = bb.column()
+            column.prop(self, "focus_lights")
 
 
         if getattr(bpy.types, "MACHIN3_OT_group", False):
@@ -655,7 +699,7 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
 
 
 
-        if getattr(bpy.types, "MACHIN3_OT_assemble_collection_instance", False):
+        if getattr(bpy.types, "MACHIN3_OT_assemble_instance_collection", False):
             bb = b.box()
             bb.label(text="Assetbrowser Tools")
 
@@ -677,14 +721,14 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
 
             row = column.row(align=True)
             r = row.split(factor=0.2, align=True)
-            r.prop(self, "hide_wire_objects_when_assembling_collection_instance", text="True" if self.hide_wire_objects_when_assembling_collection_instance else "False", toggle=True)
-            r.label(text="Hide Wire Objects when assembling Collection Instance")
+            r.prop(self, "hide_wire_objects_when_assembling_instance_collection", text="True" if self.hide_wire_objects_when_assembling_instance_collection else "False", toggle=True)
+            r.label(text="Hide Wire Objects when assembling Instance Collection")
 
             if getattr(bpy.types, "MACHIN3_MT_modes_pie", False):
                 row = column.row(align=True)
                 r = row.split(factor=0.2, align=True)
-                r.prop(self, "show_collection_instance_assembly_in_modes_pie", text="True" if self.show_collection_instance_assembly_in_modes_pie else "False", toggle=True)
-                r.label(text="Show Collection Instance Assembly in Modes Pie")
+                r.prop(self, "show_instance_collection_assembly_in_modes_pie", text="True" if self.show_instance_collection_assembly_in_modes_pie else "False", toggle=True)
+                r.label(text="Show Instance Collection Assembly in Modes Pie")
 
             if getattr(bpy.types, "MACHIN3_MT_save_pie", False):
                 row = column.row(align=True)
@@ -924,9 +968,6 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
             if self.activate_transform_pie:
                 column.prop(self, "custom_views_set_transform_preset")
 
-            if self.activate_shading_pie:
-                column.prop(self, "custom_views_toggle_axes_drawing")
-
             column.prop(self, "show_orbit_selection")
             column.prop(self, "show_orbit_method")
 
@@ -943,8 +984,6 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
                     if self.activate_transform_pie:
                         column.prop(self, "cursor_set_transform_preset")
 
-                    if self.activate_shading_pie:
-                        column.prop(self, "cursor_toggle_axes_drawing")
 
 
         if getattr(bpy.types, "MACHIN3_MT_snapping_pie", False):
@@ -953,6 +992,157 @@ class MACHIN3toolsPreferences(bpy.types.AddonPreferences):
             column = bb.column()
 
             column.prop(self, "snap_show_absolute_grid")
+            column.prop(self, "snap_show_volume")
+
+
+        if getattr(bpy.types, "MACHIN3_MT_workspace_pie", False):
+            bb = b.box()
+            bb.label(text="Workspace Pie")
+            column = bb.column()
+
+            column.label(text="It's your responsibility to pick workspace- and icon names that actually exist!", icon='ERROR')
+
+
+
+            first = column.split(factor=0.2)
+            first.separator()
+
+            second = first.split(factor=0.25)
+            second.separator()
+
+            third = second.split(factor=0.33)
+
+            col = third.column()
+            col.label(text="Top")
+
+            col.prop(self, 'pie_workspace_top_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_top_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_top_icon', text="", icon='IMAGE_DATA')
+
+            fourth = third.split(factor=0.5)
+            fourth.separator()
+
+            fifth = fourth
+            fifth.separator()
+
+
+
+            first = column.split(factor=0.2)
+            first.separator()
+
+            second = first.split(factor=0.25)
+
+            col = second.column()
+            col.label(text="Top-Left")
+
+            col.prop(self, 'pie_workspace_top_left_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_top_left_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_top_left_icon', text="", icon='IMAGE_DATA')
+
+            third = second.split(factor=0.33)
+            third.separator()
+
+            fourth = third.split(factor=0.5)
+
+            col = fourth.column()
+            col.label(text="Top-Right")
+
+            col.prop(self, 'pie_workspace_top_right_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_top_right_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_top_right_icon', text="", icon='IMAGE_DATA')
+
+            fifth = fourth
+            fifth.separator()
+
+
+
+            first = column.split(factor=0.2)
+
+            col = first.column()
+            col.label(text="Left")
+
+            col.prop(self, 'pie_workspace_left_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_left_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_left_icon', text="", icon='IMAGE_DATA')
+
+            second = first.split(factor=0.25)
+            second.separator()
+
+            third = second.split(factor=0.33)
+
+            col = third.column()
+            col.label(text="")
+            col.label(text="")
+            col.operator('machin3.get_icon_name_help', text="Icon Names?", icon='INFO')
+
+            fourth = third.split(factor=0.5)
+            fourth.separator()
+
+            fifth = fourth
+
+            col = fifth.column()
+            col.label(text="Right")
+
+            col.prop(self, 'pie_workspace_right_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_right_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_right_icon', text="", icon='IMAGE_DATA')
+
+
+
+            first = column.split(factor=0.2)
+            first.separator()
+
+            second = first.split(factor=0.25)
+
+            col = second.column()
+            col.label(text="Bottom-Left")
+
+            col.prop(self, 'pie_workspace_bottom_left_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_bottom_left_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_bottom_left_icon', text="", icon='IMAGE_DATA')
+
+            third = second.split(factor=0.33)
+            third.separator()
+
+            fourth = third.split(factor=0.5)
+
+            col = fourth.column()
+            col.label(text="Bottom-Right")
+
+            col.prop(self, 'pie_workspace_bottom_right_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_bottom_right_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_bottom_right_icon', text="", icon='IMAGE_DATA')
+
+            fifth = fourth
+            fifth.separator()
+
+
+
+            first = column.split(factor=0.2)
+            first.separator()
+
+            second = first.split(factor=0.25)
+            second.separator()
+
+            third = second.split(factor=0.33)
+
+            col = third.column()
+            col.label(text="Bottom")
+
+            col.prop(self, 'pie_workspace_bottom_name', text="", icon='WORKSPACE')
+            col.prop(self, 'pie_workspace_bottom_text', text="", icon='SMALL_CAPS')
+            col.prop(self, 'pie_workspace_bottom_icon', text="", icon='IMAGE_DATA')
+
+            fourth = third.split(factor=0.5)
+            fourth.separator()
+
+            fifth = fourth
+            fifth.separator()
+
+
+
+
+
 
 
 

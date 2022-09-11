@@ -18,7 +18,7 @@ class OpenLibraryBlend(bpy.types.Operator):
         cmd = [blenderbinpath, self.blendpath]
         blender = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        if blender:
+        if blender and self.library:
             lib = bpy.data.libraries.get(self.library)
             if lib:
                 lib.reload()

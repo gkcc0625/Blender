@@ -1,8 +1,6 @@
 import bpy
 import bmesh
-from bpy.props import EnumProperty, BoolProperty, StringProperty
-from mathutils import Matrix, Euler, Quaternion
-from math import radians
+from bpy.props import EnumProperty, BoolProperty
 from ... utils.view import reset_viewport
 from ... utils.math import average_locations
 from ... items import view_axis_items
@@ -46,9 +44,6 @@ class ViewAxis(bpy.types.Operator):
 
             r3d.view_perspective = 'ORTHO'
 
-            r3d.is_orthographic_side_view = True
-            r3d.is_perspective = True
-
         elif m3.custom_views_local or m3.custom_views_cursor:
             mx = context.scene.cursor.matrix if m3.custom_views_cursor else context.active_object.matrix_world if m3.custom_views_local and context.active_object else None
 
@@ -72,10 +67,6 @@ class ViewAxis(bpy.types.Operator):
             r3d.view_rotation = rot
 
             r3d.view_perspective = 'ORTHO'
-
-            r3d.is_orthographic_side_view = True
-            r3d.is_perspective = True
-
 
         else:
             bpy.ops.view3d.view_axis(type=self.axis, align_active=False)

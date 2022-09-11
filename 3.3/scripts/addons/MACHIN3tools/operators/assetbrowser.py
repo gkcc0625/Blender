@@ -1,10 +1,14 @@
 import bpy
-from bpy.props import StringProperty, BoolProperty, FloatProperty
+from bpy.props import StringProperty, BoolProperty, FloatProperty, EnumProperty
 import os
+from mathutils import Vector
 from .. utils.registration import get_addon, get_prefs, get_path
 from .. utils.ui import popup_message
-from .. utils.asset import get_catalogs_from_asset_libraries, update_asset_catalogs
+from .. utils.asset import update_asset_catalogs
 from .. utils.object import parent
+from .. utils.math import average_locations
+from .. utils.draw import draw_point
+from .. items import create_assembly_asset_empty_location_items, create_assembly_asset_empty_collection_items
 
 import time
 
@@ -22,11 +26,15 @@ class CreateAssemblyAsset(bpy.types.Operator):
     name: StringProperty(name="Asset Name", default="AssemblyAsset")
     move: BoolProperty(name="Move instead of Copy", description="Move Objects into Asset Collection, instead of copying\nThis will unlink them from any existing collections", default=True)
 
+    location: EnumProperty(name="Empty Location", items=create_assembly_asset_empty_location_items, description="Location of Asset's Empty", default='AVGFLOOR')
+    emptycol: EnumProperty(name="Empty Collection", items=create_assembly_asset_empty_collection_items, description="Collections to put the the Asset's Empty in", default='SCENECOL')
+
     remove_decal_backups: BoolProperty(name="Remove Decal Backups", description="Remove DECALmachine's Decal Backups, if present", default=False)
     remove_stashes: BoolProperty(name="Remove Stashes", description="Remove MESHmachine's Stashes, if present", default=False)
 
     render_thumbnail: BoolProperty(name="Render Thumbnail", default=True)
     thumbnail_lens: FloatProperty(name="Thumbnail Lens", default=100)
+    toggle_overlays: BoolProperty(name="Toggle Overlays", default=True)
 
     def update_hide_instance(self, context):
         if self.avoid_update:
@@ -46,9 +54,9 @@ class CreateAssemblyAsset(bpy.types.Operator):
             self.avoid_update = True
             self.hide_instance = False
 
-    unlink_collection: BoolProperty(name="Unlink Collection", description="Useful to clean up the scene, and optionally start using the Asset locally right away", default=True)
-    hide_collection: BoolProperty(name="Hide Collection", default=True, description="Useful when you want to start using the Asset locally, while still having easy access to the individual objects", update=update_hide_collection)
-    hide_instance: BoolProperty(name="Hide Instance", default=False, description="Useful when you want to keep working on the Asset's objects", update=update_hide_instance)
+    unlink_collection: BoolProperty(name="Unlink Collection", description="Unlink the Asset Collection\nUseful to clean up the scene, and optionally start using the Asset locally right away", default=True)
+    hide_collection: BoolProperty(name="Hide Collection", default=True, description="Hide the Asset Collection\nUseful when you want to start using the Asset locally, while still having easy access to the individual objects", update=update_hide_collection)
+    hide_instance: BoolProperty(name="Hide Instance", default=False, description="Hide the COllection Instance Empty\nUseful when you want to keep working on the Asset's objects", update=update_hide_instance)
 
     avoid_update: BoolProperty()
 
@@ -65,10 +73,9 @@ class CreateAssemblyAsset(bpy.types.Operator):
         column.prop(self, 'name')
         column.prop(context.window_manager, 'M3_asset_catalogs', text='Catalog')
 
-        column.separator()
-        column.prop(self, 'move', toggle=True)
-
         if decalmachine or meshmachine:
+            column.separator()
+            column.label(text="DECALmachine and MESHmachine" if decalmachine and meshmachine else "DECALmachine" if decalmachine else "MESHmachine")
             row = column.row(align=True)
 
             if decalmachine:
@@ -77,6 +84,19 @@ class CreateAssemblyAsset(bpy.types.Operator):
             if meshmachine:
                 row.prop(self, 'remove_stashes', toggle=True)
 
+        column.separator()
+        column.label(text="Asset Object Collections")
+        column.prop(self, 'move', toggle=True)
+
+        column.separator()
+        column.label(text="Asset Empty")
+        row = column.row(align=True)
+        row.prop(self, 'emptycol', expand=True)
+        row = column.row(align=True)
+        row.prop(self, 'location', expand=True)
+
+        column.separator()
+        column.label(text="Asset Collection")
         row = column.row(align=True)
         row.prop(self, 'unlink_collection', toggle=True)
         r = row.row(align=True)
@@ -84,12 +104,15 @@ class CreateAssemblyAsset(bpy.types.Operator):
         r.prop(self, 'hide_collection', toggle=True)
         r.prop(self, 'hide_instance', toggle=True)
 
+
+        column.separator()
+        column.label(text="Asset Thumbnail")
         row = column.row(align=True)
-        row.prop(self, 'render_thumbnail', toggle=True)
+        row.prop(self, 'render_thumbnail', text="Viewport Render", toggle=True)
         r = row.row(align=True)
         r.active = self.render_thumbnail
+        r.prop(self, 'toggle_overlays', text="Toggle Overlays", toggle=True)
         r.prop(self, 'thumbnail_lens', text='Lens')
-
 
     def invoke(self, context, event):
         global decalmachine, meshmachine
@@ -116,13 +139,15 @@ class CreateAssemblyAsset(bpy.types.Operator):
 
             objects = self.get_assembly_asset_objects(context)
 
+            rootobjs, loc = self.get_empty_location(context, objects)
+
             if decalmachine and self.remove_decal_backups:
                 self.delete_decal_backups(objects)
 
             if meshmachine and self.remove_stashes:
                 self.delete_stashes(objects)
 
-            instance = self.create_asset_instance_collection(context, name, objects)
+            instance = self.create_asset_instance_collection(context, name, objects, rootobjs, loc)
 
             self.adjust_workspace(context)
 
@@ -170,6 +195,22 @@ class CreateAssemblyAsset(bpy.types.Operator):
 
         return objects
 
+    def get_empty_location(self, context, objects):
+
+        rootobjs = [obj for obj in objects if not obj.parent]
+
+        if self.location in ['AVG', 'AVGFLOOR']:
+            loc = average_locations([obj.matrix_world.decompose()[0] for obj in rootobjs])
+
+            if self.location == 'AVGFLOOR':
+                loc[2] = 0
+
+        else:
+            loc = Vector((0, 0, 0))
+
+
+        return rootobjs, loc
+
     def delete_decal_backups(self, objects):
         decals_with_backups = [obj for obj in objects if obj.DM.isdecal and obj.DM.decalbackup]
 
@@ -194,30 +235,45 @@ class CreateAssemblyAsset(bpy.types.Operator):
 
             obj.MM.stashes.clear()
 
-    def create_asset_instance_collection(self, context, name, objects):
+    def create_asset_instance_collection(self, context, name, objects, rootobjs, loc):
+
         mcol = context.scene.collection
         acol = bpy.data.collections.new(name)
-
         mcol.children.link(acol)
+
+        cols = {col for obj in objects for col in obj.users_collection}
 
         if self.move:
             for obj in objects:
                 for col in obj.users_collection:
-                    col.objects.unlink(obj)
+                    if col in cols:
+                        col.objects.unlink(obj)
 
         for obj in objects:
             acol.objects.link(obj)
 
-            if get_prefs().hide_wire_objects_when_creating_assembly_asset and obj.display_type == 'WIRE':
+            if get_prefs().hide_wire_objects_when_creating_assembly_asset and obj.display_type in ['WIRE', 'BOUNDS']:
                 obj.hide_set(True)
+
+                obj.hide_viewport = True
 
         instance = bpy.data.objects.new(name, object_data=None)
         instance.instance_collection = acol
         instance.instance_type = 'COLLECTION'
 
-        mcol.objects.link(instance)
-        instance.asset_mark()
+        if self.emptycol == 'SCENECOL':
+            mcol.objects.link(instance)
 
+        else:
+            for col in cols:
+                col.objects.link(instance)
+
+        instance.location = loc
+
+        for obj in rootobjs:
+            obj.location = obj.location - loc
+
+        instance.asset_mark()
 
         catalog = context.window_manager.M3_asset_catalogs
 
@@ -271,7 +327,7 @@ class CreateAssemblyAsset(bpy.types.Operator):
         resolution = (context.scene.render.resolution_x, context.scene.render.resolution_y)
         file_format = context.scene.render.image_settings.file_format
         lens = context.space_data.lens
-
+        show_overlays = context.space_data.overlay.show_overlays
 
         context.scene.render.resolution_x = 500
         context.scene.render.resolution_y = 500
@@ -279,7 +335,11 @@ class CreateAssemblyAsset(bpy.types.Operator):
 
         context.space_data.lens = self.thumbnail_lens
 
+        if show_overlays and self.toggle_overlays:
+            context.space_data.overlay.show_overlays = False
+
         bpy.ops.render.opengl()
+
 
         thumb = bpy.data.images.get('Render Result')
 
@@ -292,11 +352,14 @@ class CreateAssemblyAsset(bpy.types.Operator):
 
         context.scene.render.image_settings.file_format = file_format
 
+        if show_overlays and self.toggle_overlays:
+            context.space_data.overlay.show_overlays = True
 
-class AssembleCollectionInstance(bpy.types.Operator):
-    bl_idname = "machin3.assemble_collection_instance"
-    bl_label = "MACHIN3: Assemle Collection Instance"
-    bl_description = "Make Collection Instance objects accessible\nALT: Keep Empty as Root"
+
+class AssembleInstanceCollection(bpy.types.Operator):
+    bl_idname = "machin3.assemble_instance_collection"
+    bl_label = "MACHIN3: Assemle Instance Collection"
+    bl_description = "Make Instance Collection objects accessible\nALT: Keep Empty as Root"
     bl_options = {'REGISTER'}
 
     keep_empty: BoolProperty(name="Keep Empty as Root", default=False)
@@ -332,7 +395,7 @@ class AssembleCollectionInstance(bpy.types.Operator):
         for instance in instances:
             collection = instance.instance_collection
 
-            root_children = self.assemble_collection_instance(context, instance, collection)
+            root_children = self.assemble_instance_collection(context, instance, collection)
 
             if self.keep_empty:
                 for child in root_children:
@@ -366,7 +429,7 @@ class AssembleCollectionInstance(bpy.types.Operator):
 
         return {'FINISHED'}
 
-    def assemble_collection_instance(self, context, instance, collection):
+    def assemble_instance_collection(self, context, instance, collection):
 
         cols = [col for col in instance.users_collection]
         imx = instance.matrix_world
@@ -378,8 +441,14 @@ class AssembleCollectionInstance(bpy.types.Operator):
 
         for obj in children:
             for col in cols:
-                col.objects.link(obj)
+                if obj.name not in col.objects:
+                    col.objects.link(obj)
             obj.select_set(True)
+
+            if get_prefs().hide_wire_objects_when_assembling_instance_collection and obj.display_type in ['WIRE', 'BOUNDS']:
+                obj.hide_set(True)
+
+                obj.hide_viewport = False
 
         if len(collection.users_dupli_group) > 1:
 

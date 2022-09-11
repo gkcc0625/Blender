@@ -1,14 +1,15 @@
 import bpy
 from bpy.app.handlers import persistent
-from . utils.draw import remove_object_axes_drawing_handler, draw_focus_HUD, draw_surface_slide_HUD, draw_screen_cast_HUD
+from . utils.draw import draw_axes_HUD, draw_focus_HUD, draw_surface_slide_HUD, draw_screen_cast_HUD
 from . utils.registration import get_prefs, reload_msgbus, get_addon
 from . utils.group import update_group_name, select_group_children
 from . utils.light import adjust_lights_for_rendering, get_area_light_poll
 from . utils.view import sync_light_visibility
 
-import time
 
 
+axesHUD = None
+prev_axes_objects = []
 focusHUD = None
 surfaceslideHUD = None
 screencastHUD = None
@@ -17,11 +18,6 @@ screencastHUD = None
 @persistent
 def update_msgbus(none):
     reload_msgbus()
-
-
-@persistent
-def update_object_axes_drawing(none):
-    remove_object_axes_drawing_handler()
 
 
 @persistent
@@ -90,6 +86,36 @@ def update_asset(none):
                         for col in obj.users_collection:
                             col.objects.unlink(obj)
 
+
+
+@persistent
+def axes_HUD(scene):
+    global axesHUD, prev_axes_objects
+
+    if axesHUD and "RNA_HANDLE_REMOVED" in str(axesHUD):
+        axesHUD = None
+
+    axes_objects = [obj for obj in bpy.context.visible_objects if obj.M3.draw_axes]
+    active = getattr(bpy.context, 'active_object', None)
+
+    if scene.M3.draw_active_axes and active and active not in axes_objects:
+        axes_objects.append(active)
+
+
+    if axes_objects:
+
+        if axes_objects != prev_axes_objects:
+            prev_axes_objects = axes_objects
+
+            if axesHUD:
+                bpy.types.SpaceView3D.draw_handler_remove(axesHUD, 'WINDOW')
+
+            axesHUD = bpy.types.SpaceView3D.draw_handler_add(draw_axes_HUD, (bpy.context, axes_objects), 'WINDOW', 'POST_VIEW')
+
+    elif axesHUD:
+        bpy.types.SpaceView3D.draw_handler_remove(axesHUD, 'WINDOW')
+        axesHUD = None
+        prev_axes_objects = []
 
 
 @persistent

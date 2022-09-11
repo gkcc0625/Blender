@@ -200,7 +200,7 @@ class SmartVert(bpy.types.Operator):
             return {'PASS_THROUGH'}
 
 
-        elif event.type in {'LEFTMOUSE', 'SPACE'}:
+        elif event.type in {'LEFTMOUSE', 'SPACE'} and event.value == 'PRESS':
 
             if self.is_snapping:
 
@@ -213,6 +213,10 @@ class SmartVert(bpy.types.Operator):
                     bmesh.update_edit_mesh(self.active.data)
                 else:
                     self.bm.to_mesh(self.active.data)
+
+            if context.mode == 'OBJECT':
+                from HyperCursor.utils.select import clear_hyper_edge_selection
+                clear_hyper_edge_selection(context.active_object)
 
             self.finish(context)
 
@@ -256,6 +260,7 @@ class SmartVert(bpy.types.Operator):
 
             context.active_object.select_set(True)
 
+
     def invoke(self, context, event):
 
         if context.mode == 'OBJECT':
@@ -267,13 +272,15 @@ class SmartVert(bpy.types.Operator):
             if self.slideoverride and hypercursor:
                 context.active_object.HC.show_geometry_gizmos = False
 
+                from HyperCursor.utils.select import get_selected_edges
+
             else:
                 return {'CANCELLED'}
 
         self.mousepos = Vector((event.mouse_region_x, event.mouse_region_y))
 
         if self.slideoverride:
-            if tuple(bpy.context.scene.tool_settings.mesh_select_mode) == (False, False, True):
+            if context.mode == 'EDIT_MESH' and tuple(bpy.context.scene.tool_settings.mesh_select_mode) == (False, False, True):
                 return {'CANCELLED'}
 
             self.active = context.active_object
@@ -325,7 +332,7 @@ class SmartVert(bpy.types.Operator):
 
             else:
                 wm = context.window_manager
-                context.window.cursor_warp(wm.hyper_mousepos[0], wm.hyper_mousepos[1] + 20 * context.preferences.view.ui_scale)
+                context.window.cursor_warp(int(wm.hyper_mousepos[0]), int(wm.hyper_mousepos[1] + 20 * context.preferences.view.ui_scale))
                 self.mousepos = Vector(wm.hyper_mousepos)
 
                 self.bm = bmesh.new()
@@ -333,16 +340,19 @@ class SmartVert(bpy.types.Operator):
                 self.bm.normal_update()
                 self.bm.edges.ensure_lookup_table()
 
-                edge = self.bm.edges[self.index]
+                selected = get_selected_edges(self.bm, index=self.index)
+                self.verts = {}
 
-                edge_center = average_locations([self.mx @ v.co for v in edge.verts])
+                for edge in selected:
+                    edge_center = average_locations([self.mx @ v.co for v in edge.verts])
 
-                mouse_3d = region_2d_to_location_3d(context.region, context.region_data, self.mousepos, edge_center)
-                mouse_3d_local = self.mx.inverted_safe() @ mouse_3d
+                    mouse_3d = region_2d_to_location_3d(context.region, context.region_data, self.mousepos, edge_center)
+                    mouse_3d_local = self.mx.inverted_safe() @ mouse_3d
 
-                closest = min([(v, (v.co - mouse_3d_local).length) for v in edge.verts], key=lambda x: x[1])[0]
+                    closest = min([(v, (v.co - mouse_3d_local).length) for v in edge.verts], key=lambda x: x[1])[0]
 
-                self.verts = {closest: {'co': closest.co.copy(), 'target': edge.other_vert(closest)}}
+                    self.verts[closest] = {'co': closest.co.copy(), 'target': edge.other_vert(closest)}
+
 
 
             self.can_flatten = False
@@ -378,9 +388,15 @@ class SmartVert(bpy.types.Operator):
                                                                            'line': line}
 
 
-
             self.target_avg = self.mx @ average_locations([data['target'].co for _, data in self.verts.items()])
             self.origin = self.mx @ average_locations([v.co for v, _ in self.verts.items()])
+
+            if self.target_avg == self.origin:
+                if context.mode == 'OBJECT':
+                    context.active_object.HC.show_geometry_gizmos = True
+
+                popup_message("Try to position the view and mouse in a way, that clearly indicates the direction you want to slide towards", title='Ambigious Direction')
+                return {'CANCELLED'}
 
             self.init_loc = self.get_slide_vector_intersection(context)
 

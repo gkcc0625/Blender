@@ -38,24 +38,25 @@ class AlignUV(bpy.types.Operator):
         else:
             loops = [l for f in bm.faces if f.select for l in f.loops if l[uvs].select]
 
-        axiscoords = [l[uvs].uv[axis] for l in loops]
+        if loops:
+            axiscoords = [l[uvs].uv[axis] for l in loops]
 
-        if type == "MIN":
-            target = min(axiscoords)
+            if type == "MIN":
+                target = min(axiscoords)
 
-        elif type == "MAX":
-            target = max(axiscoords)
+            elif type == "MAX":
+                target = max(axiscoords)
 
-        elif type == "ZERO":
-            target = 0
+            elif type == "ZERO":
+                target = 0
 
-        elif type == "AVERAGE":
-            target = sum(axiscoords) / len(axiscoords)
+            elif type == "AVERAGE":
+                target = sum(axiscoords) / len(axiscoords)
 
-        elif type == "CURSOR":
-            target = context.space_data.cursor_location[axis]
+            elif type == "CURSOR":
+                target = context.space_data.cursor_location[axis]
 
-        for l in loops:
-            l[uvs].uv[axis] = target
+            for l in loops:
+                l[uvs].uv[axis] = target
 
-        bmesh.update_edit_mesh(active.data)
+            bmesh.update_edit_mesh(active.data)

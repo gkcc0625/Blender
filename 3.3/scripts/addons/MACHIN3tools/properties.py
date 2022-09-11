@@ -6,7 +6,6 @@ from . utils.math import flatten_matrix
 from . utils.world import get_world_output
 from . utils.system import abspath
 from . utils.registration import get_prefs, get_addon_prefs
-from . utils.draw import remove_object_axes_drawing_handler, add_object_axes_drawing_handler
 from . utils.tools import get_active_tool
 from . utils.light import adjust_lights_for_rendering, get_area_light_poll
 from . utils.view import sync_light_visibility
@@ -309,18 +308,6 @@ class M3SceneProperties(bpy.types.PropertyGroup):
         if get_prefs().activate_transform_pie and get_prefs().custom_views_set_transform_preset:
             bpy.ops.machin3.set_transform_preset(pivot='MEDIAN_POINT', orientation='LOCAL' if self.custom_views_local else 'GLOBAL')
 
-        if get_prefs().activate_shading_pie and get_prefs().custom_views_toggle_axes_drawing:
-            dns = bpy.app.driver_namespace
-            handler = dns.get('draw_object_axes')
-
-            if handler:
-                remove_object_axes_drawing_handler(handler)
-
-            if self.custom_views_local and context.active_object:
-                add_object_axes_drawing_handler(dns, context, [context.active_object], False)
-
-            context.area.tag_redraw()
-
     def update_custom_views_cursor(self, context):
         if self.avoid_update:
             self.avoid_update = False
@@ -339,18 +326,6 @@ class M3SceneProperties(bpy.types.PropertyGroup):
 
             if get_prefs().activate_transform_pie and get_prefs().custom_views_set_transform_preset:
                 bpy.ops.machin3.set_transform_preset(pivot='CURSOR' if self.custom_views_cursor else 'MEDIAN_POINT', orientation='CURSOR' if self.custom_views_cursor else 'GLOBAL')
-
-            if get_prefs().activate_shading_pie and get_prefs().custom_views_toggle_axes_drawing:
-                dns = bpy.app.driver_namespace
-                handler = dns.get('draw_object_axes')
-
-                if handler:
-                    remove_object_axes_drawing_handler(handler)
-
-                if self.custom_views_cursor:
-                    add_object_axes_drawing_handler(dns, context, [], True)
-
-                context.area.tag_redraw()
 
 
 
@@ -504,6 +479,11 @@ class M3SceneProperties(bpy.types.PropertyGroup):
     show_extrude: BoolProperty(name="Show Extrude")
 
 
+
+    draw_active_axes: BoolProperty(name="Draw Active Axes", default=False)
+
+
+
     avoid_update: BoolProperty()
 
 
@@ -520,6 +500,10 @@ class M3ObjectProperties(bpy.types.PropertyGroup):
 
     smooth_angle: FloatProperty(name="Smooth Angle", default=30)
     has_smoothed: BoolProperty(name="Has been smoothed", default=False)
+
+
+    draw_axes: BoolProperty(name="Draw Axes", default=False)
+
 
 
     avoid_update: BoolProperty()

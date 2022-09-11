@@ -1,3 +1,4 @@
+import bpy
 from .. items import mirror_props
 
 
@@ -35,6 +36,22 @@ def add_bevel(obj, method='WEIGHT'):
     mod.show_expanded = False
     return mod
 
+
+
+def remove_mod(modname, objtype='MESH', context=None, object=None):
+
+    if context and object:
+        with context.temp_override(object=object):
+            if objtype == 'GPENCIL':
+                bpy.ops.object.gpencil_modifier_remove(modifier=modname)
+            else:
+                bpy.ops.object.modifier_remove(modifier=modname)
+
+    else:
+        if objtype == 'GPENCIL':
+            bpy.ops.object.gpencil_modifier_remove(modifier=modname)
+        else:
+            bpy.ops.object.modifier_remove(modifier=modname)
 
 
 def remove_triangulate(obj):

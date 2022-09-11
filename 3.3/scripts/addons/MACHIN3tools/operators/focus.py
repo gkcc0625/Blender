@@ -98,13 +98,27 @@ class Focus(bpy.types.Operator):
                 bm.select_flush(False)
 
     def local_view(self, context, debug=False):
-        def focus(context, view, sel, history, init=False, invert=False):
+        def focus(context, view, sel, history, init=False, invert=False, lights=[]):
             vis = context.visible_objects
             hidden = [obj for obj in vis if obj not in sel]
 
+            for obj in lights:
+                if obj in hidden:
+                    hidden.remove(obj)
+
+
             if hidden:
                 if init:
+
+                    if lights:
+                        for obj in lights:
+                            obj.select_set(True)
+
                     bpy.ops.view3d.localview(frame_selected=False)
+
+                    if lights:
+                        for obj in lights:
+                            obj.select_set(False)
 
                 else:
                     update_local_view(view, [(obj, False) for obj in hidden])
@@ -167,6 +181,8 @@ class Focus(bpy.types.Operator):
 
             sel = context.selected_objects
 
+        lights = [obj for obj in vis if obj.type == 'LIGHT' and obj not in sel] if get_prefs().focus_lights else []
+
 
         if self.levels == "SINGLE":
             if self.unmirror:
@@ -181,7 +197,15 @@ class Focus(bpy.types.Operator):
 
 
 
+            if lights:
+                for obj in lights:
+                    obj.select_set(True)
+
             bpy.ops.view3d.localview(frame_selected=False)
+
+            if lights:
+                for obj in lights:
+                    obj.select_set(False)
 
 
         else:
@@ -190,7 +214,7 @@ class Focus(bpy.types.Operator):
             if view.local_view:
 
                 if context.selected_objects and not vis == sel:
-                    focus(context, view, sel, history, invert=self.invert)
+                    focus(context, view, sel, history, invert=self.invert, lights=lights)
 
                 else:
                     if history:
@@ -204,7 +228,7 @@ class Focus(bpy.types.Operator):
                 if history:
                     history.clear()
 
-                focus(context, view, sel, history, init=True, invert=self.invert)
+                focus(context, view, sel, history, init=True, invert=self.invert, lights=lights)
 
             if debug:
                 for epoch in history:
