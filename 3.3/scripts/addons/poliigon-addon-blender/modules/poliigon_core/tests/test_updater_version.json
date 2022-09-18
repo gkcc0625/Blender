@@ -1,0 +1,19 @@
+{
+	"stable": {
+		"version": "v0.9.7",
+		"url": "",
+		"min_software_version": [2, 80],
+		"max_software_version": [],
+		"required": true,
+		"release_timestamp": 12345
+	},
+	"latest": {
+		"version": "v0.9.9",
+		"url": "https://software.poliigon.com/poliigon-addon-blender-v0.9.9.zip",
+		"min_software_version": [2, 80],
+		"max_software_version": [],
+		"required": true,
+		"release_timestamp": 1656615301
+	},
+	"versions": []
+}
