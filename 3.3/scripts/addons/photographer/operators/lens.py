@@ -1,6 +1,4 @@
-import bpy
-import bgl
-import blf
+import bpy, blf
 from ..functions import raycast
 from ..autofocus import list_focus_planes, list_dof_objects
 from ..rigs.build_rigs import get_camera_rig

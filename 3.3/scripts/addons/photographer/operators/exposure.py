@@ -1,5 +1,6 @@
 import bpy, bgl, math
-from ..functions import show_message, rgb_to_luminance
+import gpu
+from ..functions import show_message, rgb_to_luminance, read_pixel_color
 from ..autofocus import list_focus_planes
 from ..constants import base_ev
 
@@ -94,49 +95,44 @@ class PHOTOGRAPHER_OT_DisableExposureNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def exposure_picker(self,context,event,use_scene_camera):
+def exposure_picker(self,context):
     if self.use_scene_camera:
         settings = context.scene.camera.data.photographer
     else:
         settings = context.camera.photographer
 
-    x,y = event.mouse_x, event.mouse_y
+    x,y = self.mouse_region_x, self.mouse_region_y
+    # print (x,y)
 
-    area = context.area
-    if area.type=='VIEW_3D':
-        corner_x = area.x
-        corner_y = area.y
-        header_height = area.regions[0].height
-        lpanel_width = area.regions[2].width
+    values = count = 0
 
-        x -= corner_x + lpanel_width
-        y -= corner_y + header_height
-
+    if bpy.app.version >= (3,2,2):
+        # get currently bound framebuffer
+        buffer = gpu.state.active_framebuffer_get()
+    else:
         bgl.glDisable(bgl.GL_DEPTH_TEST)
-        buf = bgl.Buffer(bgl.GL_FLOAT, 3)
+        buffer = bgl.Buffer(bgl.GL_FLOAT, 3)
 
-        values = count = 0
-
-        # Sample a 9*9 pixels square
-        for i in range(x-4, x+5):
-            for j in range(y-4, y+5):
-                bgl.glReadPixels(i, j, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
-                lum = rgb_to_luminance(buf)
-                if lum != 0:
+    for i in range(x-4, x+5):
+        for j in range(y-4, y+5):
+            value = read_pixel_color(i,j,buffer)
+            lum = rgb_to_luminance(value)
+            if lum != 0:
                     values += lum
                     count += 1
 
-        if count != 0:
-            lum_avg = values/count
-            # print("Luminance: " + str(lum_avg))
+    if count != 0:            
+        lum_avg = values/count
+        # print("Luminance: " + str(lum_avg))
 
-            # Exposure target
-            mid_grey = 0.18
-            diff_lum = lum_avg / mid_grey
-            if diff_lum > 0:
-                target = math.log2(diff_lum)
-                settings.ev = base_ev + target
-        del buf
+        # Exposure target
+        mid_grey = 0.18
+        diff_lum = lum_avg / mid_grey
+        if diff_lum > 0:
+            target = math.log2(diff_lum)
+            settings.ev = base_ev + target
+
+    del buffer
 
 class PHOTOGRAPHER_OT_EVPicker(bpy.types.Operator):
     bl_idname = "exposure.picker"
@@ -145,6 +141,8 @@ class PHOTOGRAPHER_OT_EVPicker(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     use_scene_camera: bpy.props.BoolProperty(default=False)
+    mouse_region_x: bpy.props.IntProperty(default=0)
+    mouse_region_y: bpy.props.IntProperty(default=0)
 
     def modal(self, context, event):
         if self.use_scene_camera:
@@ -153,6 +151,9 @@ class PHOTOGRAPHER_OT_EVPicker(bpy.types.Operator):
             settings = context.camera.photographer
 
         context.area.tag_redraw()
+
+        self.mouse_region_x = event.mouse_region_x
+        self.mouse_region_y = event.mouse_region_y
 
         # Allow navigation for Blender and Maya shortcuts
         if event.type in {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE'} or event.alt and event.type == 'LEFTMOUSE' or event.alt and event.type == 'RIGHTMOUSE':
@@ -193,28 +194,33 @@ class PHOTOGRAPHER_OT_EVPicker(bpy.types.Operator):
 
 
     def invoke(self, context, event):
-        if self.use_scene_camera:
-            settings = context.scene.camera.data.photographer
-        else:
-            settings = context.camera.photographer
-
-        # Store state
-        self.stored_exposure = settings.ev
-        self.stored_exposure_mode = settings.exposure_mode
-
-        self.fp = list_focus_planes()
-
-        if not settings.exposure_mode == 'EV':
-            settings.exposure_mode = 'EV'
-
-        args = (self, context, event, self.use_scene_camera)
         if context.area.type=='VIEW_3D':
+            if self.use_scene_camera:
+                settings = context.scene.camera.data.photographer
+            else:
+                settings = context.camera.photographer
+
+            # Store state
+            self.stored_exposure = settings.ev
+            self.stored_exposure_mode = settings.exposure_mode
+
+            self.fp = list_focus_planes()
+
+            if not settings.exposure_mode == 'EV':
+                settings.exposure_mode = 'EV'
+
+            args = (self, context)
             self._handle = bpy.types.SpaceView3D.draw_handler_add(exposure_picker, args, 'WINDOW', 'PRE_VIEW')
 
-        # Set Cursor to EYEDROPPER icon
-        self.cursor_set = True
-        context.window.cursor_modal_set('EYEDROPPER')
+            # Set Cursor to EYEDROPPER icon
+            self.cursor_set = True
+            context.window.cursor_modal_set('EYEDROPPER')
 
-        context.window_manager.modal_handler_add(self)
+            context.window_manager.modal_handler_add(self)
 
-        return {'RUNNING_MODAL'}
+            return {'RUNNING_MODAL'}
+
+        else:
+            self.report({'WARNING'}, "No 3D view found")
+            return {'CANCELLED'}
+

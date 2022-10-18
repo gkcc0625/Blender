@@ -5,7 +5,7 @@ class LIGHTMIXER_PT_EmissiveViewPanel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Photographer'
     bl_label = "Emissive Mixer"
-    bl_order = 12
+    bl_order = 13
 
     def draw(self,context):
         layout = self.layout

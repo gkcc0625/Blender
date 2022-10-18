@@ -1,3 +1,5 @@
+from ctypes import alignment
+from xml.etree.ElementTree import QName
 import bpy
 from .functions import traverse_tree,list_collections
 from .light import energy_check
@@ -35,8 +37,30 @@ def light_panel(context,parent_box,light_name):
 
     col = row.column(align=True)
     row = col.row(align=True)
+
+    select_row = row.row(align=True)
     name_row = row.row(align=True)
-    name_row.operator("photographer.select", text='',
+    if not lightmixer.enabled:
+        # Get Outliner selection of disabled lights
+        selected = False
+        areaOverride=bpy.context.area    
+        if bpy.context.area.type!='OUTLINER':
+            for area in bpy.context.screen.areas:
+                if area.type == 'OUTLINER':
+                    areaOverride=area
+
+        with bpy.context.temp_override(area=areaOverride):
+            if light_obj in bpy.context.selected_ids:
+                selected = True
+
+        if bpy.context.object == light_obj or selected:
+            icn = 'RESTRICT_SELECT_OFF'
+        else:
+            icn = 'RESTRICT_SELECT_ON'
+
+        select_row.operator("photographer.select", text='', icon=icn).obj_name=light_name
+    else:
+        select_row.operator("photographer.select", text='',
                     icon="%s" % 'RESTRICT_SELECT_OFF'if light_obj.select_get()
                     else 'RESTRICT_SELECT_ON').obj_name=light_name
     name_row.prop(bpy.data.objects[light_name], "name", text='')
@@ -527,12 +551,35 @@ class LIGHTMIXER_PT_ViewPanel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Photographer'
     bl_label = "Light Mixer"
-    bl_order = 11
+    bl_order = 12
 
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = False
         lightmixer = context.scene.lightmixer
+
+        row = layout.row()
+        row.alignment='LEFT'
+        row.prop(lightmixer,"show_active_light", icon='TRIA_DOWN' if lightmixer.show_active_light else 'TRIA_RIGHT',
+                    emboss=False)
+        if lightmixer.show_active_light:
+            col=layout.column(align=True)
+            if bpy.context.object:
+                if bpy.context.object.type=='LIGHT':
+                    active_light = bpy.context.object
+                    if context.scene.render.engine == 'LUXCORE':
+                        light_panel_luxcore(context,col,active_light.name)
+                    else:
+                        light_panel(context,col,active_light.name)
+                else:
+                    box = layout.box()
+                    row = box.row()
+                    row.alignment = 'CENTER'
+                    row.label(text="No Light selected and active")
+                    col = box.column()
+                    col.separator()
+
+                # col = box.column()
 
         col=layout.column(align=True)
         row = col.row(align=True)

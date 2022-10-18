@@ -1,4 +1,4 @@
-import bpy, math
+import bpy, math, bgl
 
 from bpy_extras import view3d_utils
 from mathutils import Vector
@@ -75,8 +75,8 @@ def interpolate_int(int1, int2, speed):
             delta = -1
     else:
         delta = 0
-    int = int1 + delta
-    return int, abs(int-int2)
+    int_target = int(int1 + delta)
+    return int_target, abs(int_target-int2)
 
 def update_exposure_guide(self,context,ev):
     if ev <= 16 and ev >= -6:
@@ -266,3 +266,24 @@ def list_cameras(context):
             cam_collections.append(coll)
 
     return cam_list,master_cam,cam_collections
+
+def read_pixel_color(x,y,buffer):
+    if bpy.app.version >= (3,2,2):
+        pixel = buffer.read_color(x, y, 1, 1, 3, 0, 'FLOAT')
+        pixel.dimensions = 1 * 1 * 3
+        value = [float(item) for item in pixel]
+    else:
+        bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buffer)
+        value = buffer
+    return value
+
+def duplicate_object(obj, data=True, actions=True, collection=None):
+    obj_copy = obj.copy()
+    if data:
+        obj_copy.data = obj_copy.data.copy()
+    if actions and obj_copy.animation_data:
+        if obj_copy.animation_data.action:
+            obj_copy.animation_data.action = obj_copy.animation_data.action.copy()
+    collection.objects.link(obj_copy)
+    return obj_copy
+    

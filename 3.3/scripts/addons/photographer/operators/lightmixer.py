@@ -146,6 +146,7 @@ class LIGHTMIXER_OT_Enable(bpy.types.Operator):
     light: bpy.props.StringProperty()
     linked: bpy.props.BoolProperty()
     shift: bpy.props.BoolProperty()
+    alt: bpy.props.BoolProperty()
 
     def execute(self, context):
         light_objs = []
@@ -155,6 +156,22 @@ class LIGHTMIXER_OT_Enable(bpy.types.Operator):
             for o in context.scene.collection.all_objects:
                 if o.type == 'LIGHT' and o.data == light_obj.data:
                     light_objs.append(o)
+        elif self.alt:
+            # Find selected lights in Outliner
+            areaOverride=bpy.context.area    
+            if bpy.context.area.type!='OUTLINER':
+                for area in bpy.context.screen.areas:
+                    if area.type == 'OUTLINER':
+                        areaOverride=area
+
+            with bpy.context.temp_override(area=areaOverride):
+                light_objs = [o for o in bpy.context.selected_ids if bpy.data.objects.get(o.name) and o.type=='LIGHT']
+                if bpy.context.active_object.type == 'LIGHT' and bpy.context.active_object not in light_objs:
+                    light_objs.append(bpy.context.active_object)
+
+            if light_obj not in light_objs:
+                light_objs = [light_obj]
+
         else:
             light_objs.append(light_obj)
 
@@ -190,11 +207,19 @@ class LIGHTMIXER_OT_Enable(bpy.types.Operator):
                 if not context.scene.lightmixer.solo_active:
                     l.lightmixer.enabled = not l.lightmixer.enabled
 
+
+
+        for l in light_objs:
+            if l.lightmixer.enabled and not l.select_get():
+                # Check for given object names
+                bpy.data.objects[l.name].select_set(True)
+
         return{'FINISHED'}
 
     def invoke(self, context, event):
         self.linked = event.ctrl
         self.shift = event.shift
+        self.alt = event.alt
         return self.execute(context)
 
 class LIGHTMIXER_OT_RefreshHDRIPreview(bpy.types.Operator):

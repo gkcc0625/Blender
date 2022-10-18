@@ -31,8 +31,8 @@ addon_keymaps = []
 bl_info = {
     "name": "Node Preview",
     "author": "Simon Wendsche (B.Y.O.B.)",
-    "version": (1, 8),
-    "blender": (2, 80, 0),
+    "version": (1, 13),
+    "blender": (2, 83, 0),
     "category": "Node",
     "location": "Shader Node Editor",
     "description": "Displays rendered thumbnails above shader nodes",
@@ -61,6 +61,21 @@ def force_node_editor_draw():
 
 def needs_linking(image):
     return bool(image.packed_file) or image.source == "GENERATED"
+
+
+def get_blend_abspath():
+    return bpy.path.abspath(bpy.data.filepath)
+
+
+def get_image_linking_info(image):
+    # Note: for linking, we need the original image name as it appears in the library .blend file
+    return image.name, bpy.path.abspath(image.library.filepath) if image.library else get_blend_abspath()
+
+
+def make_unique_image_name(image):
+    BLENDER_MAX_NAME_LENGTH = 63
+    lib_name = image.library.name if image.library else bpy.path.basename(bpy.data.filepath)
+    return (image.name + lib_name)[:BLENDER_MAX_NAME_LENGTH]
 
 
 class BACKGROUND_PATTERNS:
@@ -144,12 +159,14 @@ class NodePreviewAddonPreferences(AddonPreferences):
         col.label(text="Shortcuts:", icon="INFO")
         col.label(text="Ctrl+Shift+P: Toggle thumbnail visibility on selected nodes")
         col.label(text="Ctrl+Shift+i: Toggle wether to ignore the Scale socket on selected procedural texture nodes")
+        col.label(text="Shift+O: Set the output to show in the preview thumbnail for the active node")
+        col.label(text="(These shortcuts can be changed in the Keymap settings)")
 
 
 def poll_node_tree(context):
     space = context.space_data
     # Path contains a chain of nested node trees, the last one is the currently active one
-    if not space.path:
+    if not getattr(space, "path", False):
         return False
     node_tree = space.path[-1].node_tree
     return space.type == "NODE_EDITOR" and node_tree and space.tree_type == SUPPORTED_NODE_TREE
@@ -205,6 +222,66 @@ class NODEPREVIEW_OT_toggle_ignore_scale(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def get_active_node(context):
+    space = context.space_data
+    if not space.path:
+        return None
+    node_tree = space.path[-1].node_tree
+    return node_tree.nodes.active
+
+class NODEPREVIEW_OT_set_output(bpy.types.Operator):
+    bl_idname = "nodepreview.set_output"
+    bl_label = "Set Preview Output"
+    bl_description = "Choose output to show in the node preview thumbnail"
+    bl_options = {"UNDO"}
+
+    def update_output(self, context):
+        node = get_active_node(context)
+        node.node_preview.output_index = int(self.output)
+        node.node_preview.auto_choose_output = False
+
+    def callback_output_items(self, context):
+        return NODEPREVIEW_OT_set_output.output_items
+
+    # TODO can we somehow set the correct default (current output)? Probably not, according to Blender documentation
+    output: EnumProperty(name="Output", items=callback_output_items, update=update_output)
+    output_items = []
+
+    @classmethod
+    def poll(cls, context):
+        if not poll_node_tree(context):
+            return False
+        # Make sure there's an active node to work with
+        return get_active_node(context)
+
+    def invoke(self, context, event):
+        node = get_active_node(context)
+
+        NODEPREVIEW_OT_set_output.output_items.clear()
+        index = 0
+        for socket in node.outputs:
+            if socket.enabled:
+                NODEPREVIEW_OT_set_output.output_items.append((str(index), socket.name, f"Show preview for output {socket.name}", index))
+                index += 1
+
+        wm = context.window_manager
+        return wm.invoke_popup(self, width=120)
+
+    def draw(self, context):
+        layout = self.layout
+        node = get_active_node(context)
+
+        if node.outputs:
+            col = layout.column()
+            col.prop(node.node_preview, "auto_choose_output")
+            col.prop(self, "output", expand=True)
+        else:
+            layout.label(text="Node has no outputs")
+
+    def execute(self, context):
+        return {"FINISHED"}
+
+
 class NodePreviewNodeProps(bpy.types.PropertyGroup):
     def update_enabled(self, context):
         self.enabled_modified = True
@@ -212,6 +289,8 @@ class NodePreviewNodeProps(bpy.types.PropertyGroup):
     enabled: BoolProperty(default=True, update=update_enabled)
     enabled_modified: BoolProperty(default=False)
     ignore_scale: BoolProperty(default=False)
+    auto_choose_output: BoolProperty(default=True, name="Auto", description="Use the first output with an outgoing connection")
+    output_index: IntProperty(default=0, min=0)
 
     def is_enabled(self, addon_preferences):
         if self.enabled_modified:
@@ -240,6 +319,8 @@ class NodePreviewNodeProps(bpy.types.PropertyGroup):
 class NodePreviewTreeProps(bpy.types.PropertyGroup):
     enabled: BoolProperty(name="Show Previews", default=True,
                           description="Show thumbnails above the nodes in this node tree")
+    # Used to decide wether to update only the first or second part of the nodes in the draw handler
+    update_first_part: BoolProperty()
 
     @classmethod
     def register(cls):
@@ -282,6 +363,7 @@ classes = (
     NodePreviewTreeProps,
     NODEPREVIEW_OT_toggle_preview,
     NODEPREVIEW_OT_toggle_ignore_scale,
+    NODEPREVIEW_OT_set_output,
     NODEPREVIEW_PT_node_tree_settings,
     NODEPREVIEW_PT_node_tools,
 )
@@ -306,6 +388,8 @@ def register():
         keymap_item = keymap.keymap_items.new(NODEPREVIEW_OT_toggle_ignore_scale.bl_idname, "I", "PRESS", ctrl=True, shift=True)
         addon_keymaps.append((keymap, keymap_item))
         keymap_item = keymap.keymap_items.new(NODEPREVIEW_OT_toggle_preview.bl_idname, "P", "PRESS", ctrl=True, shift=True)
+        addon_keymaps.append((keymap, keymap_item))
+        keymap_item = keymap.keymap_items.new(NODEPREVIEW_OT_set_output.bl_idname, "O", "PRESS", shift=True)
         addon_keymaps.append((keymap, keymap_item))
 
 

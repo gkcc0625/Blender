@@ -512,3 +512,25 @@ class LIGHTMIXER_OT_Refresh_HDR_Categories(bpy.types.Operator):
     def execute(self, context):
         hdri_lib_path_update(self,context)
         return {'FINISHED'}
+
+
+class LIGHTMIXER_OT_Cycle_World(bpy.types.Operator):
+    bl_idname = "lightmixer.cycle_world"
+    bl_label = "Cycle between Worlds"
+    bl_description = "Cyles through cameras in the scene"
+    bl_options = {'UNDO'}
+
+    previous: bpy.props.BoolProperty()
+
+    def execute(self,context):
+        worlds = [w.name for w in bpy.data.worlds]
+        current = worlds.index(context.scene.world.name)
+
+        if self.previous:
+            next = worlds[(current-1) % len(worlds)]
+        else:
+            next = worlds[(current+1) % len(worlds)]
+            
+        context.scene.world = bpy.data.worlds[next]
+
+        return {'FINISHED'}

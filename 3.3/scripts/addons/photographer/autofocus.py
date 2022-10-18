@@ -1,6 +1,29 @@
-import bpy
+import bpy, math
 
-from .functions import raycast, copy_collections
+from .functions import raycast, duplicate_object
+
+def dof_calculation(fstop, fl, sw, sh, magnification=1):
+    # https://en.wikipedia.org/wiki/Depth_of_focus#Calculation
+    N = fstop
+    f = fl / 1000 * magnification
+
+    # Calculate Circle of confusion (diameter limit based on d/1500)
+    # https://en.wikipedia.org/wiki/Circle_of_confusion#Circle_of_confusion_diameter_limit_based_on_d.2F1500
+    c = math.sqrt(sw**2 + sh**2) / 1500    
+    a = math.pow(f, 2) / (N * c * magnification / 1000)
+    h = a + f
+    return a, f, h 
+
+def dof_hyperfocal(camera_data):
+    fstop = camera_data.dof.aperture_fstop
+    fl = camera_data.lens
+    sw = camera_data.sensor_width
+    sh = camera_data.sensor_height
+
+    # Compared with online hyperfocal calculator
+    # https://www.omnicalculator.com/other/hyperfocal-distance
+    a,f,h = dof_calculation(fstop, fl, sw, sh, magnification=1)
+    return round(h,2)
 
 # AF Tracker functions
 def create_af_target(context,location):
@@ -17,9 +40,9 @@ def create_af_target(context,location):
         af_target["is_af_target"] = True
 
         cam_coll_name = cam_obj.users_collection[0].name
-        try:
+        if bpy.data.collections.get(cam_coll_name,False):
             bpy.data.collections[cam_coll_name].objects.link(af_target)
-        except RuntimeError:
+        else:
             context.scene.collection.objects.link(af_target)
     else:
         af_target = tgt[0]
@@ -66,6 +89,21 @@ def list_dof_objects():
                 o.hide_viewport = True
     return list
 
+def update_dof_limits(self,context):
+    cam_obj = [o for o in bpy.data.objects if o.type == 'CAMERA' and o.data is self.id_data][0]
+    for c in cam_obj.children:
+        if c.get("is_dof_limits", False):
+            if self.dof_limits == 'OFF':
+                c.hide_viewport = True
+            elif self.dof_limits == 'WIRE':
+                c.hide_viewport = False
+                c.visible_camera = False
+                c.display_type = 'BOUNDS'
+                c.display_bounds_type = 'CONE'
+            elif self.dof_limits == 'SHADED':
+                c.visible_camera = True
+                c.hide_viewport = False
+                c.display_type = 'TEXTURED'
 
 class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
     bl_idname = "photographer.create_focus_plane"
@@ -120,10 +158,37 @@ class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
         # Enable Camera Limits to move the plane
         cam.show_limits = True
 
-        if cam.dof.focus_object is not None:
-            # Plane location Z from Focus Distance
-            d = focus_plane.driver_add('location',2).driver
+        # Plane location Z from Focus Distance
+        d = focus_plane.driver_add('location',2).driver
+        var = d.variables.new()
+        var.name = 'fstop'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'dof.aperture_fstop'
 
+        var = d.variables.new()
+        var.name = 'fl'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'lens'
+
+        var = d.variables.new()
+        var.name = 'sw'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'sensor_width'
+
+        var = d.variables.new()
+        var.name = 'sh'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'sensor_height'
+
+        if cam.dof.focus_object is not None:
             var = d.variables.new()
             var.name = 'cam_matrix'
             target = var.targets[0]
@@ -168,6 +233,27 @@ class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
         target.id = cam
         target.data_path = 'lens'
 
+        var = d.variables.new()
+        var.name = 'fstop'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'dof.aperture_fstop'
+
+        var = d.variables.new()
+        var.name = 'sw'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'sensor_width'
+
+        var = d.variables.new()
+        var.name = 'sh'
+        target = var.targets[0]
+        target.id_type = 'CAMERA'
+        target.id = cam
+        target.data_path = 'sensor_height'
+
         if cam.dof.focus_object is not None:
             var = d.variables.new()
             var.name = 'dist'
@@ -203,6 +289,13 @@ class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
             target.id_type = 'SCENE'
             target.id = context.scene
             target.data_path = 'render.resolution_y'
+
+            var = d.variables.new()
+            var.name = 'fstop'
+            target = var.targets[0]
+            target.id_type = 'CAMERA'
+            target.id = cam
+            target.data_path = 'dof.aperture_fstop'
 
             var = d.variables.new()
             var.name = 'fl'
@@ -327,6 +420,29 @@ class PHOTOGRAPHER_OT_CreateFocusPlane(bpy.types.Operator):
         cam.photographer.show_focus_plane = True
         # Trick to set Focus Plane color if it has been changed
         cam.photographer.focus_plane_color = cam.photographer.focus_plane_color
+
+        depth_near = duplicate_object(focus_plane,True,True, bpy.context.collection)
+        depth_near["is_dof_limits"] = True
+        depth_near.name = cam_obj.name + "_DOF_Near"
+        for d in depth_near.animation_data.drivers:
+            if "dist" in d.driver.expression:
+                if "distance_to_plane" in d.driver.expression and cam.dof.focus_object is not None:
+                    d.driver.expression = "dof_near_tracker(cam_matrix,tracker_matrix, fstop, fl, sw, sh)"
+                else:
+                    new_exp = d.driver.expression.replace("dist","dof_near(fstop, dist, fl, sw, sh)")
+                    d.driver.expression = new_exp
+
+        depth_far = duplicate_object(focus_plane,True,True, bpy.context.collection)
+        depth_far["is_dof_limits"] = True
+        depth_far.name = cam_obj.name + "_DOF_Far"
+        update_dof_limits(cam.photographer,context)
+        for d in depth_far.animation_data.drivers:
+            if "dist" in d.driver.expression:
+                if "distance_to_plane" in d.driver.expression and cam.dof.focus_object is not None:
+                    d.driver.expression = "dof_far_tracker(cam_matrix,tracker_matrix, fstop, fl, sw, sh)"
+                else:
+                    new_exp = d.driver.expression.replace("dist","dof_far(fstop, dist, fl, sw, sh)")
+                    d.driver.expression = new_exp
 
         return {'FINISHED'}
 

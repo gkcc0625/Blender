@@ -180,7 +180,7 @@ class MASTERCAMERA_OT_LookThrough(bpy.types.Operator):
 
     def execute(self,context):
 
-        context.view_layer.objects.active = bpy.data.objects[self.camera]
+        # context.view_layer.objects.active = bpy.data.objects[self.camera]
 
         obj = bpy.data.objects
         cam_obj = obj.get(self.camera)
@@ -271,10 +271,12 @@ class MASTERCAMERA_OT_AddCamera(bpy.types.Operator):
 
     def execute(self,context):
 
-        if context.area.spaces[0].region_3d.view_perspective == 'CAMERA' and context.scene.camera:
-            new_cam_focal = context.scene.camera.data.lens
-        else:
-            new_cam_focal = context.space_data.lens / 2
+        # print(context.scene.camera.type)
+        new_cam_focal = context.space_data.lens / 2    
+        if context.scene.camera:
+            if context.scene.camera.type == 'CAMERA':
+                if context.area.spaces[0].region_3d.view_perspective == 'CAMERA':
+                    new_cam_focal = context.scene.camera.data.lens
 
         context.area.spaces.active.region_3d.view_perspective = 'PERSP'
 
@@ -321,7 +323,7 @@ class MASTERCAMERA_OT_AddCamera(bpy.types.Operator):
             if new_cam.photographer.bokeh:
                 new_cam.photographer.bokeh = True
 
-        if context.scene.camera:
+        if context.scene.camera and context.scene.camera.type == 'CAMERA':
             # Work around crash
             old_cam = context.scene.camera
             sfp = old_cam.data.photographer.show_focus_plane
@@ -344,6 +346,18 @@ class MASTERCAMERA_OT_AddCamera(bpy.types.Operator):
 
         # Set focal to match viewport field of view
         new_cam.lens = new_cam_focal
+
+        # Copy Position if current camera is a Mesh or a light
+        if context.scene.camera.type != 'CAMERA':
+            new_cam_obj.location = context.scene.camera.location            
+
+        # If spotlight, use the spot angle as focal length
+        if context.scene.camera.type == 'LIGHT':
+            if context.scene.camera.data.photographer.light_type == 'SPOT':    
+                new_cam.lens_unit = 'FOV'
+                new_cam.angle = context.scene.camera.data.photographer.spot_size
+                new_cam.lens_unit = 'MILLIMETERS'            
+
         if prefs.frame_full_viewport:
             bpy.ops.view3d.view_center_camera()
 
@@ -406,8 +420,15 @@ class MASTERCAMERA_OT_DeleteCamera(bpy.types.Operator):
         cam_obj = scene.objects.get(self.camera)
         settings = cam_obj.data.photographer
 
+        # Removing possible children object first
+        if settings.bokeh:
+            settings.bokeh = False
+        
+        if settings.opt_vignetting:
+            settings.opt_vignetting = False
+
         if settings.show_focus_plane:
-            settings.show_focus_plane = False
+            bpy.ops.photographer.delete_focus_plane(camera = self.camera)
 
         focus_obj = cam_obj.data.dof.focus_object
         if focus_obj is not None:
@@ -416,7 +437,7 @@ class MASTERCAMERA_OT_DeleteCamera(bpy.types.Operator):
 
         bpy.ops.photographer.target_delete(obj_name=self.camera)
 
-        # bpy.data.objects.remove(cam_obj)
+        # Deleting camera
         bpy.ops.object.delete(
             {
                  "object" : None,
@@ -534,6 +555,21 @@ class MASTERCAMERA_OT_CycleCamera(bpy.types.Operator):
         else:
             bpy.ops.mastercamera.look_through(camera=cam_list[0])
 
+        return {'FINISHED'}
+
+class MASTERCAMERA_OT_DuplicateCamera(bpy.types.Operator):
+    bl_idname = 'mastercamera.duplicate_cam'
+    bl_label = 'Duplicate Camera'
+    bl_description = ("Duplicate current Scene Camera and Look through it")
+    bl_options = {'REGISTER','UNDO'}
+
+    def execute(self,context):
+        scene_cam = context.scene.camera
+        bpy.ops.photographer.select(obj_name=scene_cam.name)
+        bpy.ops.object.duplicate()
+        dupli_obj = bpy.context.object
+        bpy.ops.mastercamera.look_through(camera=dupli_obj.name)
+    
         return {'FINISHED'}
 
 

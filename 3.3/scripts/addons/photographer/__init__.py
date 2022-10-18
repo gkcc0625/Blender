@@ -2,7 +2,7 @@ bl_info = {
     "name": "Photographer",
     "description": "Adds Physical Camera and Physical Light controls, LightMixer and Render Queue",
     "author": "Fabien 'chafouin' Christin, @fabienchristin",
-    "version": (4, 6, 0),
+    "version": (4, 8, 1),
     "blender": (2, 83, 0),
     "location": "View3D > Side Panel > Photographer",
     "support": "COMMUNITY",
@@ -17,13 +17,12 @@ from . import (
     light,
     camera_presets,
     autofocus,
-    functions,
     presets_install,
+    view_layer,
     white_balance,
     camera_panel,
     light_panel,
     light_presets,
-    lightmixer,
     sampling_threshold,
     handler,
     auto_exposure,
@@ -37,16 +36,25 @@ from .ui import (
     physical_camera_add,
     library,
     focus_plane,
-    emissive_mixer,
-    world_mixer,
-    camera_list,
     pie_camera,
     composition_guides_menu,
 )
 from .ui import bokeh as bokeh_ui
 from .ui.panel_classes import photographer_panel_classes, lightmixer_panel_classes
 from .properties import scene, material, node, object
-from .operators import lens, select, target, master_camera, stop_adj, expand_ui, emissive, updater, exposure
+from .operators import (
+    lens,
+    select,
+    target,
+    master_camera,
+    stop_adj,
+    expand_ui,
+    emissive,
+    updater,
+    exposure,
+    ui,
+    resolution,
+)
 from .operators import lightmixer as lightmixer_op
 
 from .rigs import build_rigs
@@ -89,6 +97,8 @@ classes = (
     expand_ui.PHOTOGRAPHER_OT_CollectionExpand,
     expand_ui.LIGHTMIXER_OT_ShowMore,
 
+    ui.PHOTOGRAPHER_OT_ButtonStringClear,
+
     # Camera Operators
     camera.PHOTOGRAPHER_OT_MakeCamActive,
     camera.PHOTOGRAPHER_OT_ApplyPhotographerSettings,
@@ -110,6 +120,7 @@ classes = (
     master_camera.MASTERCAMERA_OT_AddMasterCamera,
     master_camera.MASTERCAMERA_OT_AddCamera,
     master_camera.MASTERCAMERA_OT_DeleteCamera,
+    master_camera.MASTERCAMERA_OT_DuplicateCamera,
     master_camera.MASTERCAMERA_OT_SetMasterCameraKey,
 
     # Bokeh
@@ -181,6 +192,9 @@ classes = (
     exposure.PHOTOGRAPHER_OT_DisableExposureNode,
     exposure.PHOTOGRAPHER_OT_EVPicker,
 
+    # Resolution
+    resolution.PHOTOGRAPHER_OT_FlipImage,
+
     # Light Mixer
     lightmixer_op.LIGHTMIXER_OT_Add,
     lightmixer_op.LIGHTMIXER_OT_Delete,
@@ -205,6 +219,7 @@ classes = (
     world.LIGHTMIXER_OT_WorldEnable,
     world.LIGHTMIXER_OT_World_AddControls,
     world.LIGHTMIXER_OT_Refresh_HDR_Categories,
+    world.LIGHTMIXER_OT_Cycle_World,
 
     # Updater
     updater.PHOTOGRAPHER_OT_CheckForUpdate,
@@ -326,6 +341,7 @@ def register():
         library.register()
         composition_guides_menu.register()
         build_rigs.register()
+        view_layer.register()
 
         # Reset Updater
         bpy.context.preferences.addons[__package__].preferences.needs_update = ""
@@ -475,6 +491,7 @@ def unregister():
     library.unregister()
     composition_guides_menu.unregister()
     build_rigs.unregister()
+    view_layer.unregister()
 
     for cls in (classes + photographer_panel_classes + lightmixer_panel_classes):
         unregister_class(cls)

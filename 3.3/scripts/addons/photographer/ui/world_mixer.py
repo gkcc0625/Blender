@@ -4,6 +4,19 @@ from ..constants import addon_name
 
 hdri_scale_y = 11
 
+def world_mixer_draw_header_preset(self,context):
+    layout = self.layout
+    row = layout.row(align=True)
+
+    if context.preferences.addons[addon_name].preferences.show_compact_ui:
+        if context.scene.world:
+            world_name = context.scene.world.name
+            label = (world_name[:12] + '...') if len(world_name) > 14 else world_name
+            row.label(text=label)
+    # sub = row.row(align=True)
+    row.operator('lightmixer.cycle_world', text='', icon='TRIA_LEFT').previous=True
+    row.operator('lightmixer.cycle_world', text='', icon='TRIA_RIGHT').previous=False
+
 def world_mixer_draw(self,context):
     layout = self.layout
     layout.use_property_split = False
@@ -246,17 +259,22 @@ class LIGHTMIXER_PT_WorldViewPanel(bpy.types.Panel):
     bl_region_type = 'UI'
     bl_category = 'Photographer'
     bl_label = "World Mixer"
-    bl_order = 10
+    bl_order = 11
+
+    def draw_header_preset(self, context):
+        world_mixer_draw_header_preset(self,context)
 
     def draw(self, context):
         world_mixer_draw(self,context)
-
 
 class LIGHTMIXER_PT_WorldProperties(bpy.types.Panel):
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "world"
     bl_label = "World Mixer"
+
+    def draw_header_preset(self, context):
+        world_mixer_draw_header_preset(self,context)
 
     def draw(self, context):
         world_mixer_draw(self,context)

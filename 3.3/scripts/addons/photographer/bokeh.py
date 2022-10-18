@@ -18,9 +18,25 @@ def enum_previews_bokeh(self, context):
 
 def update_opt_vignetting(self,context):
     cam_name = [o.name for o in bpy.data.objects if o.type == 'CAMERA' and o.data is self.id_data][0]
+    afc = False
+    ae = False
     if self.opt_vignetting:
+        # Endless refreshing viewport workaround: disabling auto exposure and AF-C first
+        if self.af_continuous_enabled:
+            afc = True
+            self.af_continuous_enabled = False
+        if self.exposure_mode == 'AUTO':
+            ae = True
+            self.exposure_mode = 'EV'
+
         bpy.ops.photographer.optvignetting_add(camera = cam_name)
         update_opt_vignetting_tex(self,context)
+
+        # Endless refreshing viewport workaround
+        if afc:
+            self.af_continuous_enabled = True
+        if ae:
+            self.exposure_mode = 'AUTO'
     else:
         bpy.ops.photographer.optvignetting_delete(camera = cam_name)
 
@@ -46,12 +62,28 @@ def update_opt_vignetting_tex(self,context):
                                 if node.get("is_opt_vignetting_tex", False):
                                     if self.opt_vignetting_tex != 'empty':
                                         node.image = bpy.data.images.load(self.opt_vignetting_tex, check_existing=True)
-                                        node.image.colorspace_settings.name = 'Non-Color'
+                                        colorspaces = ['Non-Color', 'Generic Data']
+                                        for cs in colorspaces:
+                                            try:
+                                                node.image.colorspace_settings.name = cs
+                                            except:
+                                                pass
 
 def update_bokeh(self,context):
     cam_name = [o.name for o in bpy.data.objects if o.type == 'CAMERA' and o.data is self.id_data][0]
     cam = self.id_data
+    afc = False
+    ae = False
+
     if self.bokeh:
+        # Endless refreshing viewport workaround: disabling auto exposure and AF-C first
+        if self.af_continuous_enabled:
+            afc = True
+            self.af_continuous_enabled = False
+        if self.exposure_mode == 'AUTO':
+            ae = True
+            self.exposure_mode = 'EV'
+        
         if context.scene.render.engine == 'LUXCORE':
             if not cam.luxcore.bokeh.non_uniform:
                 cam.luxcore.bokeh.non_uniform = True
@@ -60,6 +92,12 @@ def update_bokeh(self,context):
         else:
             bpy.ops.photographer.bokeh_add(camera = cam_name)
         update_bokeh_tex(self,context)
+
+        # Endless refreshing viewport workaround
+        if afc:
+            self.af_continuous_enabled = True
+        if ae:
+            self.exposure_mode = 'AUTO'
     else:
         bpy.ops.photographer.bokeh_delete(camera = cam_name)
 
@@ -82,7 +120,12 @@ def update_bokeh_tex(self,context):
                                 if node.get("is_bokeh_tex", False):
                                     if self.bokeh_tex != 'empty':
                                         node.image = bpy.data.images.load(self.bokeh_tex, check_existing=True)
-                                        node.image.colorspace_settings.name = 'sRGB'
+                                        colorspaces = ['sRGB', 'sRGB 2.2']
+                                        for cs in colorspaces:
+                                            try:
+                                                node.image.colorspace_settings.name = cs
+                                            except:
+                                                pass
 
 def update_bokeh_size(self,context):
     if context.scene.camera:
@@ -434,14 +477,14 @@ class PHOTOGRAPHER_OT_Bokeh_Add(bpy.types.Operator):
             target.id = cam
             target.data_path = 'dof.aperture_fstop'
 
-            var = d.variables.new()
-            var.name = 'unit_scale'
-            target = var.targets[0]
-            target.id_type = 'SCENE'
-            target.id = context.scene
-            target.data_path = 'unit_settings.scale_length'
+            # var = d.variables.new()
+            # var.name = 'unit_scale'
+            # target = var.targets[0]
+            # target.id_type = 'SCENE'
+            # target.id = context.scene
+            # target.data_path = 'unit_settings.scale_length'
 
-            d.expression = "22 * (sw/2) / focal * aperture / unit_scale"
+            d.expression = "22 * (sw/2) / focal * aperture / " + str(unit_scale)
             # 22 sets the default size according to the plane size
 
             # Texture Rotation
@@ -746,14 +789,15 @@ class PHOTOGRAPHER_OT_OptVignetting_Add(bpy.types.Operator):
         target.id = cam
         target.data_path = 'lens'
 
-        var = d.variables.new()
-        var.name = 'unit_scale'
-        target = var.targets[0]
-        target.id_type = 'SCENE'
-        target.id = context.scene
-        target.data_path = 'unit_settings.scale_length'
+        # var = d.variables.new()
+        # var.name = 'unit_scale'
+        # target = var.targets[0]
+        # target.id_type = 'SCENE'
+        # target.id = context.scene
+        # target.data_path = 'unit_settings.scale_length'
 
-        d.expression = "-" + loc_z + "/unit_scale"
+        unit_scale = str(context.scene.unit_settings.scale_length)
+        d.expression = "-" + loc_z + "/ " + unit_scale
         # *25 was found empiracally to maintain occlusion.
 
         # Bokeh Texture size
@@ -789,17 +833,17 @@ class PHOTOGRAPHER_OT_OptVignetting_Add(bpy.types.Operator):
             target.id = cam
             target.data_path = 'dof.aperture_fstop'
 
-            var = d.variables.new()
-            var.name = 'unit_scale'
-            target = var.targets[0]
-            target.id_type = 'SCENE'
-            target.id = context.scene
-            target.data_path = 'unit_settings.scale_length'
+            # var = d.variables.new()
+            # var.name = 'unit_scale'
+            # target = var.targets[0]
+            # target.id_type = 'SCENE'
+            # target.id = context.scene
+            # target.data_path = 'unit_settings.scale_length'
 
             # 25 is the Scale value used in the Shader.This is to make the hole smaller at the center of the face.
-            drivers[0].expression = '(' + loc_z + '* (sw/2) / fl)/(ov_scale+0.1)*8/unit_scale'
-            drivers[1].expression = '(' + loc_z + '* (sw/2) / fl)/(ov_scale+0.1)*8/unit_scale'
-            drivers[2].expression = '(' + loc_z + '* (sw/2) / fl)/(ov_scale+0.1)*8/unit_scale'
+            drivers[0].expression = '(' + loc_z + '* (sw/2) / fl)/(ov_scale+0.1)*8/' + unit_scale
+            drivers[1].expression = '(' + loc_z + '* (sw/2) / fl)/(ov_scale+0.1)*8/' + unit_scale
+            drivers[2].expression = '(' + loc_z + '* (sw/2) / fl)/(ov_scale+0.1)*8/' + unit_scale
             # + 0.1 and * 8 to make the 0 to 1 slider sensical.
 
         # Assign it to object

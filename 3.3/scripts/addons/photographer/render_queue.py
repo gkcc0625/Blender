@@ -1,8 +1,7 @@
 import bpy, os, subprocess
-from re import findall
 from bpy_extras.io_utils import ImportHelper
 from .constants import panel_value_size
-from .functions import show_message, has_keyframe, traverse_tree, list_collections
+from .functions import has_keyframe, traverse_tree, list_collections
 from sys import platform as _platform
 from bpy.props import  PointerProperty
 from .operators.exposure import get_exposure_node
@@ -196,6 +195,7 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
 
     def pre(self, dummy, thrd = None):
         self.rendering = True
+        scene = bpy.context.scene
 
     def post(self, dummy, thrd = None):
         scene = bpy.context.scene
@@ -206,23 +206,21 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
                 for file in self.file_outputs:
                     file[0].path = file[1]
                 bpy.data.scenes.get(scene.name).render.filepath = self.fpath
-                # bpy.context.scene.render.filepath = self.fpath
         else:
             self.shots.pop(0)
             self.rendering = False
             for file in self.file_outputs:
                 file[0].path = file[1]
             bpy.data.scenes.get(scene.name).render.filepath = self.fpath
-            # bpy.context.scene.render.filepath = self.fpath
             if self.shots:
                 bump_render_slot(bpy.context)
 
     def cancelled(self, dummy, thrd = None):
+        scene = bpy.context.scene
         self.stop = True
         for file in self.file_outputs:
             file[0].path = file[1]
         bpy.data.scenes.get(scene.name).render.filepath = self.fpath
-        # bpy.context.scene.render.filepath = self.fpath
 
     def execute(self, context):
         self.stop = False
@@ -298,23 +296,20 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
 
             self._timer = bpy.context.window_manager.event_timer_add(0.5, window=bpy.context.window)
             bpy.context.window_manager.modal_handler_add(self)
-
+            
             return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
+        scene = bpy.context.scene
         if event.type == 'TIMER':
-
             if True in (not self.shots, self.stop is True):
                 bpy.app.handlers.render_pre.remove(self.pre)
                 bpy.app.handlers.render_post.remove(self.post)
                 bpy.app.handlers.render_cancel.remove(self.cancelled)
                 bpy.context.window_manager.event_timer_remove(self._timer)
-
+                
                 return {"FINISHED"}
-
             if self.rendering is False:
-
-                scene = bpy.context.scene
                 bpy.ops.mastercamera.look_through(camera = self.shots[0])
                 # scene.camera = bpy.data.objects[self.shots[0]]
                 # from . import camera
@@ -368,10 +363,17 @@ class PHOTOGRAPHER_OT_RenderQueue(bpy.types.Operator):
         return {"PASS_THROUGH"}
 
     def invoke(self, context, event):
-        if context.scene.renderqueue.frame_mode == 'ANIM' and self.mode =='RENDERABLE':
-            return context.window_manager.invoke_props_dialog(self)
+
+        # Check if RenderQueue functions are appended to handlers to determine if it is currently rendering
+        if 'PHOTOGRAPHER_OT_RenderQueue' in str(bpy.app.handlers.render_pre):
+            self.report({'WARNING'}, "Already rendering, press ESC to cancel the current render.")
+            return {'CANCELLED'}
         else:
-            return self.execute(context)
+            if context.scene.renderqueue.frame_mode == 'ANIM' and self.mode =='RENDERABLE':
+                return context.window_manager.invoke_props_dialog(self)
+            else:
+                return self.execute(context)
+
 
 class PHOTOGRAPHER_OT_RenderQueueButton(bpy.types.Operator):
     bl_idname = "render.renderqueue_button"
@@ -386,7 +388,9 @@ class PHOTOGRAPHER_OT_RenderQueueButton(bpy.types.Operator):
             mode = 'SELECTED'
         else:
             mode = 'ACTIVE'
-        return bpy.ops.render.renderqueue(mode=mode)
+
+        
+        return bpy.ops.render.renderqueue("INVOKE_DEFAULT",mode=mode)
 
 class PHOTOGRAPHER_OT_BakeProperties(bpy.types.Operator):
     bl_idname = "render.bake_properties"
@@ -413,7 +417,7 @@ class PHOTOGRAPHER_OT_BakeProperties(bpy.types.Operator):
         'irradiance', 'illuminance', 'intensity', 'light_exposure', 'power',
         'advanced_power', 'efficacy', 'lumen', 'candela', 'spot_size', 'spread',
         'shape', 'size', 'size_y', 'azimuth', 'elevation']
-        light_props = ['type', 'color', 'energy']
+        light_props = ['type'] # Color and Energy cannot use keyframe_insert
         lights = [l.data for l in context.view_layer.objects if l.type=='LIGHT']
         anim_lights = []
         for l in lights:
@@ -442,18 +446,31 @@ class PHOTOGRAPHER_OT_BakeProperties(bpy.types.Operator):
                 # scene.view_settings.curve_mapping.keyframe_insert(data_path="white_level")
 
             for l in anim_lights:
+                # Baking Photographer Color and Power to work around issue if baking Color and Energy
+                # Since properties are linked with the get function,
+                # keyframe_insert is not getting the right value
+                l.keyframe_insert(data_path="photographer.color")                
+                l.keyframe_insert(data_path="photographer.power")                
                 for p in light_props:
                     l.keyframe_insert(data_path=p)
-                    if l.type == 'SUN':
-                        l.id_data.keyframe_insert(data_path="rotation_euler")
-                    if l.type == 'SPOT':
-                        l.keyframe_insert(data_path="spot_size")
-                    if l.type == 'AREA':
-                        l.keyframe_insert(data_path="shape")
-                        l.keyframe_insert(data_path="size")
-                        l.keyframe_insert(data_path="size_y")
+                if l.type == 'SUN':
+                    l.id_data.keyframe_insert(data_path="rotation_euler")
+                if l.type == 'SPOT':
+                    l.keyframe_insert(data_path="spot_size")
+                if l.type == 'AREA':
+                    l.keyframe_insert(data_path="shape")
+                    l.keyframe_insert(data_path="size")
+                    l.keyframe_insert(data_path="size_y")
 
             scene.frame_set(frame=scene.frame_current+1)
+
+        # Copy F-Curves from Photographer Color and Energy to Color and Energy
+        for l in anim_lights:
+            for fc in l.animation_data.action.fcurves:
+                if fc.data_path == "photographer.color":
+                    fc.data_path = "color"
+                if fc.data_path == "photographer.power":
+                    fc.data_path = "energy"
 
         scene.frame_current = stored_current
 
@@ -629,7 +646,7 @@ class PHOTOGRAPHER_PT_ViewPanel_RenderQueue(bpy.types.Panel):
     bl_category = 'Photographer'
     bl_label = "Render Q"
     bl_options = {'DEFAULT_CLOSED'}
-    bl_order = 9
+    bl_order = 10
 
     def draw_header_preset(self, context):
         layout = self.layout

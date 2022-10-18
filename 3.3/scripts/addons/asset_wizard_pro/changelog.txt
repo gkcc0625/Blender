@@ -1,0 +1,19 @@
+1.2:
+    - Tools menu enhanced
+        - Import FBX, GLTF, OBJ
+        - Imported hierarchy cleanup
+        - Merge Vertices
+        - Batch Rotation
+        - Batch Set Origin
+
+        - Object place feature
+
+1.1:
+    - Pack Image Feature added
+    - New Tools Panel:
+        - Image Cleanup: Remove duplicate Images in current Blend
+        - Blend Batch Import: Import Resources from multiple Blends
+    - Settings Panel Overhaul
+        - Pie Menu Key Config
+        - Prefer SNW in Prefs
+        - Absolute/Relative Toggle

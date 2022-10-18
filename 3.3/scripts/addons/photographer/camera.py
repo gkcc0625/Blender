@@ -3,8 +3,9 @@ import math
 
 from . import bokeh, camera_sensors
 from .functions import calc_exposure_value, shutter_speed_to_angle,show_message, srgb_to_linear
-from .autofocus import stop_playback, focus_continuous, list_dof_objects
+from .autofocus import stop_playback, focus_continuous, list_dof_objects, update_dof_limits
 from .white_balance import convert_RBG_to_whitebalance, convert_temperature_to_RGB_table
+from .view_layer import update_cam_view_layer
 from .sampling_threshold import update_light_threshold, check_light_threshold
 from .operators.exposure import get_exposure_node
 from .constants import base_ev, color_temp_desc
@@ -16,11 +17,13 @@ default_color_temperature = 6500
 min_color_tint = -100
 max_color_tint = 100
 default_tint = 0
-stored_cm_view_transform = 'Filmic'
+stored_cm_view_transform = None
 eevee_soft_shadows = False
 stored_lens_shift = 0
 stored_lens_shift_x = 0
 stored_dof_objects = []
+WORLDS = []
+VIEW_LAYERS = []
 
 #Camera Exposure update functions ##############################################################
 
@@ -66,6 +69,9 @@ def update_settings(self,context):
 
         if settings.override_frames:
             update_frames(settings,context)
+
+        if settings.view_layer_enabled:
+            update_cam_view_layer(context.scene.camera.data,context)
 
 # Update EV
 def update_ev(self,context):
@@ -259,16 +265,22 @@ def set_motionblur_enabled(self,value):
 # Update False Color
 def update_falsecolor(self,context):
     settings = context.scene.camera.data.photographer
-
-    if context.scene.view_settings.view_transform != 'False Color':
+    
+    fc_luts = ['False Color', 'AgX False Color']
+    if context.scene.view_settings.view_transform not in fc_luts:
         global stored_cm_view_transform
         stored_cm_view_transform = context.scene.view_settings.view_transform
 
     if settings.falsecolor_enabled:
-        context.scene.view_settings.view_transform = 'False Color'
-
+        for fc in fc_luts:
+            try:
+                context.scene.view_settings.view_transform = fc
+            except:
+                pass
     else:
-        context.scene.view_settings.view_transform = stored_cm_view_transform
+        if stored_cm_view_transform:
+            context.scene.view_settings.view_transform = stored_cm_view_transform
+
 
 # Fisheye Functions
 def update_fisheye(self,context):
@@ -690,22 +702,34 @@ def set_focus_plane_color(self,value):
     return None
 
 def worlds_items(self,context):
-    worlds = []
+    global WORLDS
+    WORLDS = []
     for w in bpy.data.worlds:
-        worlds.append((w.name,w.name,''))
-    return worlds
+        WORLDS.append((w.name,w.name,''))
+    return WORLDS
 
 def update_world(self,context):
     # Do not update the world if it's already the right one, fixes freezes
-    if context.scene.world != bpy.data.worlds[self.cam_world]:
-        context.scene.world = bpy.data.worlds[self.cam_world]
+    if bpy.data.worlds.get(self.cam_world,False):
+        if context.scene.world != bpy.data.worlds[self.cam_world]:
+            context.scene.world = bpy.data.worlds[self.cam_world]
 
-        # Refresh HDRI preview
-        if bpy.context.preferences.addons[__package__].preferences.hdri_lib_path:
-            if context.scene.world.get('is_world_hdri',False):
-                bpy.ops.lightmixer.refresh_hdri_preview()
-        # Make sure the world gets saved even if not looking through the camera
-        bpy.data.worlds[self.cam_world].use_fake_user = True
+            # Refresh HDRI preview
+            if bpy.context.preferences.addons[__package__].preferences.hdri_lib_path:
+                if context.scene.world.get('is_world_hdri',False):
+                    bpy.ops.lightmixer.refresh_hdri_preview()
+            # Make sure the world gets saved even if not looking through the camera
+            bpy.data.worlds[self.cam_world].use_fake_user = True
+
+def view_layers_items(self,context):
+    global VIEW_LAYERS
+    VIEW_LAYERS = []
+    for vl in context.scene.view_layers:
+        VIEW_LAYERS.append((vl.name,vl.name,''))
+    return VIEW_LAYERS
+
+def update_active_view_layer(self,context):
+    update_cam_view_layer(self.id_data,context)
 
 def update_lock_vfov(self,context):
     if self.lock_vertical_fov:
@@ -890,6 +914,8 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
     )
     lens_shift_compensated : bpy.props.BoolProperty(
         name = "Compensated",
+        description =("Maintains framing when applying Lens Shift."
+            "Disabling it will revert to default Blender behavior"),
         default = True,
         options = {'HIDDEN'},
         update = update_ls_compensated,
@@ -1119,7 +1145,7 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
     resolution_enabled : bpy.props.BoolProperty(
         name = "Enable Resolution override for this Camera",
         default = False,
-        update = update_resolution_enabled
+        update = update_resolution_enabled,
     )
     resolution_mode : bpy.props.EnumProperty(
         name = "Format", description = "Choose Custom Resolutions or Ratio presets",
@@ -1127,43 +1153,50 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
                 ('11','1:1', ''),('32','3:2', ''),('43','4:3', ''),('67','6:7', ''),
                 ('169','16:9', ''),('2351','2.35:1', ''),('2391','2.39:1', '')],
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
     )
     resolution_x : bpy.props.IntProperty(
         name = "X", description = "Horizontal Resolution",
         default = 1920, min = 0, subtype = 'PIXEL',
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
     )
     resolution_y : bpy.props.IntProperty(
         name = "Y", description = "Vertical Resolution",
         min = 0, default = 1080, subtype='PIXEL',
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
     )
     ratio_x : bpy.props.FloatProperty(
         name = "X", description = "Horizontal Ratio",
         min = 0, default = 16, precision = 2,
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
     )
     ratio_y : bpy.props.FloatProperty(
         name = "Y", description = "Vertical Ratio",
         min = 0, default = 9, precision = 2,
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
     )
     longedge : bpy.props.IntProperty(
         name = "Long Edge", description = "Long Edge Resolution",
         default = 1920, min = 0, subtype = 'PIXEL',
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
     )
     resolution_rotation : bpy.props.EnumProperty(
         name = "Orientation", description = "Rotation of the camera",
         items = [('LANDSCAPE','Landscape',''),('PORTRAIT','Portrait', '')],
         options = {'HIDDEN'},
-        update = update_resolution
+        update = update_resolution,
+    )
+    
+    # View Layers properties
+    view_layer_enabled : bpy.props.BoolProperty(
+        name = "Enable View Layers override for this Camera",
+        default = False,
+        update = update_active_view_layer,
     )
 
     # AF-C property
@@ -1220,13 +1253,20 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
         name="Focus Plane Material", description="Material used for Focus plane"
     )
     focus_plane_color : bpy.props.FloatVectorProperty(
-        name="Focus Plane Color", description="Set Color and Alpha opacity of the Focus Plane debug",
+        name="Color", description="Set Color and Alpha opacity of the Focus Plane debug",
         subtype='COLOR', min=0.0, max=1.0, size=4,
         # default=bpy.context.preferences.addons[__package__].preferences.default_focus_plane_color,
         default=(1.0,0.0,0.0,0.4),
         options = {'HIDDEN'},
         get=get_focus_plane_color,
         set=set_focus_plane_color,
+    )
+    dof_limits: bpy.props.EnumProperty(
+        name = "DoF Limits", description = "Display settings of Depth of Field limits",
+        items = [('OFF','Off',''),('WIRE','Cylinder Wire',''), ('SHADED','Shaded', '')],
+        default = 'WIRE',
+        options = {'HIDDEN'},
+        update = update_dof_limits,       
     )
     # Optical Vignetting
     opt_vignetting : bpy.props.BoolProperty(
@@ -1326,3 +1366,11 @@ class PhotographerCameraSettings(bpy.types.PropertyGroup):
         options = {'HIDDEN'},
         update = update_frame_end,
     )
+    active_view_layer: bpy.props.EnumProperty(
+        name="View Layer Override",
+        items = view_layers_items,
+        description = "List of View Layers available",
+        options = {'HIDDEN'},
+        update = update_active_view_layer,
+    )
+

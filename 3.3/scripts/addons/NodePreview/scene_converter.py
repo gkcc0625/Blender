@@ -18,22 +18,20 @@
 from math import ceil
 
 def scene_to_script(context, needs_more_samples, thumb_resolution):
-    # TODO OSL (needs support for OSL script nodes first!)
-    # scene.cycles.shading_system = {context.scene.cycles.shading_system}
-
     script = f"""
 scene = bpy.context.scene
 scene.cycles.feature_set = '{context.scene.cycles.feature_set}'
 scene.cycles.samples = {4 if needs_more_samples else 1}
-bpy.context.scene.render.use_compositing = {needs_more_samples}  # Enables OIDN
+scene.cycles.shading_system = {context.scene.cycles.shading_system}
+scene.render.use_compositing = {needs_more_samples}  # Enables OIDN
 """
 
     if needs_more_samples:
         script += f"""
-bpy.context.scene.render.threads = 4
+scene.render.threads = 4
 if bpy.app.version < (3, 0, 0):
-    bpy.context.scene.render.tile_x = {ceil(thumb_resolution / 2)}
-    bpy.context.scene.render.tile_y = {ceil(thumb_resolution / 2)}
+    scene.render.tile_x = {ceil(thumb_resolution / 2)}
+    scene.render.tile_y = {ceil(thumb_resolution / 2)}
 """
 
     return script

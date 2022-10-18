@@ -1,6 +1,6 @@
-import bpy, bgl, math
+import bpy, bgl, math, gpu
 from bpy.app.handlers import persistent
-from .functions import srgb_to_linear,linear_to_srgb, InterpolatedArray, rgb_to_luminance
+from .functions import srgb_to_linear,linear_to_srgb, InterpolatedArray, rgb_to_luminance, read_pixel_color
 from .autofocus import list_focus_planes
 
 # Default variables
@@ -231,33 +231,29 @@ class PHOTOGRAPHER_OT_WBReset(bpy.types.Operator):
 
         return{'FINISHED'}
 
-def white_balance_picker(self,context,event,use_scene_camera):
-    x,y = event.mouse_x, event.mouse_y
+def white_balance_picker(self,context):
+    x,y = self.mouse_region_x, self.mouse_region_y
 
     area = context.area
     if area.type=='VIEW_3D':
-        corner_x = area.x
-        corner_y = area.y
-        header_height = area.regions[0].height
-        lpanel_width = area.regions[2].width
-
-        x -= corner_x + lpanel_width
-        y -= corner_y + header_height
-
-        bgl.glDisable(bgl.GL_DEPTH_TEST)
-        buf = bgl.Buffer(bgl.GL_FLOAT, 3)
 
         red = 0
         green = 0
         blue = 0
 
-        # Sample a 9*9 pixels square
+        if bpy.app.version >= (3,2,2):
+            # get currently bound framebuffer
+            buffer = gpu.state.active_framebuffer_get()
+        else:
+            bgl.glDisable(bgl.GL_DEPTH_TEST)
+            buffer = bgl.Buffer(bgl.GL_FLOAT, 3)
+
         for i in range(x-4, x+5):
             for j in range(y-4, y+5):
-                bgl.glReadPixels(i, j, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
-                red += buf[0]
-                green += buf[1]
-                blue += buf[2]
+                value = read_pixel_color(i,j,buffer)
+                red += value[0]
+                green += value[1]
+                blue += value[2]
 
         average_r = red / 81
         average_g = green / 81
@@ -265,20 +261,21 @@ def white_balance_picker(self,context,event,use_scene_camera):
 
         picked_average = [average_r,average_g,average_b]
 
-
         # Clear Buffer
-        del buf
+        del buffer
 
         if picked_average != [0.0,0.0,0.0]:
-            convert_RBG_to_whitebalance(picked_average,use_scene_camera)
+            convert_RBG_to_whitebalance(picked_average,self.use_scene_camera)
 
 class PHOTOGRAPHER_OT_WBPicker(bpy.types.Operator):
     bl_idname = "white_balance.picker"
     bl_label = "Pick White Balance"
-    bl_description = "Pick a grey area in the 3D view to adjust the White Balance.\n Shift + Click to reset"
+    bl_description = "Pick a grey area in the 3D view to adjust the White Balance.\nShift + Click to reset"
     bl_options = {'REGISTER', 'UNDO'}
 
     use_scene_camera: bpy.props.BoolProperty(default=False)
+    mouse_region_x: bpy.props.IntProperty(default=0)
+    mouse_region_y: bpy.props.IntProperty(default=0)
 
     def modal(self, context, event):
         if self.use_scene_camera:
@@ -287,6 +284,9 @@ class PHOTOGRAPHER_OT_WBPicker(bpy.types.Operator):
             settings = context.camera.photographer
 
         context.area.tag_redraw()
+
+        self.mouse_region_x = event.mouse_region_x
+        self.mouse_region_y = event.mouse_region_y
 
         # Allow navigation for Blender and Maya shortcuts
         if event.type in {'MIDDLEMOUSE', 'WHEELUPMOUSE', 'WHEELDOWNMOUSE'} or event.alt and event.type == 'LEFTMOUSE' or event.alt and event.type == 'RIGHTMOUSE':
@@ -334,29 +334,32 @@ class PHOTOGRAPHER_OT_WBPicker(bpy.types.Operator):
             return {'FINISHED'}
 
         else:
-            if self.use_scene_camera:
-                settings = context.scene.camera.data.photographer
-            else:
-                settings = context.camera.photographer
-
-            # Store state
-            self.stored_use_curve_mapping = context.scene.view_settings.use_curve_mapping
-            self.stored_color_temperature = settings.color_temperature
-            self.stored_tint = settings.tint
-
-            self.fp = list_focus_planes()
-
-            if not context.scene.view_settings.use_curve_mapping:
-                context.scene.view_settings.use_curve_mapping = True
-
-            args = (self, context, event, self.use_scene_camera)
             if context.area.type=='VIEW_3D':
+                if self.use_scene_camera:
+                    settings = context.scene.camera.data.photographer
+                else:
+                    settings = context.camera.photographer
+
+                # Store state
+                self.stored_use_curve_mapping = context.scene.view_settings.use_curve_mapping
+                self.stored_color_temperature = settings.color_temperature
+                self.stored_tint = settings.tint
+
+                self.fp = list_focus_planes()
+
+                if not context.scene.view_settings.use_curve_mapping:
+                    context.scene.view_settings.use_curve_mapping = True
+
+                args = (self, context)
                 self._handle = bpy.types.SpaceView3D.draw_handler_add(white_balance_picker, args, 'WINDOW', 'PRE_VIEW')
 
-            # Set Cursor to EYEDROPPER icon
-            self.cursor_set = True
-            context.window.cursor_modal_set('EYEDROPPER')
+                # Set Cursor to EYEDROPPER icon
+                self.cursor_set = True
+                context.window.cursor_modal_set('EYEDROPPER')
 
-            context.window_manager.modal_handler_add(self)
+                context.window_manager.modal_handler_add(self)
 
-            return {'RUNNING_MODAL'}
+                return {'RUNNING_MODAL'}
+            else:
+                self.report({'WARNING'}, "No 3D view found")
+                return {'CANCELLED'}

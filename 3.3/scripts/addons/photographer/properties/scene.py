@@ -2,12 +2,16 @@ import bpy
 from .. import world as wd
 from ..constants import addon_name
 from ..ui import library
+from bpy.types import PropertyGroup
 from bpy.props import (BoolProperty,
                        FloatProperty,
                        FloatVectorProperty,
                        EnumProperty,
+                       IntProperty,
                        StringProperty,
                        )
+
+CAMERAS = []
 
 def update_comp_exposure(self,context):
     if self.comp_exposure:
@@ -15,10 +19,25 @@ def update_comp_exposure(self,context):
     else:
         bpy.ops.photographer.disable_exposure_node()
 
-class SceneSettings(bpy.types.PropertyGroup):
+def update_active_camera_index(self, context):
+	context.scene.photographer.active_camera_index = -1
+
+def camera_items(self,context):
+    global CAMERAS
+    CAMERAS = []
+    camera_objs = [o for o in bpy.context.scene.objects if o.type=='CAMERA']
+    for cam in camera_objs:
+        CAMERAS.append((cam.name,cam.name,''))
+    return CAMERAS
+
+def update_active_scene_camera(self,context):
+    if self.active_scene_camera:
+        bpy.ops.mastercamera.look_through(camera = self.active_scene_camera)
+
+class SceneSettings(PropertyGroup):
     cam_list_sorting : EnumProperty(
         name = "Sorting options for Camera list",
-        items = [('ALPHA','Sort Alphabetically','','SORTALPHA',0),
+        items = [('ALPHA','Sort Alphabetically','','CAMERA_DATA',0),
                 ('COLLECTION','Group by Collection','','OUTLINER_OB_GROUP_INSTANCE',1)],
         options = {'HIDDEN'},
         # default = bpy.context.preferences.addons[addon_name].preferences.default_cam_list_sorting,
@@ -31,8 +50,30 @@ class SceneSettings(bpy.types.PropertyGroup):
         options = {'HIDDEN'},
         update = update_comp_exposure,
     )
+    active_view_layer_index: IntProperty(
+        default=-1,
+    )
+    active_camera_index: IntProperty(
+        default=-1,
+        update=update_active_camera_index,
+    )
+    active_scene_camera: bpy.props.EnumProperty(
+        name="Scene Camera",
+        items = camera_items,
+        options = {'HIDDEN'},
+        update = update_active_scene_camera,
+    )
+    cam_filter : StringProperty(
+        name="Filter",
+        description="Filter by name",
+    )
+    cam_filter_reverse : BoolProperty(
+        name="Reverse Order",
+        description="Reverse Sorting order",
+        default = False,
+    )   
 
-class LightMixerSettings(bpy.types.PropertyGroup):
+class LightMixerSettings(PropertyGroup):
     solo_active: BoolProperty(
         name="Solo",
         default=False,
@@ -43,6 +84,11 @@ class LightMixerSettings(bpy.types.PropertyGroup):
         default=True,
         options = {'HIDDEN'},
     )
+    show_active_light : BoolProperty(
+        name="Active Light properties",
+        default=True,
+    )
+
     hdri_tex: EnumProperty(
         name="HDRI Texture",
         items=wd.enum_previews_hdri_tex,

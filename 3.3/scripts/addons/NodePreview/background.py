@@ -25,8 +25,7 @@ from array import array
 from time import time, perf_counter
 import os
 
-from . import THUMB_CHANNEL_COUNT
-from . import messages
+from . import THUMB_CHANNEL_COUNT, messages, get_image_linking_info, make_unique_image_name
 from . import nodepreview_worker
 
 
@@ -165,6 +164,12 @@ def do(job):
         timestamp
     ) = job
 
+    # print("\nScript: --------------------\n")
+    # print(node_key, "\n")
+    # print("import bpy")
+    # print(script)
+    # print("--------------------\n")
+
     try:
         last_timestamp = node_timestamps[node_key]
         if timestamp < last_timestamp:
@@ -177,24 +182,45 @@ def do(job):
         # Job is outdated, ignore it (another .blend was loaded)
         return False, None
 
-    # Link images from .blend
-    new_images_to_link = images_to_link - set(bpy.data.images.keys())
-    if new_images_to_link:
-        if os.path.isfile(blend_abspath):
-            # .blend exists on disk, we can try to link
-            background_print("linking images:", new_images_to_link)
-            with bpy.data.libraries.load(blend_abspath, link=True) as (data_from, data_to):
-                data_to.images = [name for name in data_from.images if name in new_images_to_link]
+    # Link images from .blend files
+    loaded_images = set()
+    for image in bpy.data.images:
+        _, blendpath = get_image_linking_info(image)
+        # In images_to_link, the original image names are used, not the mangled versions
+        original_image_name = image.get("nodepreview_original_name", image.name)
+        loaded_images.add((original_image_name, blendpath))
 
-                available_images = set(data_from.images)
-                missing_images = images_to_link - available_images
-                if missing_images:
-                    images_failed_to_link.put(missing_images)
-                    background_print("couldn't link images:", missing_images)
+    new_images_to_link = images_to_link - loaded_images
+
+    blendpath_image_mapping = {}
+    for image_name, blendpath in new_images_to_link:
+        try:
+            blendpath_image_mapping[blendpath].add(image_name)
+        except KeyError:
+            blendpath_image_mapping[blendpath] = {image_name}
+
+    for blendpath in blendpath_image_mapping.keys():
+        image_names = blendpath_image_mapping[blendpath]
+        if os.path.isfile(blendpath):
+            with bpy.data.libraries.load(blendpath, link=True) as (data_from, data_to):
+                data_to.images = [name for name in data_from.images if name in image_names]
+
+            # Rename the images to unique names to avoid possible name collisions between
+            # images linked from different .blend files
+            # (e.g. image "stone.png" from textures.blend and image "stone.png" from other_tex_lib.blend)
+            for name in image_names:
+                try:
+                    image = bpy.data.images[name]
+                    image["nodepreview_original_name"] = image.name
+                    image.name = make_unique_image_name(image)
+                except KeyError:
+                    # The image could not be linked, probably because it doesn't exist (yet) in the .blend.
+                    # Can e.g. happen if a new generated image is created and used in a node without saving the .blend.
+                    images_failed_to_link.put({name})
         else:
-            # .blend not saved yet, can't link anything
-            images_failed_to_link.put(images_to_link)
-            background_print("couldn't link images because .blend is not saved:", images_to_link)
+            # .blend doesn't exist (e.g. because it was not saved yet)
+            background_print(".blend doesn't exist:", blendpath)
+            images_failed_to_link.put(image_names)
 
     # Load images from disk
     for image_name, abspath in images_to_load:
@@ -246,7 +272,7 @@ def do(job):
     full_error_log = ""
 
     try:
-        script = "import bpy; import mathutils; " + script
+        script = "import bpy; import mathutils; from contextlib import suppress; " + script
         exec(script)
     except Exception as error:
         error_message = str(error)
@@ -285,8 +311,8 @@ def do(job):
 
     # Check if this node contains an image that could not be loaded, and show a helpful error message in that case
     if image_info:
-        unique_name, needs_linking, abspath = image_info
-        if unique_name not in bpy.data.images:
+        name, needs_linking, abspath = image_info
+        if name not in bpy.data.images:
             if needs_linking:
                 error_message = "Save .blend to render preview"
             else:

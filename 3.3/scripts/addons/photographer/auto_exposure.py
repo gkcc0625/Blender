@@ -1,4 +1,4 @@
-import bpy, math, bgl
+import bpy, math, bgl, gpu
 from bpy.app.handlers import persistent
 from . import camera, functions
 # from .constants import base_ev
@@ -33,6 +33,17 @@ def view3d_camera_border(scene):
     frame_px = [location_3d_to_region_2d(region, rv3d, v) for v in frame]
     return frame_px
 
+# def read_color(x,y,buffer):
+#     if bpy.app.version >= (3,2,2):
+#         pixel = buffer.read_color(x, y, 1, 1, 3, 0, 'FLOAT')
+#         pixel.dimensions = 1 * 1 * 3
+#         value = [float(item) for item in pixel]
+#     else:
+#         bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buffer)
+#         value = buffer
+#     return value
+
+
 # Auto Exposure algorithms
 def ae_calc():
     context = bpy.context
@@ -43,13 +54,26 @@ def ae_calc():
             settings = context.scene.camera.data.photographer
             if settings.exposure_mode == 'AUTO':
                 if not (engine == 'LUXCORE' and context.scene.luxcore.config.device == 'CPU'):
-                    # width and height of the full viewport
-                    viewport = bgl.Buffer(bgl.GL_INT, 4)
-                    bgl.glGetIntegerv(bgl.GL_VIEWPORT, viewport)
-                    width = viewport[2]
-                    height = viewport[3]
                     offset_x = 0
                     offset_y = 0
+
+                    if bpy.app.version >= (3,2,2):
+                        # get information on current viewport 
+                        viewport_info = gpu.state.viewport_get()
+                        width = viewport_info[2]
+                        height = viewport_info[3]
+
+                        buffer = gpu.state.active_framebuffer_get()
+
+                    else:
+                        # width and height of the full viewport
+                        viewport = bgl.Buffer(bgl.GL_INT, 4)
+                        bgl.glGetIntegerv(bgl.GL_VIEWPORT, viewport)
+                        width = viewport[2]
+                        height = viewport[3]
+
+                        bgl.glDisable(bgl.GL_DEPTH_TEST)
+                        buffer = bgl.Buffer(bgl.GL_FLOAT, 3)
 
                     # If looking through scene camera, use camera border
                     for area in context.screen.areas:
@@ -68,15 +92,14 @@ def ae_calc():
                                             width = border_width
                                         if border_height < height:
                                             height = border_height
-
-                    # print ('Width: ' + str(width) )
-                    # print ('Height: ' + str(height) )
-                    bgl.glDisable(bgl.GL_DEPTH_TEST)
-                    buf = bgl.Buffer(bgl.GL_FLOAT, 3)
-
-                    # Split viewport in a 10*10 grid
+                    
+                    # Split viewport in a 16*16 grid
                     grid = 10
+                    center_min = int(grid/2 - 1)
+                    center_max = int(grid/2 + 1)
                     values = center = count = center_count = 0
+
+                    # print (width, height, offset_x, offset_y)
 
                     # Next pixel position
                     step = 1/(grid+1)
@@ -86,13 +109,19 @@ def ae_calc():
                         for j in range (grid):
                             x = int(step*(j+1)*width+offset_x)
                             y = int(step*(i+1)*height+offset_y)
-                            bgl.glReadPixels(x, y, 1, 1, bgl.GL_RGB, bgl.GL_FLOAT, buf)
-                            lum = functions.rgb_to_luminance(buf)
+                            value = functions.read_pixel_color(x,y,buffer)
+                            lum = functions.rgb_to_luminance(value)
                             if lum != 0:
                                 values += lum
                                 count += 1
                             # Store the 4 center pixels separately for weighing
-                            if i in range (4,6) and j in range (4,6):
+                            if i in range (center_min,center_max) and j in range (center_min,center_max):
+                                if lum != 0:
+                                    center += lum
+                                    center_count += 1
+
+                            # Higher coefficient for the center point
+                            if i == grid/2 and j == grid/2:
                                 if lum != 0:
                                     center += lum
                                     center_count += 1

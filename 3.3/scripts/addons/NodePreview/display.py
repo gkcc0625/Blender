@@ -26,6 +26,7 @@ from gpu_extras.batch import batch_for_shader
 from time import time, sleep
 from math import sqrt
 import os
+join_paths = os.path.join
 import platform
 import tempfile
 import shutil
@@ -61,8 +62,10 @@ except ImportError as error:
 
 
 from . import (addon_name, THUMB_CHANNEL_COUNT, SUPPORTED_NODE_TREE, force_node_editor_draw,
-               needs_linking, UnsupportedNodeException, BACKGROUND_PATTERNS)
+               needs_linking, UnsupportedNodeException, BACKGROUND_PATTERNS, get_blend_abspath,
+               make_unique_image_name)
 from . import messages, node_converter, scene_converter
+from .node_converter import node_to_script, make_node_key
 
 
 images_failed_to_link_lock = threading.Lock()
@@ -133,7 +136,7 @@ thumbnails = {}  # filepath : Thumbnail
 texture_ids_to_delete = queue.Queue()
 cached_nodes = {}  # node_key : hash(node_script), timestamp
 # Output directory where rendered thumbnails are saved by our Blender sub-process
-temp_dir = os.path.join(tempfile.gettempdir(), f"BlenderNodePreview_{os.getpid()}")
+temp_dir = join_paths(tempfile.gettempdir(), f"BlenderNodePreview_{os.getpid()}")
 TEMP_DIR_REGEX_PATTERN = r"BlenderNodePreview_[0-9]+"
 
 background_process_ready = False
@@ -173,8 +176,8 @@ SCALE_HELP_THRESHOLDS = {
 NULL = 0
 
 if not bpy.app.background:
-    with open(os.path.join(current_dir, "shaders", "thumbnail_vert.glsl")) as vert:
-        with open(os.path.join(current_dir, "shaders", "thumbnail_frag.glsl")) as frag:
+    with open(join_paths(current_dir, "shaders", "thumbnail_vert.glsl")) as vert:
+        with open(join_paths(current_dir, "shaders", "thumbnail_frag.glsl")) as frag:
             shader = gpu.types.GPUShader(vert.read(), frag.read())
 
 
@@ -225,7 +228,7 @@ class Thumbnail:
         shader.uniform_int("gamma_correct", bpy.app.version >= (2, 91, 0))
 
         batch = batch_for_shader(
-            shader, 'TRI_FAN',
+            shader, 'TRI_FAN',  # TODO TRI_FAN deprecated, replace with 'TRI_STRIP' or 'TRIS' (https://developer.blender.org/rBe2d8b6dc06)
             {
                 "pos": (bottom_left, bottom_right, top_right, top_left),
                 "texCoord": ((0, 1), (1, 1), (1, 0), (0, 0)),  # Note: Mirrored along y axis
@@ -241,10 +244,14 @@ class Thumbnail:
 def draw_text(text, position, font_size, scaled_zoom):
     FONT_ID = 0
     FONT_DPI = 72
-    text_pos_x, text_pos_y = position
-    blf.position(FONT_ID, text_pos_x, text_pos_y, 0)
-    blf.size(FONT_ID, round(font_size * scaled_zoom), FONT_DPI)
-    blf.draw(FONT_ID, text)
+
+    x, y = position
+    for line in reversed(text.split("\n")):
+        blf.position(FONT_ID, x, y, 0)
+        blf.size(FONT_ID, round(font_size * scaled_zoom), FONT_DPI)
+        blf.draw(FONT_ID, line)
+        y += font_size * scaled_zoom
+    return y
 
 
 def delete_old_textures_if_necessary():
@@ -382,21 +389,38 @@ def handler():
     bgl.glBlendEquation(bgl.GL_FUNC_ADD)
 
     group_script, group_images_to_load, group_images_to_link, group_hashes = node_converter.node_groups_to_script(sorted_nodes)
-    material = context.space_data.id
+    # node_tree_owner is the material, world etc. that contains the node_tree
+    node_tree_owner = context.space_data.id
 
     # socket.links is a very expensive property to access, so we cache the link types we are interested in most in this dict
     incoming_links = {link.to_socket: link for link in node_tree.links}
+    # node.name: node_creation_script, images_to_load, images_to_link
     node_scripts_cache = {}
     jobs_to_send = []
 
-    for node in sorted_nodes:
+    # Set property without triggering an update
+    node_tree.node_preview["update_first_part"] = not node_tree.node_preview.update_first_part
+    # The nodes near the end of the list take the most time to convert, so we divide the list unevenly to get balanced execution times
+    divider = int(len(sorted_nodes) * 0.82)
+    if len(sorted_nodes) < 50:
+        start = 0
+        end = len(sorted_nodes)
+    elif node_tree.node_preview.update_first_part:
+        start = 0
+        end = divider
+        # context.region.tag_redraw()  # TODO needed?
+    else:
+        start = divider
+        end = len(sorted_nodes)
+
+    for node in sorted_nodes[start:end]:
         if not is_node_supported(node):
             continue
 
         try:
             # Even if the preview is disabled, we need to convert the script so dependent nodes can retrieve it from the node scripts cache
-            node_script, images_to_load, images_to_link = node_converter.node_to_script(node, node_tree, material, node_scripts_cache,
-                                                                                        group_hashes, incoming_links, background_colors)
+            node_script, images_to_load, images_to_link = node_to_script(node, node_tree, node_tree_owner, node_scripts_cache,
+                                                                         group_hashes, incoming_links, background_colors)
         except UnsupportedNodeException:
             continue
 
@@ -406,17 +430,17 @@ def handler():
 
         scene_script = scene_converter.scene_to_script(context, needs_more_than_1_sample(node), thumb_resolution)
         script_hash = hash(node_script)
-        node_key = node_converter.make_node_key(node, node_tree, material)
+        node_key = make_node_key(node, node_tree, node_tree_owner)
 
         if node_key not in cached_nodes or cached_nodes[node_key][0] != script_hash:
             timestamp = time()
-            thumb_path = os.path.join(temp_dir, to_valid_filename(node_key) + ".png")
+            thumb_path = join_paths(temp_dir, to_valid_filename(node_key) + ".png")
 
             if getattr(node, "image", None):
                 # This info is used to show accurate error messages when images failed to link or load
                 image = node.image
                 image_info = (
-                    node_converter.make_unique_name(image),
+                    make_unique_image_name(image),
                     needs_linking(image),
                     bpy.path.abspath(image.filepath, library=image.library),
                 )
@@ -425,17 +449,39 @@ def handler():
 
             job = (
                 node_key,
-                "\n".join((group_script, node_script, scene_script)),
+                "\n".join((scene_script, group_script, node_script)),
                 images_to_load | group_images_to_load,
                 images_to_link | group_images_to_link,
                 image_info,
-                bpy.path.abspath(bpy.data.filepath),
+                get_blend_abspath(),
                 thumb_path,
                 thumb_resolution,
                 timestamp,
             )
             jobs_to_send.append(job)
             cached_nodes[node_key] = script_hash, timestamp
+
+            # For debugging complex scripts
+            # if False and node.name == "Math":
+            #     test_file_path = join_paths(current_dir, "data", "script.py")
+            #     with open(test_file_path, "w") as f:
+            #         f.write("\n".join(("import bpy; import mathutils; ", scene_script, group_script, node_script)))
+            #
+            #     process_args = [
+            #         bpy.app.binary_path,
+            #         "--factory-startup",
+            #         join_paths(current_dir, "data", "previewscene.blend"),
+            #         "--python", test_file_path,
+            #     ]
+            #     subprocess.Popen(process_args)
+
+    for node in sorted_nodes:
+        if not is_node_supported(node):
+            continue
+
+        enabled = node.node_preview.enabled if node.node_preview.enabled_modified else enabled_by_default
+        if not enabled:
+            continue
 
         location = node.location.copy()
         n = node
@@ -445,7 +491,6 @@ def handler():
             n = n.parent
 
         topleft_x, topleft_y = view_to_region_scaled(context, *location, clip=False)
-        # x1 is the top right of the node
         topright_x, _ = view_to_region_scaled(context, location[0] + node.width, 0, clip=False)
         node_width = (topright_x - topleft_x)
 
@@ -464,6 +509,7 @@ def handler():
             continue
 
         try:
+            node_key = make_node_key(node, node_tree, node_tree_owner)
             thumb = thumbnails[node_key]
         except KeyError:
             thumb = None
@@ -476,14 +522,23 @@ def handler():
 
         thumb.draw(bottom_left, bottom_right, top_right, top_left, scaled_zoom)
 
-        if preferences.show_help and "Scale" in node.inputs and not node.node_preview.ignore_scale:
+        text_x = topleft_x
+        text_y = top_left[1] + 3 * scaled_zoom
+        text_size = 10
+
+        if not node.node_preview.auto_choose_output:
+            output = node.outputs[node.node_preview.output_index].name
+            text_y = draw_text(f"Output: {output}", (text_x, text_y), text_size, scaled_zoom)
+            text_y += text_size * scaled_zoom * 0.5  # A bit of spacing in case of more text after
+
+        if preferences.show_help and "Scale" in node.inputs:
             try:
                 threshold = SCALE_HELP_THRESHOLDS[node.bl_idname]
                 if node.inputs["Scale"].is_linked or abs(node.inputs["Scale"].default_value) > threshold:
-                    x = topleft_x
-                    y = top_left[1] + 3 * scaled_zoom
-                    draw_text("Scale can be ignored", (x, y + 10 * scaled_zoom), 10, scaled_zoom)
-                    draw_text("with Ctrl+Shift+i", (x, y), 10, scaled_zoom)
+                    if node.node_preview.ignore_scale:
+                        text_y = draw_text("Scale ignored", (text_x, text_y), text_size, scaled_zoom)
+                    else:
+                        text_y = draw_text("Scale can be ignored\nwith Ctrl+Shift+i", (text_x, text_y), text_size, scaled_zoom)
             except KeyError:
                 # Node doesn't have a known scale threshold, don't show the help message
                 pass
@@ -497,7 +552,9 @@ def handler():
 
     delete_old_textures_if_necessary()
 
-    # print("draw handler took %.3f s" % (perf_counter() - __start))
+    # elapsed = perf_counter() - __start
+    # print("1st" if node_tree.node_preview.update_first_part else "2nd", "draw handler took %.3f s (%d fps)" % (elapsed, round(1 / elapsed)))
+    # draw_text("Node Preview Frametime: %.3f s (%d FPS)" % (elapsed, round(1 / elapsed)), (30, 30), 15, 1)
 
 
 def free():
@@ -544,7 +601,7 @@ def stop_threads_and_process():
 
 def clean_temp_dir():
     os_temp_dir = os.path.dirname(temp_dir)
-    addon_temp_dirs = [os.path.join(os_temp_dir, name) for name in os.listdir(os_temp_dir)
+    addon_temp_dirs = [join_paths(os_temp_dir, name) for name in os.listdir(os_temp_dir)
                        if re.match(TEMP_DIR_REGEX_PATTERN, name)]
 
     for path in addon_temp_dirs:
@@ -621,9 +678,11 @@ def start_background_process():
             break
         except OSError as error:
             if ((platform.system() == "Windows" and error.errno == 10048)
-                or (platform.system() == "Linux" and error.errno == 98)):
+                or (platform.system() == "Linux" and error.errno == 98)
+                or (platform.system() == "Darwin" and error.errno == 48)):
                 # Windows: [WinError 10048] Only one usage of each socket address (protocol/network address/port) is normally permitted
                 # Linux: [Errno 98] Address already in use
+                # macOS: [Errno 48] Address already in use
                 port += 1
             else:
                 raise
@@ -634,7 +693,7 @@ def start_background_process():
         "--factory-startup",
         "--addons", f"{addon_name},io_import_images_as_planes",  # Without images as planes, bpy_extras doesn't contain the image_utils submodule
         "-b",  # Run in background without UI
-        os.path.join(current_dir, "data", "previewscene.blend"),
+        join_paths(current_dir, "data", "previewscene.blend"),
         "--python-expr", f"import {addon_name}; {addon_name}.background.run({port}, {authkey})",
     ]
 
@@ -642,7 +701,7 @@ def start_background_process():
     custom_script_dir = bpy.context.preferences.filepaths.script_directory
     # Only use the custom script dir if the addon is installed there. If BLENDER_USER_SCRIPTS is set, but the addon
     # is installed in the default location, the background process will fail to import the addon.
-    if custom_script_dir and os.path.exists(os.path.join(custom_script_dir, "addons", addon_name)):
+    if custom_script_dir and os.path.exists(join_paths(custom_script_dir, "addons", addon_name)):
         env_copy["BLENDER_USER_SCRIPTS"] = bpy.context.preferences.filepaths.script_directory
 
     enable_debug_output = bpy.context.preferences.addons[addon_name].preferences.enable_debug_output

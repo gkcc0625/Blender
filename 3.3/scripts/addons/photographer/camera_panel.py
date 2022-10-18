@@ -6,9 +6,8 @@ from .functions import (
     shutter_angle_to_speed,
     lc_exposure_check,
 )
-from .sampling_threshold import calc_light_threshold
-from .autofocus import active_cam_check
-from . import camera_presets, prefs
+from .autofocus import dof_hyperfocal
+from . import camera_presets
 from .ui import bokeh
 from .constants import panel_value_size
 
@@ -44,7 +43,9 @@ class PHOTOGRAPHER_PT_Panel(bpy.types.Panel):
         if scene.camera != bpy.context.active_object:
             col.enabled = False
 
-        col.operator("photographer.applyphotographersettings", text="Apply all Settings")
+        col.operator("photographer.applyphotographersettings",
+            text="Apply all Settings",
+            icon='FILE_REFRESH')
         col.prop(settings,'renderable')
 
         # World Override
@@ -62,6 +63,22 @@ class PHOTOGRAPHER_PT_Panel(bpy.types.Panel):
         sub.active = settings.override_frames
         sub.prop(settings, "cam_frame_start", text="Start")
         sub.prop(settings, "cam_frame_end", text="End")
+
+        # Flip canvas
+        row = col.row(align=True)
+        # row.alignment = 'RIGHT'
+        # split = row.split(factor=0.41, align=True)
+        # sub = split.row()
+        # sub.alignment='RIGHT'
+        row.label(text='Flip Camera ')
+        flip_x = row.operator("photographer.flip_image", text='X')
+        flip_x.x = True
+        flip_x.y = False
+        flip_x.use_scene_camera = False
+        flip_y = row.operator("photographer.flip_image", text= 'Y')
+        flip_y.x = False
+        flip_y.y = True
+        flip_y.use_scene_camera = False
 
 #### CAMERA SETTINGS PANEL ####
 class PHOTOGRAPHER_PT_ViewPanel_Camera(bpy.types.Panel):
@@ -139,8 +156,28 @@ class PHOTOGRAPHER_PT_ViewPanel_Camera(bpy.types.Panel):
         sub.active = cam.show_passepartout
         sub.prop(cam, "passepartout_alpha", text="")
 
+        # Flip canvas
+        row = col.row(align=True)
+        row.alignment = 'RIGHT'
+        split = row.split(factor=0.41, align=True)
+        sub = split.row()
+        sub.alignment='RIGHT'
+        sub.label(text='Flip Camera ')
+        flip_x = split.operator("photographer.flip_image", text='X')
+        flip_x.x = True
+        flip_x.y = False
+        flip_x.use_scene_camera = True
+        flip_y = split.operator("photographer.flip_image", text= 'Y')
+        flip_y.x = False
+        flip_y.y = True
+        flip_y.use_scene_camera = True
+
+
         # Composition guides
-        col.popover(
+        row = col.row(align=True)
+        split = row.split(factor=0.41, align=True)
+        split.label(text='')
+        split.popover(
             panel="ADD_CAMERA_RIGS_PT_composition_guides",
             text="Composition Guides",)
 
@@ -512,16 +549,18 @@ def exposure_panel(self, context, settings, prop_panel, guide, image_editor):
 
         if lc_exposure_check(self,context):
             layout.label(text="Settings need to be reapplied", icon='INFO')
-            layout.operator("photographer.applyphotographersettings", text="Apply Photographer Settings")
+            layout.operator("photographer.applyphotographersettings",
+                text="Apply Photographer Settings",
+                icon='FILE_REFRESH')
 
         col = layout.column(align=True)
         col.use_property_split = False
         row = col.row(align=True)
         row.alignment = "CENTER"
         row.scale_y = 1.5
-        if prop_panel:
-            row.operator('exposure.picker', text = '', icon = 'EYEDROPPER').use_scene_camera = False
-        else:
+        if not prop_panel:
+        #     row.operator('exposure.picker', text = '', icon = 'EYEDROPPER').use_scene_camera = False
+        # else:
             row.operator('exposure.picker', text='', icon = 'EYEDROPPER').use_scene_camera = True
         row.prop(settings, 'exposure_mode', expand=True)
 
@@ -845,9 +884,8 @@ def resolution_header_preset(self, context, settings):
 def resolution_header(self, context, settings):
     self.layout.prop(settings, "resolution_enabled", text="")
 
-def resolution_panel(self, context, settings):
+def resolution_panel(self, context, settings, use_scene_camera):
     layout = self.layout
-    scene = bpy.context.scene
 
     layout.use_property_split = True
     layout.use_property_decorate = False  # No animation.
@@ -903,7 +941,7 @@ class PHOTOGRAPHER_PT_Panel_Resolution(bpy.types.Panel):
 
     def draw(self, context):
         settings = context.camera.photographer
-        resolution_panel(self,context,settings)
+        resolution_panel(self,context,settings,False)
 
 class PHOTOGRAPHER_PT_ViewPanel_Resolution(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -929,7 +967,7 @@ class PHOTOGRAPHER_PT_ViewPanel_Resolution(bpy.types.Panel):
 
     def draw(self, context):
         settings = context.scene.camera.data.photographer
-        resolution_panel(self,context,settings)
+        resolution_panel(self,context,settings,True)
 
 class PHOTOGRAPHER_PT_ImageEditor_Resolution(PHOTOGRAPHER_PT_ViewPanel_Resolution):
     bl_space_type = 'IMAGE_EDITOR'
@@ -950,6 +988,7 @@ class PHOTOGRAPHER_PT_NodeEditor_Resolution(PHOTOGRAPHER_PT_ViewPanel_Resolution
         snode = context.space_data
         show_image_panels = bpy.context.preferences.addons[__package__].preferences.show_image_panels
         return context.scene.camera and context.scene.camera.type == 'CAMERA' and show_image_panels and snode.tree_type == 'CompositorNodeTree'
+
 
 class PHOTOGRAPHER_PT_ViewPanel_Focus(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
@@ -1016,7 +1055,14 @@ class PHOTOGRAPHER_PT_ViewPanel_Focus(bpy.types.Panel):
             col.operator("photographer.delete_focus_plane", text="Hide Focus Plane", icon='CANCEL').camera=cam_name
         else:
             col.operator("photographer.create_focus_plane", text="Show Focus Plane", icon='NORMALS_FACE').camera=cam_name
-        col.prop(settings, "focus_plane_color", text="")
+        col_fp = col.column(align=True)
+        col_fp.prop(settings, "focus_plane_color")
+        col_fp.prop(settings,"dof_limits")
+        col_fp.enabled = settings.show_focus_plane
+
+        col = layout.column()
+        col.alignment = 'RIGHT'
+        col.label(text='Hyperfocal Distance: '+ str(dof_hyperfocal(cam)))
 
 
 class PHOTOGRAPHER_PT_ViewPanel_Autofocus(bpy.types.Panel):

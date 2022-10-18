@@ -409,24 +409,19 @@ def set_light_exposure(self, value):
     return None
 
 def get_power(self):
-    # Before 4.5.9, using Blender Power to make sure it stays synced
-
-    # if bpy.context.scene.render.engine == 'LUXCORE':
-    #     return self.get('power', default_power)
-    # else:
-        # store_units(self)
-        # return self.id_data.energy
-
-    # From 4.5.9, using Photographer power to fix animation baking
-    return self.get('power', default_power)
+    if bpy.context.scene.render.engine == 'LUXCORE':
+        return self.get('power', default_power)
+    else:
+        store_units(self)
+        return self.id_data.energy
 
 def set_power(self, value):
-    # if bpy.context.scene.render.engine == 'LUXCORE':
-    #     self['power'] = value
-    #     update_energy(self)
-    # else:
-    #     self.id_data.energy = value
-    self['power'] = value
+    if bpy.context.scene.render.engine == 'LUXCORE':
+        self['power'] = value
+        update_energy(self)
+    else:
+        self.id_data.energy = value
+
     update_energy(self)
     return None
 
@@ -562,7 +557,7 @@ def temp_to_rgb_linear(temperature):
     return color
 
 def get_color(self):
-    return self.get('color', (1.0,1.0,1.0))
+    return self.id_data.color
 
 def set_color(self, value):
     self['color'] = value
@@ -594,7 +589,7 @@ def set_light_temperature(self, value):
     color = temp_to_rgb_linear(value)
     if self.use_light_temperature:
         self.id_data.color = color
-        self['color'] = color
+        self['color'] = value
     update_energy(self)
     return None
 
@@ -606,7 +601,7 @@ def set_use_light_temperature(self, value):
     color = temp_to_rgb_linear(self.light_temperature)
     if value:
         self.id_data.color = color
-        self['color'] = color
+        self['color'] = value
     update_energy(self)
     return None
 
@@ -689,10 +684,10 @@ class PhotographerLightSettings(bpy.types.PropertyGroup):
     )
 
     light_types = [
-        ("POINT", "Point", "Omnidirectional point light source",0),
-        ("SUN", "Sun", "Constant direction parallel ray light source",1),
-        ("SPOT", "Spot", "Directional cone light source",2),
-        ("AREA", "Area", "Directional area light source",3),
+        ("POINT", "Point", "Omnidirectional point light source", 'LIGHT_POINT',0),
+        ("SUN", "Sun", "Constant direction parallel ray light source",'LIGHT_SUN',1),
+        ("SPOT", "Spot", "Directional cone light source",'LIGHT_SPOT',2),
+        ("AREA", "Area", "Directional area light source",'LIGHT_AREA',3),
     ]
 
     light_type: EnumProperty(
