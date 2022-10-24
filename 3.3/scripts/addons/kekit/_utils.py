@@ -7,22 +7,25 @@ from math import radians, sqrt
 
 def pie_pos_offset(xy, v):
     scl = bpy.context.preferences.view.ui_scale
+    r = None
     if v == "N":
-        return xy[0], xy[1] - (115 * scl)
+        r = xy[0], xy[1] - (115 * scl)
     elif v == "S":
-        return xy[0], xy[1] + (115 * scl)
+        r = xy[0], xy[1] + (115 * scl)
     elif v == "W":
-        return xy[0] + (152 * scl), xy[1]
+        r = xy[0] + (152 * scl), xy[1]
     elif v == "E":
-        return xy[0] - (152 * scl), xy[1]
+        r = xy[0] - (152 * scl), xy[1]
     elif v == "NW":
-        return xy[0] + (124 * scl), xy[1] - (71 * scl)
+        r = xy[0] + (124 * scl), xy[1] - (71 * scl)
     elif v == "NE":
-        return xy[0] - (124 * scl), xy[1] - (71 * scl)
+        r = xy[0] - (124 * scl), xy[1] - (71 * scl)
     elif v == "SW":
-        return xy[0] + (136 * scl), xy[1] + (70 * scl)
+        r = xy[0] + (136 * scl), xy[1] + (70 * scl)
     elif v == "SE":
-        return xy[0] - (136 * scl), xy[1] + (70 * scl)
+        r = xy[0] - (136 * scl), xy[1] + (70 * scl)
+    if v and r is not None:
+        return int(r[0]), int(r[1])
     else:
         return xy
 
@@ -100,7 +103,13 @@ def get_layer_collection(layerColl, collName):
 
 
 def set_active_collection(context, obj):
+    avail = [i.name for i in context.view_layer.layer_collection.children]
     obj_collection = obj.users_collection[0]
+    # Making sure there is no garbage invisible collection used
+    for c in context.object.users_collection:
+        if c.name in avail:
+            obj_collection = c
+            break
     layer_collection = context.view_layer.layer_collection
     layer_coll = get_layer_collection(layer_collection, obj_collection.name)
     context.view_layer.active_layer_collection = layer_coll

@@ -208,7 +208,17 @@ class KeContextConnect(Operator):
                 if len(sel_poly) == 1:
                     start_edge = pick_closest_edge(context, mtx=self.mtx, mousepos=self.mouse_pos,
                                                    edges=sel_poly[0].edges)
-                    ring, null = get_edge_rings(start_edge, sel_poly)
+                    end_edge = None
+                    for e in sel_poly[0].edges:
+                        if not any(v in e.verts for v in start_edge.verts):
+                            end_edge = e
+                            break
+
+                    if end_edge is None:
+                        print("ContextConnect: No suitable 2nd edge found on the face")
+                        return {"CANCELLED"}
+
+                    ring = [start_edge, end_edge]
 
                     for e in bm.edges:
                         e.select = False

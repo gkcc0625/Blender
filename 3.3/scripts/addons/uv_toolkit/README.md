@@ -1,1 +1,0 @@
-Tools collection for UV editing in Blender 2.8x - 2.9x.

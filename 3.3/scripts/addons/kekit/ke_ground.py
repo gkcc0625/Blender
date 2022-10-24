@@ -21,7 +21,7 @@ class KeGround(Operator):
     bl_description = "Ground (or Center) selected Object(s), or selected elements (snap to world Z0 only)"
     bl_options = {'REGISTER', 'UNDO'}
 
-    ke_ground_option: bpy.props.EnumProperty(
+    op: bpy.props.EnumProperty(
         items=[("GROUND", "Ground to Z0", "", 1),
                ("CENTER", "Ground & Center on Z", "", 2),
                ("CENTER_ALL", "Center XYZ", "", 3),
@@ -32,13 +32,16 @@ class KeGround(Operator):
         name="Operation",
         default="GROUND")
 
-    ke_ground_custom: bpy.props.FloatProperty(
-        name="Custom Z Location:", description="Set custom coordinate on Z axis", default=0)
+    custom_z: bpy.props.FloatProperty(
+        name="Custom Z Value", description="Set custom value on Z axis", default=0)
 
-    ke_ground_raycasting: bpy.props.BoolProperty(
-        name="Raycast:", description="Stops on obstructions on the way down (Nothing: Z0)", default=True)
+    group: bpy.props.BoolProperty(
+        name="Group", description="Treat all selected objects as one item", default=False)
 
-    ke_ignore_selected: bpy.props.BoolProperty(
+    raycast: bpy.props.BoolProperty(
+        name="Raycast", description="Stops on obstructions on the way down (Nothing: Z0)", default=True)
+
+    ignore_selected: bpy.props.BoolProperty(
         name="Ignore Selected", description="Ignore selected Objects when raycasting", default=False)
 
     @classmethod
@@ -57,42 +60,62 @@ class KeGround(Operator):
         else:
             editmode = False
 
+        group_vc = [(0, 0, 0)]
+        group_zs = [0.0]
+        if self.group:
+            low_z = []
+            for o in sel_obj:
+                if o.type == 'MESH':
+                    low_z.extend([o.matrix_world @ v.co for v in o.data.vertices])
+                else:
+                    low_z.append(o.location)
+            group_vc = sorted(low_z, key=lambda z: z[2])
+            group_zs = [p[2] for p in group_vc]
+
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action="DESELECT")
 
-        if self.ke_ignore_selected:
+        if self.ignore_selected:
             for o in sel_obj:
                 o.hide_set(True)
 
         for o in sel_obj:
-            if self.ke_ignore_selected:
+            if self.ignore_selected:
                 o.hide_set(False)
 
             o.select_set(True)
             context.view_layer.objects.active = o
 
             if o.type == 'MESH':
-                if editmode:
-                    vc = [o.matrix_world @ v.co for v in o.data.vertices if v.select]
+                if self.group:
+                    vc = [group_vc[0], group_vc[-1]]
+                    zs = [group_zs[0], group_zs[-1]]
                 else:
-                    vc = [o.matrix_world @ v.co for v in o.data.vertices]
-                vz = []
-                for co in vc:
-                    vz.append(co[2])
-                zs = sorted(vz)
+                    if editmode:
+                        vc = [o.matrix_world @ v.co for v in o.data.vertices if v.select]
+                    else:
+                        vc = [o.matrix_world @ v.co for v in o.data.vertices]
+                    vz = []
+                    for co in vc:
+                        vz.append(co[2])
+                    zs = sorted(vz)
             else:
                 vc = [o.location, o.location]
                 zs = [vc[0][2], vc[1][2]]
 
-            if self.ke_ground_raycasting and vc:
-                coords = sorted(vc, key=lambda x: x[2])
-                point = coords[0]
-                point[2] -= 0.0001  # hack so it doesn't trace itself...
+            if self.raycast and vc:
+                if self.group:
+                    coords = [vc[0]]
+                    point = vc[0]
+                else:
+                    coords = sorted(vc, key=lambda z: z[2])
+                    point = coords[0]
 
+                point[2] -= 0.0001  # hack so it doesn't trace itself...
                 raycast = point_axis_raycast(context, vec_point=point, axis=2)
                 if raycast[1] is not None:
                     hit = raycast[1]
-                    hit[2] -= 0.0001  # hack some more
+                    hit[2] -= 0.0001  # meh
                     dist = coords[0][2] - hit[2]
                     zs[-1] = dist + (zs[-1] - zs[0])
                     zs[0] = dist
@@ -101,7 +124,7 @@ class KeGround(Operator):
                         print("Ground: Raycast error. Aborting.")
                         for ob in sel_obj:
                             ob.select_set(True)
-                        if self.ke_ignore_selected:
+                        if self.ignore_selected:
                             for obj in sel_obj:
                                 obj.hide_set(False)
                         return {"CANCELLED"}
@@ -110,13 +133,17 @@ class KeGround(Operator):
                 bpy.ops.object.mode_set(mode='EDIT')
 
             if vc:
-                if self.ke_ground_option == "GROUND":
+                if self.group:
+                    vc = group_vc
+                    zs = group_zs
+
+                if self.op == "GROUND":
                     offset = round(zs[0], 6) * -1
 
-                elif self.ke_ground_option == "CENTER":
+                elif self.op == "CENTER":
                     offset = round(zs[0] + ((zs[-1] - zs[0]) / 2), 6) * -1
 
-                elif self.ke_ground_option == "CENTER_ALL":
+                elif self.op == "CENTER_ALL":
                     zx = sorted([c[0] for c in vc])
                     zy = sorted([c[1] for c in vc])
                     xo = round(zx[0] + ((zx[-1] - zx[0]) / 2), 6) * -1
@@ -124,7 +151,7 @@ class KeGround(Operator):
                     zo = round(zs[0] + ((zs[-1] - zs[0]) / 2), 6) * -1
                     zmove((xo, yo, zo), zonly=False)
 
-                elif self.ke_ground_option == "CENTER_GROUND":
+                elif self.op == "CENTER_GROUND":
                     zx = sorted([c[0] for c in vc])
                     zy = sorted([c[1] for c in vc])
                     xo = round(zx[0] + ((zx[-1] - zx[0]) / 2), 6) * -1
@@ -132,24 +159,24 @@ class KeGround(Operator):
                     zo = round(zs[0], 6) * -1
                     zmove((xo, yo, zo), zonly=False)
 
-                elif self.ke_ground_option == "UNDER":
+                elif self.op == "UNDER":
                     offset = round(zs[-1], 6) * -1
 
-                elif self.ke_ground_option == "CUSTOM":
-                    offset = (round(zs[0], 6) - self.ke_ground_custom) * -1
+                elif self.op == "CUSTOM":
+                    offset = (round(zs[0], 6) - self.custom_z) * -1
 
-                elif self.ke_ground_option == "CUSTOM_CENTER":
-                    offset = (round(zs[0] + ((zs[-1] - zs[0]) / 2), 6) - self.ke_ground_custom) * -1
+                elif self.op == "CUSTOM_CENTER":
+                    offset = (round(zs[0] + ((zs[-1] - zs[0]) / 2), 6) - self.custom_z) * -1
 
-                if offset and self.ke_ground_option != "CENTER_ALL":
+                if offset and self.op != "CENTER_ALL":
                     zmove(offset)
 
             bpy.ops.object.mode_set(mode='OBJECT')
             o.select_set(False)
-            if self.ke_ignore_selected:
+            if self.ignore_selected:
                 o.hide_set(True)
 
-        if self.ke_ignore_selected:
+        if self.ignore_selected:
             for o in sel_obj:
                 o.hide_set(False)
 

@@ -20,7 +20,7 @@ def authoring():
 
     insert_file = False
     for folder in preference.folders:
-        path = os.path.commonprefix([bpy.data.filepath, os.path.realpath(folder.location)])
+        path = os.path.commonprefix([os.path.realpath(bpy.data.filepath), os.path.realpath(folder.location)])
         if path == os.path.realpath(folder.location):
             if os.path.basename(bpy.data.filepath) != 'render.blend':
                 insert_file = True
@@ -28,13 +28,17 @@ def authoring():
 
     return insert_file if not bpy.context.scene.kitops.thumbnail else False
 
-def hide_handler(op):
+def hide_handler(context,op):
     option = addon.option()
+    preference = addon.preference()
     hide = False
 
     if op.duplicate:
-        ray.cast(op)
-        hide = not ray.success
+        if not op.is_hardpoint_mode:
+            ray.cast(op)
+            hide = not ray.success
+        else:
+            hide = False
 
         for obj in op.inserts:
             obj.hide_viewport = hide
@@ -85,7 +89,7 @@ def collect(objs=[], mains=False, solids=False, cutters=False, wires=False, all=
 def parent_objects(child, parent):
     # Add parent if we have a boolean target. TODO investigate why matric only needed for original inserts and extra copy needed for SYNTH
     preference = addon.preference()
-    if preference.parent_inserts:
+    if preference.parent_inserts or child.kitops.is_hardpoint:
         child.parent = parent
         child.matrix_parent_inverse = parent.matrix_world.inverted()
 
@@ -206,7 +210,7 @@ def add(op, context):
             obj.kitops.applied = True
 
         if op.boolean_target:
-            obj.kitops['insert_target'] = op.boolean_target
+            obj.kitops.insert_target = op.boolean_target
             obj.kitops.reserved_target = op.boolean_target
 
         for slot in obj.material_slots:
@@ -317,11 +321,14 @@ def add(op, context):
     return new_id
 
 
-def add_boolean(obj):
+def add_boolean(obj, insert_target = None):
     if obj.kitops.boolean_type == 'INSERT':
         return
 
-    mod = obj.kitops.insert_target.modifiers.new(name='{}: {}'.format(obj.kitops.boolean_type.title(), obj.name), type='BOOLEAN')
+    if not insert_target:
+        insert_target = obj.kitops.insert_target
+
+    mod = insert_target.modifiers.new(name='{}: {}'.format(obj.kitops.boolean_type.title(), obj.name), type='BOOLEAN')
     mod.show_expanded = False
     mod.operation = obj.kitops.boolean_type
     mod.object = obj
@@ -335,8 +342,8 @@ def add_boolean(obj):
     ignore_vgroup = addon.preference().sort_bevel_ignore_vgroup
     ignore_verts = addon.preference().sort_bevel_ignore_only_verts
     props = {'use_only_vertices': True} if bpy.app.version[:2] < (2, 90) else {'affect': 'VERTICES'}
-    bevels = modifier.bevels(obj.kitops.insert_target, weight=ignore_weight, vertex_group=ignore_vgroup, props=props if ignore_verts else {})
-    modifier.sort(obj.kitops.insert_target, option=addon.preference(), ignore=bevels, stop_flag=addon.preference().sort_stop_char, ignore_flag=addon.preference().sort_ignore_char)
+    bevels = modifier.bevels(insert_target, weight=ignore_weight, vertex_group=ignore_vgroup, props=props if ignore_verts else {})
+    modifier.sort(insert_target, option=addon.preference(), ignore=bevels, stop_flag=addon.preference().sort_stop_char, ignore_flag=addon.preference().sort_ignore_char)
     # modifier.sort(obj.kitops.insert_target, option=addon.preference())
 
     return mod
@@ -456,12 +463,6 @@ def delete_hierarchy(obj_to_delete, target_obj=None):
                 if mod.type == 'BOOLEAN':
                     if mod.object == obj:
                         target_obj.modifiers.remove(mod)
-
-        obj.kitops['insert'] = False
-        obj.kitops['insert_target'] = None
-        obj.kitops['mirror_target'] = None
-        obj.kitops['reserved_target'] = None
-        obj.kitops['main_object'] = None
 
         try:
             remove.object(obj, data=True)

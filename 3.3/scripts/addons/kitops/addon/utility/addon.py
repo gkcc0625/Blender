@@ -28,6 +28,9 @@ class path:
     def default_thumbnail():
         return os.path.join(path.default_kpack(), 'thumb.png')
 
+    def hardpoint_location():
+        return os.path.join(path.default_kpack(), 'hardpoint.blend')
+
 
 def preference():
     preference = bpy.context.preferences.addons[name].preferences

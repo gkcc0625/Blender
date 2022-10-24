@@ -19,7 +19,7 @@
 bl_info = {
     "name": "UV Toolkit",
     "author": "Alexander Belyakov",
-    "version": (2, 0, 9),
+    "version": (2, 1, 0),
     "blender": (2, 80, 0),
     "location": "UV Editor",
     "description": "UV editing tools",

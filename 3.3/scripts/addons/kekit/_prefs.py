@@ -22,7 +22,7 @@ from bpy.props import (
 from ._m_tt import KeTTHeader
 
 
-kekit_version = 2015
+kekit_version = 2019
 new_version = None
 old_pf = False
 
@@ -259,6 +259,7 @@ dv = {
     'sel_type_coll'         : False,
     'unbevel_autoring'      : False,
     'context_select_h'      : False,
+    'context_select_b'      : False
 }
 
 
@@ -610,10 +611,16 @@ class KeKitProperties(PropertyGroup):
                                    default=dv["unbevel_autoring"])
     # Context Select Object Mode Full Hierarchy
     context_select_h: BoolProperty(name="FH",
-                                   description="Context Select Object Mode Full Hierarchy "
-                                               "(not just the children, but the parents too)"
-                                               "Note: Also applies to Expand/Contract",
+                                   description="Context Select Object Mode Full Hierarchy\n"
+                                               "(not just the children, but the parents too)\n"
+                                               "Note: Also applies to Extend/Subtract",
                                    default=dv["context_select_h"])
+    # Context Select - Vertex Mode Behaviour
+    context_select_b: BoolProperty(name="B",
+                                   description="Context Select - Vertex Mode behaviour\n "
+                                               "On - Selects open boundaries if any in connected geo\n"
+                                               "Off - Selects connected geo",
+                                   default=dv["context_select_b"])
 
 
 class KeSavePrefs(bpy.types.Operator):

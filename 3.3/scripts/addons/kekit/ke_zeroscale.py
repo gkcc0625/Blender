@@ -86,7 +86,7 @@ class KeZeroScale(bpy.types.Operator):
             else:
                 zerovalue = (1, 1, 0)
 
-        if self.orient_type in {"NORMAL", "CURSOR"}:
+        if self.orient_type == "NORMAL":
             bpy.ops.transform.resize(value=zerovalue, orient_type=self.orient_type,
                                      orient_matrix_type=omt, constraint_axis=vplane, mirror=True,
                                      use_proportional_edit=False, proportional_edit_falloff='SMOOTH',
@@ -100,8 +100,8 @@ class KeZeroScale(bpy.types.Operator):
                                      use_proportional_edit=False, proportional_edit_falloff='SMOOTH',
                                      proportional_size=1.0,
                                      use_proportional_connected=False, use_proportional_projected=False, snap=False,
-                                     snap_target='CLOSEST', snap_point=(0.0, 0.0, 0.0), snap_align=False,
-                                     snap_normal=(0.0, 0.0, 0.0), gpencil_strokes=False, texture_space=False,
+                                     snap_target='CLOSEST', snap_point=(0.0, 0.0, 0.0),
+                                     gpencil_strokes=False, texture_space=False,
                                      remove_on_cancel=False, center_override=avg_pos, release_confirm=False)
 
         bpy.ops.transform.select_orientation(orientation=og_orientation)

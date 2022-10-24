@@ -27,3 +27,19 @@ def init(context):
         for modifier in obj.modifiers:
             if modifier.type == 'BOOLEAN' and not modifier.object:
                 obj.modifiers.remove(modifier)
+
+
+def get_children_recursive(collection):
+    '''recursively get children of a given collection'''
+    all_children = []
+
+    for child in collection.children:
+        if child not in all_children:
+            all_children.append(child)
+
+    for child in collection.children:
+        children = get_children_recursive(child)
+        if len(children):
+            all_children.extend(children)
+
+    return all_children

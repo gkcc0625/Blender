@@ -44,7 +44,11 @@ class StraightenIsland(Operator):
     def poll(cls, context):
         return context.mode == 'EDIT_MESH'
 
-    def straighten_island(self, ob, seams):
+    def straighten_island(self, context, ob, seams):
+        scene = context.scene
+        current_uv_select_mode = scene.tool_settings.uv_select_mode
+        scene.tool_settings.uv_select_mode = 'VERTEX'
+
         me = ob.data
         bm = bmesh.from_edit_mesh(me)
         uv = bm.loops.layers.uv.verify()
@@ -104,6 +108,8 @@ class StraightenIsland(Operator):
                     continue
                 l[uv].select = False
 
+        scene.tool_settings.uv_select_mode = current_uv_select_mode
+
     def execute(self, context):
         scene = context.scene
         if scene.tool_settings.use_uv_select_sync:
@@ -129,7 +135,7 @@ class StraightenIsland(Operator):
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-            self.straighten_island(ob, seams)
+            self.straighten_island(context, ob, seams)
 
             bpy.ops.object.mode_set(mode='OBJECT')
 

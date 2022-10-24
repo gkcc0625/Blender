@@ -7,7 +7,7 @@ from .. utility import addon, dpi, insert, update, modifier, previews
 
 authoring_enabled = True
 try: from .. utility import matrixmath
-except: authoring_enabled = False
+except ImportError: authoring_enabled = False
 
 import os
 
@@ -113,6 +113,7 @@ class KO_PT_KPACKS(Panel):
                 op = row.operator('ko.add_insert_material')
                 op.location = category.blends[category.active_index].location
                 op.material = True
+                
 
                 row = column.row()
                 row.label(text='INSERT Name: {}'.format(category.blends[category.active_index].name))
@@ -182,12 +183,42 @@ class KO_PT_Controls(Panel):
                 row_snap.prop_enum(preference, 'snap_mode', 'VERTEX', text='' , icon='SNAP_VERTEX')
                 row_snap.prop_enum(preference, 'snap_mode', 'EDGE', text='' , icon='SNAP_EDGE')
                 row_snap.prop_enum(preference, 'snap_mode', 'FACE', text='' , icon='SNAP_FACE')
+                row_snap.prop_enum(preference, 'snap_mode', 'HARDPOINT', text='' , icon='EMPTY_ARROWS')
 
                 if preference.snap_mode == 'EDGE':
                     row_snap = layout.row(align=True)
                     row_snap.alignment = 'RIGHT'
                     row_snap.label(text="Snap to")
                     row_snap.prop(preference, 'snap_mode_edge', expand=True)
+
+                if preference.snap_mode == 'HARDPOINT':
+                    col_snap = layout.column(align=True)
+
+                    row_snap = col_snap.row(align=True)
+                    row_snap.separator()
+                    row_snap.prop(preference, 'snap_to_empty_hardpoints_only')
+
+                    row_snap = col_snap.row(align=True)
+                    row_snap.separator()
+                    row_snap.prop(preference, "use_snap_mode_hardpoint_tag_match", text="Only Use Tags Matching: ")
+                    row_tag_match = row_snap.row(align=True)
+                    row_tag_match.enabled = preference.use_snap_mode_hardpoint_tag_match
+                    row_tag_match.prop(preference, 'snap_mode_hardpoint_tag_match', text="")
+                    
+
+
+                
+                # col_hp = layout.column()
+                # col_hp.separator()
+                # col_hp.prop(preference, "use_insert_hardpoints", text="Use INSERT Hardpoints")
+                # if preference.use_insert_hardpoints:
+                #     row_hp = col_hp.row(align=True)
+                #     row_hp.separator()
+                #     row_hp.prop(preference, "use_insert_hardpoint_tag_match")
+                #     row_tag_match = row_hp.row(align=True)
+                #     row_tag_match.enabled = preference.use_insert_hardpoint_tag_match
+                #     row_tag_match.prop(preference, "insert_hardpoint_tag_match", text="")
+
 
             active = context.active_object
             if active and hasattr(active, 'kitops') and active.kitops.insert:
@@ -324,16 +355,6 @@ class KO_PT_Management(Panel):
             row.scale_y = 1.5
             row.operator('ko.clean_duplicate_materials')
 
-            layout.separator()
-
-            row = layout.row()
-            row.enabled = True
-            row.alignment = 'RIGHT'
-            row.scale_x = 1.5
-            row.scale_y = 1.5
-            row.operator('ko.store', text='', icon_value=previews.get(addon.icons['cart']).icon_id)
-            op = row.operator('ko.documentation', text='', icon_value=previews.get(addon.icons['question-sign']).icon_id)
-            op.authoring = False
 
 
 
@@ -375,9 +396,8 @@ class KO_PT_Authoring(Panel):
             column.enabled = authoring_enabled
             column.label(text='Author')
             column.prop(option, 'author', text='')
-            layout.separator()
 
-        if context.active_object and not context.active_object.kitops.temp or scene.kitops.factory:
+        if context.active_object and (not context.active_object.kitops.temp or scene.kitops.factory):
             if context.active_object.type not in {'LAMP', 'CAMERA', 'SPEAKER', 'EMPTY'}:
                 row = layout.row()
                 row.enabled = authoring_enabled and not context.active_object.kitops.temp and not context.active_object.kitops.material_base
@@ -435,6 +455,12 @@ class KO_PT_Authoring(Panel):
                     op.render = False
                     op.import_scene = True
 
+
+            if context.active_object and context.active_object.kitops.is_hardpoint:
+                col = layout.column()
+                col.label(text="Hardpoint tags")
+                col.prop(context.active_object.kitops, 'hardpoint_tags', text='')
+
             if context.scene.kitops.factory or context.scene.kitops.thumbnail:
                 row = layout.row()
                 row.active = authoring_enabled and not (context.scene.kitops.factory and not context.scene.kitops.last_edit)
@@ -469,7 +495,70 @@ class KO_PT_Authoring(Panel):
             op = row.operator('ko.documentation', text='', icon_value=previews.get(addon.icons['question-sign']).icon_id)
             op.authoring = True
 
+class KO_PT_Hardpoints(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_idname = "KITOPS_PT_Panel_HPs"
+    bl_label = 'Hardpoints'
+    bl_region_type = 'UI'
+    bl_category = 'KIT OPS'
+    bl_parent_id = 'KITOPS_PT_Panel_Main'
+    @classmethod
+    def poll(cls, context):
+        global authoring_enabled
+        return authoring_enabled and not _is_standard_mode(context)
 
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        op = col.operator('ko.add_hardpoint', text="Add Hardpoint")
+        op.material = False
+        op.rotation_amount = 0
+
+class KO_PT_HardpointTags(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_label = 'Hardpoint Tags'
+    bl_region_type = 'UI'
+    bl_category = 'KIT OPS'
+    bl_parent_id = 'KITOPS_PT_Panel_HPs'
+
+    # def draw_header_preset(self, context):
+    #     col = self.layout.column()
+    #     col.operator("ko.preview_hardpoint_tags", text="", depress=context.scene.kitops.preview_hardpoints, icon='HIDE_OFF' if not context.scene.kitops.preview_hardpoints else 'HIDE_ON', emboss=False)
+
+    @classmethod
+    def poll(cls, context):
+        global authoring_enabled
+        return authoring_enabled
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        col.operator("ko.preview_hardpoint_tags", text="Preview Tags", depress=context.scene.kitops.preview_hardpoints,  )
+
+        hardpoint_objs = [o for o in context.selected_objects if o.kitops.is_hardpoint]
+
+        if hardpoint_objs:
+            box = col.box()
+            col_hp = box.column()
+            col_hp.label(text='Selected Hardpoints: ')
+
+
+            for hardpoint_index in range(0, len(hardpoint_objs)):
+                hardpoint_obj = hardpoint_objs[hardpoint_index]
+                row_hp = col_hp.row(align=True).split(factor=0.2)
+                row_hp.label(text="Name: ")
+                row_hp.prop(hardpoint_obj, 'name', text="")
+                row_hp = col_hp.row(align=True).split(factor=0.2)
+                row_hp.label(text="Tags: ")
+                row_hp_sub = row_hp.row(align=True)
+                row_hp_sub.prop(hardpoint_obj.kitops, 'hardpoint_tags', text="")
+                props = row_hp_sub.operator('ko.copy_hardpoint_tags', text='', icon="PASTEDOWN")
+                props.tags = hardpoint_obj.kitops.hardpoint_tags
+                col_hp.separator()
+
+        
 
 
 class KO_PT_sort_last(Panel):
@@ -513,6 +602,56 @@ class KO_PT_sort_last(Panel):
         label_row(preference, 'sort_stop_char', layout.row(), label='Stop Flag', scale_x_prop=0.35)
 
 
+
+class KO_PT_GetKitOpsPro(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_label = 'Get KIT OPS PRO'
+    bl_region_type = 'UI'
+    bl_category = 'KIT OPS'
+    bl_parent_id = 'KITOPS_PT_Panel_Main'
+
+    @classmethod
+    def poll(cls, context):
+        global authoring_enabled
+        return not authoring_enabled
+
+    def draw(self, context):
+        global authoring_enabled
+
+        layout = self.layout
+
+        col = layout.column()
+
+        col.label(text="- Enhanced INSERT placement")
+        col.label(text="- Enhanced INSERT editing")
+        col.label(text="- INSERT Snapping")
+        col.label(text="- Save Favorite INSERTs")
+        col.label(text="- Auto replace INSERTs")
+        col.label(text="- INSERT FACTORY mode")
+
+
+        col.operator('ko.store', text='Get KIT OPS PRO')
+
+class KO_PT_GetKitOpsKPACKS(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_label = 'KIT OPS Store'
+    bl_region_type = 'UI'
+    bl_category = 'KIT OPS'
+    bl_parent_id = 'KITOPS_PT_Panel_Main'
+    # bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        return _is_standard_mode(context)
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        col.operator('ko.kpackslink', text='GET MORE INSERTS', icon="IMPORT")
+        col.operator('ko.store', text='VISIT STORE', icon_value=previews.get(addon.icons['cart']).icon_id)
+
+
 class KO_PT_ui():
     '''Facade class to for use with HOPS so that the panel will still be displayed'''
 
@@ -539,7 +678,11 @@ classes = [
     KO_PT_Controls,
     KO_PT_Management,
     KO_PT_Authoring,
-    KO_PT_sort_last]
+    KO_PT_sort_last,
+    KO_PT_Hardpoints,
+    KO_PT_HardpointTags,
+    KO_PT_GetKitOpsPro,
+    KO_PT_GetKitOpsKPACKS]
 
 
 def register():

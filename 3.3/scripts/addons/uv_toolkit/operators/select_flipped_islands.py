@@ -31,9 +31,12 @@ class SelectFlippedIslands(Operator):
 
     def execute(self, context):
         scene = context.scene
+
         if scene.tool_settings.use_uv_select_sync:
             self.report({'INFO'}, "Need to disable UV Sync")
             return {'CANCELLED'}
+
+        current_uv_select_mode = scene.tool_settings.uv_select_mode
 
         bpy.ops.uv.select_all(action='DESELECT')
 
@@ -49,4 +52,7 @@ class SelectFlippedIslands(Operator):
                     for f in island:
                         for l in f.loops:
                             l[uv].select = True
+
+        scene.tool_settings.uv_select_mode = 'VERTEX'
+        scene.tool_settings.uv_select_mode = current_uv_select_mode
         return {'FINISHED'}

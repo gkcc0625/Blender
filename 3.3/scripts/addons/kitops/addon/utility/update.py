@@ -6,13 +6,12 @@ import bpy
 
 from bpy.utils import register_class, unregister_class
 
-from . import addon, insert, math, modifier, ray, regex, id, enums, previews, constants
+from bpy_extras import view3d_utils
 
-from mathutils import Vector
+from math import radians
+from . import addon, insert, math, modifier, ray, regex, id, enums, previews, constants, hardpoints
 
-smart_mode = True
-try: from . import smart
-except: smart_mode = False
+from mathutils import Vector, Euler, Matrix
 
 
 def kpacks(prop, context):
@@ -216,9 +215,6 @@ def mode(prop, context):
     for obj in inserts:
         obj.kitops.applied = True
 
-        if prop.mode == 'REGULAR':
-            obj.kitops['insert_target'] = None
-
     if prop.mode == 'SMART':
         insert.select()
 
@@ -258,15 +254,76 @@ def show_wire_objects(prop, context):
         obj.hide_viewport = not option.show_wire_objects
 
 
-def location():
-    if ray.success:
-        track_quaternion = ray.to_track_quat
-        matrix = track_quaternion.to_matrix().to_4x4()
+last_hardpoint_obj_name = None
+def location(context, op):
 
-        scale = insert.operator.main.matrix_world.to_scale()
-        insert.operator.main.matrix_world = matrix
-        insert.operator.main.matrix_world.translation = ray.location
-        insert.operator.main.scale = scale
+    preference = addon.preference()    
+   
+    if not op.is_hardpoint_mode:
+        if ray.success:
+            track_quaternion = ray.to_track_quat
+            matrix = track_quaternion.to_matrix().to_4x4()
+
+            scale = insert.operator.main.matrix_world.to_scale()
+            insert.operator.main.matrix_world = matrix
+            insert.operator.main.matrix_world.translation = ray.location
+            insert.operator.main.scale = scale
+    else:
+        
+         # deal with hardpoint positioning.
+        scene_hardpoints = op.scene_hardpoints
+
+        hp_locations = [o.location for o in scene_hardpoints]
+
+        hp_screen_points = []
+
+        context.view_layer.update()
+
+        for hardpoint in scene_hardpoints:
+            loc_3d = hardpoint.matrix_world.to_translation()
+
+            view2d_co = view3d_utils.location_3d_to_region_2d(context.region, \
+                                context.space_data.region_3d, \
+                                loc_3d)
+            hp_screen_points.append((hardpoint, view2d_co))
+
+        def dist_to_hp(hp_tuple):
+            if op.mouse and hp_tuple[1]:
+                return (op.mouse - hp_tuple[1]).length
+            return 0
+
+        nearest_hardpoint_tuple = min(hp_screen_points, key=dist_to_hp)
+        hardpoint_obj = nearest_hardpoint_tuple[0]
+
+        context.view_layer.update()
+
+        # then rotate the object enough to be in line with the target hardpoint.            
+        op.main.rotation_euler = hardpoint_obj.matrix_world.to_euler()
+
+        #update the context view layer before calculating offset.
+        context.view_layer.update()
+
+        op.main.location = hardpoint_obj.matrix_world.to_translation()
+
+        # register the hardpoint ref to the insert
+        # op.main.kitops.hardpoint_object = hardpoint_obj
+        global last_hardpoint_obj_name
+        last_hardpoint_obj_name = hardpoint_obj.name
+            
+
+
+    # # offset by insert hardpoint if necessary.
+    # if preference.use_insert_hardpoints:
+    #     insert_hardpoints = hardpoints.get_hardpoints(op.main)
+
+    #     if preference.use_insert_hardpoint_tag_match:
+    #         insert_restrict_list = hardpoints.get_tags_from_str(preference.insert_hardpoint_tag_match)
+    #         insert_hardpoints = [hp for hp in insert_hardpoints if hardpoints.intersecting_tags(hardpoints.get_tags_from_str(hp.kitops.hardpoint_tags), insert_restrict_list)]
+
+    #     if insert_hardpoints:
+    #         # find nearest insert hardpoint...
+    #         insert_hardpoint_obj = hardpoints.get_nearest_hardpoint(context, op.mouse, insert_hardpoints)
+    #         hardpoints.offset_by_hardpoint(context, insert.operator.main, insert_hardpoint_obj)
 
 
 def insert_scale(prop, context):
@@ -284,7 +341,7 @@ def insert_scale(prop, context):
         context.view_layer.update()
 
         for main in mains:
-            if main.kitops.reserved_target and smart_mode or insert.operator and not smart_mode:
+            if main.kitops.reserved_target:
                 init_hide = copy(main.hide_viewport)
                 main.hide_viewport = False
 
@@ -371,4 +428,3 @@ def sort_stop_char(prop, context):
         prop.sort_stop_char = '_'
 
     sync_sort(prop, context)
-

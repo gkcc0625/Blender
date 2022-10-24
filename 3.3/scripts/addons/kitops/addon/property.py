@@ -11,9 +11,7 @@ from . utility import addon, insert, update, shader, previews, enums, smart, per
 
 authoring_enabled = True
 try: from . utility import matrixmath
-except:
-    authoring_enabled = False
-    traceback.print_exc()
+except ImportError: authoring_enabled = False
 
 def sort_items(e):
   return e[0].lower()
@@ -88,6 +86,13 @@ class object(PropertyGroup):
     temp: BoolProperty()
     material_base: BoolProperty()
     bool_duplicate: BoolProperty()
+    is_hardpoint : BoolProperty()
+    hardpoint_object: PointerProperty(type=bpy.types.Object)
+
+    hardpoint_tags : StringProperty(
+        name="Hardpoint Tags",
+        description="A Comma separated list of tags for the hardpoint"
+        )
 
     mirror_x: BoolProperty(
         name = 'X',
@@ -191,6 +196,8 @@ class scene(PropertyGroup):
         name = 'Animated',
         description = 'Begin the timeline when you add this insert',
         default = False)
+
+    preview_hardpoints: BoolProperty(default=False)
 
 
 class options(PropertyGroup):

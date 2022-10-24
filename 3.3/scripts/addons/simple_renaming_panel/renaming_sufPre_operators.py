@@ -8,6 +8,7 @@ from bpy.props import (
 from .renaming_utilities import callRenamingPopup
 from .renaming_proFeatures import tChange
 
+
 class VIEW3D_OT_add_type_suf_pre(bpy.types.Operator):
     """Add Type Suffix"""
     bl_idname = "renaming.add_sufpre_by_type"
@@ -33,7 +34,7 @@ class VIEW3D_OT_add_type_suf_pre(bpy.types.Operator):
 
         switchSufPre = wm.renaming_sufpre_type  # either use pre of suffix
 
-        if preSuf is not '':
+        if preSuf != '':
             for ent in objList:
                 if hasattr(ent, 'name'):
                     oldName = ent.name
@@ -87,7 +88,7 @@ class VIEW3D_OT_add_type_suf_pre(bpy.types.Operator):
         if wm.type_pre_sub_only_selection:
             for obj in context.selected_objects:
                 for mat in obj.material_slots:
-                    if mat is not None and mat.name != '':
+                    if mat != None and mat.name != '':
                         objList.append(bpy.data.materials[mat.name])
         else:
             objList = list(bpy.data.materials)
@@ -354,6 +355,7 @@ enumPresetItems = [('FILE', "File", "", '', 1),
                    ('USER2', "User2", "", '', 256),
                    ('USER3', "User3", "", '', 512),
                    ('NUMBER', "Number", "", '', 1024),
+                   ('DATA', "Data", "", '', 2048),
                    ]
 
 enumObjectTypesExt = [('EMPTY', "", "Rename empty objects", 'OUTLINER_OB_EMPTY', 1),

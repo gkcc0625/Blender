@@ -346,6 +346,10 @@ def get_objects_seams(context):
     store_verts_selection = defaultdict(set)
     store_edges_selection = defaultdict(set)
 
+    scene = context.scene
+    current_uv_select_mode = scene.tool_settings.uv_select_mode
+    scene.tool_settings.uv_select_mode = 'VERTEX'
+
     for ob in context.objects_in_mode_unique_data:
         me = ob.data
         bm = bmesh.from_edit_mesh(me)
@@ -402,6 +406,9 @@ def get_objects_seams(context):
         for e in bm.edges:
             if e.index in store_edges_selection[ob]:
                 e.select = True
+
+    scene.tool_settings.uv_select_mode = current_uv_select_mode
+
     return objects_seams
 
 

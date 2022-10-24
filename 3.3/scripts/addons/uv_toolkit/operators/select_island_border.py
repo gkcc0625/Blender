@@ -19,6 +19,8 @@ class SelectIslandBorder(Operator):
             self.report({'INFO'}, "Need to disable UV Sync")
             return {'CANCELLED'}
 
+        current_uv_select_mode = scene.tool_settings.uv_select_mode
+
         objects_seams = get_objects_seams(context)
         for ob in context.objects_in_mode_unique_data:
             seams = objects_seams[ob]
@@ -46,4 +48,6 @@ class SelectIslandBorder(Operator):
                                 if l in island_loops:
                                     l[uv].select = True
             bmesh.update_edit_mesh(me)
+        scene.tool_settings.uv_select_mode = 'VERTEX'
+        scene.tool_settings.uv_select_mode = current_uv_select_mode
         return {'FINISHED'}

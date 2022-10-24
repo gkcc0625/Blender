@@ -27,12 +27,15 @@ class FindUdimCrossing(Operator):
             self.report({'INFO'}, "Need to disable UV Sync")
             return {'CANCELLED'}
 
+
         tool_settings = context.tool_settings
 
         uv_sync_status = tool_settings.use_uv_select_sync
+        current_uv_select_mode = scene.tool_settings.uv_select_mode
 
         if uv_sync_status:
             tool_settings.use_uv_select_sync = False
+
 
         islands_count = 0
 
@@ -73,10 +76,14 @@ class FindUdimCrossing(Operator):
             bmesh.update_edit_mesh(me)
 
         if islands_count:
+            scene.tool_settings.uv_select_mode = 'VERTEX'
+
             if islands_count == 1:
                 island = "Island"
             else:
                 island = "Islands"
             message = f"{str(islands_count)} {island} found"
             self.report({'WARNING'}, message)
+
+            scene.tool_settings.uv_select_mode = current_uv_select_mode
         return {'FINISHED'}

@@ -50,6 +50,8 @@ class SelectSimilarIslands(Operator):
             self.report({'INFO'}, "Need to disable UV Sync")
             return {'CANCELLED'}
 
+        current_uv_select_mode = scene.tool_settings.uv_select_mode
+
         # Collect the selected islands params
         islands_params = defaultdict(set)
         objects_seams = get_objects_seams(context)
@@ -94,4 +96,8 @@ class SelectSimilarIslands(Operator):
                                 for l in f.loops:
                                     l[uv].select = True
             bmesh.update_edit_mesh(me)
+
+        scene.tool_settings.uv_select_mode = 'VERTEX'
+        scene.tool_settings.uv_select_mode = current_uv_select_mode
+
         return {'FINISHED'}

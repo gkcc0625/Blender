@@ -1,6 +1,7 @@
 import bpy
 
 from mathutils import Vector
+from ctypes import Structure, c_float, c_short, c_char, cast, POINTER
 
 sort_types = [
     'ARRAY',
@@ -94,22 +95,19 @@ def apply(obj, mod=None, visible=False, modifiers=[], ignore=[], types={}):
 
     for mod in obj.modifiers:
         if mod not in apply:
-            keep.append(mod)
-
-    keep = [stored(mod) for mod in keep]
-    apply = [stored(mod) for mod in apply]
+            keep.append((mod, mod.show_viewport))
 
     if not apply:
         del keep
 
         return
 
-    obj.modifiers.clear()
+    for mod in keep:
+        mod[0].show_viewport = False
 
-    for mod in apply:
-        new(obj, mod=mod)
-
+    shared_name = None
     if obj.data.users > 1:
+        shared_name = obj.data.name
         obj.data = obj.data.copy()
     remesh_voxel_size = obj.data.remesh_voxel_size
 
@@ -117,10 +115,21 @@ def apply(obj, mod=None, visible=False, modifiers=[], ignore=[], types={}):
     obj.data = bpy.data.meshes.new_from_object(ob)
     obj.data.remesh_voxel_size = remesh_voxel_size
 
-    obj.modifiers.clear()
+    for mod in apply:
+        obj.modifiers.remove(mod)
 
     for mod in keep:
-        new(obj, mod=mod)
+        mod[0].show_viewport = mod[1]
+
+    for o in bpy.context.view_layer.objects:
+        if o.type != 'MESH':
+            continue
+
+        if o.data.name == shared_name:
+            o.data = obj.data
+
+    if shared_name:
+        obj.data.name = shared_name
 
     del apply
     del keep
@@ -188,16 +197,12 @@ def unmodified_bounds(obj, exclude={}):
 
 
 def stored(mod):
-    exclude = {'__doc__', '__module__', '__slots__', '_RNA_UI', 'bl_rna', 'rna_type', 'face_count', 'is_override_data'}
+    exclude = {'__doc__', '__module__', '__slots__', '_RNA_UI', 'bl_rna', 'rna_type', 'face_count', 'is_override_data', 'particle_system'}
     new_type = type(mod.name, (), {})
 
     projector = lambda p: type('projector', (), {'object': p.object})
 
-    # TODO: 2.9 point handle write
-    profile_point = lambda p: type('point', (), {
-        'location': p.location[:],
-        'handle_type_1': p.handle_type_1,
-        'handle_type_2': p.handle_type_2})
+    profile_point = lambda p: CurveProfilePoint(x=p.x, y=p.y, flag=p.flag, h1=p.h1, h2=p.h2, h1_loc=p.h1_loc, h2_loc=p.h2_loc)
 
     for pointer in dir(mod):
         if pointer not in exclude:
@@ -211,7 +216,7 @@ def stored(mod):
                     'use_clip': mod.custom_profile.use_clip,
                     'use_sample_even_lengths': mod.custom_profile.use_sample_even_lengths,
                     'use_sample_straight_edges': mod.custom_profile.use_sample_straight_edges,
-                    'points': [profile_point(p) for p in mod.custom_profile.points]})
+                    'points': [profile_point(cast(p.as_pointer(), POINTER(CurveProfilePoint)).contents) for p in mod.custom_profile.points]})
 
                 setattr(new_type, pointer, profile)
 
@@ -233,7 +238,7 @@ def new(obj, name=str(), _type='BEVEL', mod=None, props={}):
         new = obj.modifiers.new(name=mod.name, type=mod.type)
 
         for pointer in dir(mod):
-            if '__' in pointer or pointer in {'bl_rna', 'rna_type', 'type', 'face_count', 'falloff_curve', 'vertex_indices', 'vertex_indices_set', 'is_override_data'}:
+            if '__' in pointer or pointer in {'bl_rna', 'rna_type', 'type', 'face_count', 'falloff_curve', 'vertex_indices', 'vertex_indices_set', 'is_override_data', 'particle_system'}:
                 continue
 
             elif mod.type == 'NODES':
@@ -245,15 +250,21 @@ def new(obj, name=str(), _type='BEVEL', mod=None, props={}):
                     new_proj.object = old_proj.object
 
             elif mod.type == 'BEVEL' and pointer == 'custom_profile':
-                # TODO: 2.9 point handle read
                 step = 1 / len(mod.custom_profile.points)
                 for index, point in enumerate(mod.custom_profile.points[1:-1]):
-                    new_point = new.custom_profile.points.add(index * step, (index + 1) * step)
-                    new_point.handle_type_1 = point.handle_type_1
-                    new_point.handle_type_2 = point.handle_type_2
+                    new.custom_profile.points.add(index * step, (index + 1) * step)
 
-                for index, point in enumerate(mod.custom_profile.points[1:-1]):
-                    new.custom_profile.points[index + 1].location = point.location
+                for index, point in enumerate(mod.custom_profile.points):
+                    point = cast(point.as_pointer(), POINTER(CurveProfilePoint)).contents if hasattr(point,'as_pointer') else point
+                    new_point = cast(new.custom_profile.points[index].as_pointer(), POINTER(CurveProfilePoint)).contents
+
+                    new_point.x = point.x
+                    new_point.y = point.y
+                    new_point.flag = point.flag
+                    new_point.h1 = point.h1
+                    new_point.h2 = point.h2
+                    new_point.h1_loc = point.h1_loc
+                    new_point.h2_loc = point.h2_loc
 
                 new.custom_profile.update()
 
@@ -338,3 +349,14 @@ def move_to_index(mod, index=0):
 
         for mod in modifiers:
             new(obj, mod=mod)
+
+
+class CurveProfilePoint(Structure):
+    _fields_ = [
+        ('x', c_float),
+        ('y', c_float),
+        ('flag', c_short),
+        ('h1', c_char),
+        ('h2', c_char),
+        ('h1_loc', c_float * 2),
+        ('h2_loc', c_float * 2)]

@@ -38,10 +38,12 @@ class UIContextToolsModule(Panel):
 
         col.operator('mesh.ke_contextdissolve')
         row = col.row(align=True)
-        row.operator('view3d.ke_contextselect')
+        row.label(text="Context Select:")
         row2 = row.row(align=True)
         row2.alignment = "RIGHT"
         row2.prop(bpy.context.scene.kekit, "context_select_h", text="FH", toggle=True)
+        row2.prop(bpy.context.scene.kekit, "context_select_b", text="B", toggle=True)
+        col.operator('view3d.ke_contextselect')
         col.operator('view3d.ke_contextselect_extend')
         col.operator('view3d.ke_contextselect_subtract')
         col.operator('mesh.ke_bridge_or_fill', text="Bridge or Fill")
@@ -218,20 +220,24 @@ class KeContextSelect(Operator):
             sel_mode = context.tool_settings.mesh_select_mode
 
             if sel_mode[0]:
-                bm = bmesh.from_edit_mesh(context.active_object.data)
-                og = [v for v in bm.verts if v.select]
-                bpy.ops.mesh.select_linked(delimit=set())
-                bpy.ops.mesh.region_to_loop()
-                bpy.ops.ed.undo_push()
-                sel_verts = [v for v in bm.verts if v.select]
-                if sel_verts:
-                    bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
-                else:
-                    context.tool_settings.mesh_select_mode = (True, False, False)
-                    for v in og:
-                        v.select = True
+                if context.scene.kekit.context_select_b:
+                    bm = bmesh.from_edit_mesh(context.active_object.data)
+                    og = [v for v in bm.verts if v.select]
                     bpy.ops.mesh.select_linked(delimit=set())
+                    bpy.ops.mesh.region_to_loop()
                     bpy.ops.ed.undo_push()
+                    sel_verts = [v for v in bm.verts if v.select]
+                    if sel_verts:
+                        pass
+                        # bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                    else:
+                        context.tool_settings.mesh_select_mode = (True, False, False)
+                        for v in og:
+                            v.select = True
+                        bpy.ops.mesh.select_linked(delimit=set())
+                else:
+                    bpy.ops.mesh.select_linked(delimit=set())
+                bpy.ops.ed.undo_push()
 
             elif sel_mode[1]:
                 bpy.ops.mesh.loop_multi_select(True, ring=False)
@@ -269,8 +275,9 @@ class KeContextSelectExtend(Operator):
 
             if sel_mode[0]:
                 bpy.ops.mesh.select_linked(delimit=set())
-                bpy.ops.mesh.region_to_loop()
-                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                if context.scene.kekit.context_select_b:
+                    bpy.ops.mesh.region_to_loop()
+                    # bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
                 bpy.ops.ed.undo_push()
 
             elif sel_mode[1]:
@@ -311,9 +318,12 @@ class KeContextSelectSubtract(Operator):
             sel_mode = context.tool_settings.mesh_select_mode
 
             if sel_mode[0]:
-                bpy.ops.mesh.select_linked(delimit=set())
-                bpy.ops.mesh.region_to_loop()
-                bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                if context.scene.kekit.context_select_b:
+                    bpy.ops.mesh.select_linked(delimit=set())
+                    bpy.ops.mesh.region_to_loop()
+                    # bpy.ops.mesh.select_mode(use_extend=False, use_expand=False, type='EDGE')
+                else:
+                    bpy.ops.mesh.select_linked_pick('INVOKE_DEFAULT', deselect=True)
                 bpy.ops.ed.undo_push()
 
             elif sel_mode[1]:
@@ -384,7 +394,16 @@ class KeBridgeOrFill(Operator):
                 if len(sel_edges) == 2:
                     tri_check = len(list(set(vert_pairs[0] + vert_pairs[1])))
                     if tri_check < 4:
-                        bpy.ops.mesh.edge_face_add()
+                        bm = bmesh.from_edit_mesh(mesh)
+                        bm.verts.ensure_lookup_table()
+                        sel_verts = [v for v in bm.verts if v.select]
+                        new = bm.faces.new([bm.verts[i.index] for i in sel_verts])
+                        uv_layer = bm.loops.layers.uv.verify()
+                        for loop in new.loops:
+                            loop_uv = loop[uv_layer]
+                            loop_uv.uv[0] = loop.vert.co.x + 0.5
+                            loop_uv.uv[1] = loop.vert.co.y + 0.5
+                        bmesh.update_edit_mesh(mesh)
 
                 check_loops = vertloops(vert_pairs)
                 if len(check_loops) == 1 and check_loops[0][0] == check_loops[-1][-1] and len(sel_edges) % 2 == 0:
@@ -463,10 +482,15 @@ class KeTripleConnectSpin(Operator):
                     bpy.ops.mesh.vert_connect('INVOKE_DEFAULT')
 
             elif sel_mode[1]:
-                if self.spin_mode == 'CW':
-                    bpy.ops.mesh.edge_rotate(use_ccw=False)
-                elif self.spin_mode == 'CCW':
-                    bpy.ops.mesh.edge_rotate(use_ccw=True)
+                try:
+                    if self.spin_mode == 'CW':
+                        bpy.ops.mesh.edge_rotate(use_ccw=False)
+                    elif self.spin_mode == 'CCW':
+                        bpy.ops.mesh.edge_rotate(use_ccw=True)
+                except Exception as e:
+                    self.report({"INFO"}, "TripleConnectSpin: Invalid Edge Selection?")
+                    print(e)
+                    return {'CANCELLED'}
 
             elif sel_mode[2]:
                 if self.triple_mode == 'BEAUTY':

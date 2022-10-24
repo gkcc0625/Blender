@@ -8,9 +8,19 @@ from . import addon, shader, insert, remove, update, smart
 
 authoring_enabled = True
 try: from . import matrixmath
-except:
-    traceback.print_exc()
-    authoring_enabled = False
+except ImportError: authoring_enabled = False
+
+
+def _check_main():
+    '''This was legacy code designed to make KIT OPS free exit if there was a KIT OPS insert with no ID set.'''
+    if not authoring_enabled:
+        for obj in bpy.data.objects:
+            if obj.kitops.main and not obj.kitops.id:
+                print ('KIT OPS object is invalid state:')
+                print ('KIT OPS object:', obj.name)
+                print ('KIT OPS kitops.main:', obj.kitops.main)
+                print ('KIT OPS kitops.id:', obj.kitops.id)
+                # sys.exit() TODO re-introduce this if we absolutely have to.
 
 # flag to determine whether we are saving or not.
 is_saving = False
@@ -36,13 +46,7 @@ class pre:
                     obj.select_set(False)
                 except RuntimeError: pass
 
-
-        if not authoring_enabled:
-            for obj in bpy.data.objects:
-                if obj.kitops.main and not obj.kitops.id:
-                    sys.exit()
-
-
+        _check_main()
     @persistent
     def load(none):
         # if shader.handler:
@@ -55,10 +59,7 @@ class pre:
             return
 
 
-        if not authoring_enabled:
-            for obj in bpy.data.objects:
-                if obj.kitops.main and not obj.kitops.id:
-                    sys.exit()
+        _check_main()
 
 
     @persistent
@@ -72,10 +73,10 @@ class pre:
         if authoring_enabled:
             matrixmath.authoring_save_pre()
 
-        if not authoring_enabled:
-            for obj in bpy.data.objects:
-                if obj.kitops.main and not obj.kitops.id:
-                    sys.exit()
+        _check_main()
+
+
+
 
 
 class post:
@@ -93,22 +94,20 @@ class post:
         if insert.authoring():
             if authoring_enabled:
                 matrixmath.authoring_depsgraph_update_post()
-        else:
-            scene = bpy.context.scene
-            if not insert.operator and scene and hasattr(scene, 'kitops') and scene.kitops and not scene.kitops.thumbnail:
-                for obj in [ob for ob in bpy.data.objects if ob.kitops.duplicate]:
-                    remove.object(obj, data=True)
 
-            if addon.preference().mode == 'SMART':
-                insert.select()
+        scene = bpy.context.scene
 
-            if not insert.operator:
-                smart.toggles_depsgraph_update_post()
+        if not insert.operator and scene and hasattr(scene, 'kitops') and scene.kitops and not scene.kitops.thumbnail:
+            for obj in [ob for ob in bpy.data.objects if ob.kitops.duplicate]:
+                remove.object(obj, data=True)
 
-        if not authoring_enabled:
-            for obj in bpy.data.objects:
-                if obj.kitops.main and not obj.kitops.id:
-                    sys.exit()
+        if addon.preference().mode == 'SMART':
+            insert.select()
+
+        if not insert.operator:
+            smart.toggles_depsgraph_update_post()
+
+        _check_main()
 
 
     @persistent
@@ -128,10 +127,7 @@ class post:
                 for obj in bpy.data.objects:
                     obj.kitops.applied = True
 
-        if not authoring_enabled:
-            for obj in bpy.data.objects:
-                if obj.kitops.main and not obj.kitops.id:
-                    sys.exit()
+        _check_main()
 
 
 def register():

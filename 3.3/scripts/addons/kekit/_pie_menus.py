@@ -116,10 +116,13 @@ class KePieSubd(Menu):
                 col.separator(factor=0.5)
                 sub = col.row(align=True)
                 sub.label(text="Use World Origo")
-                sub.operator("ke.pieops", text="", icon="ORIENTATION_GLOBAL").op = "MIRROR_W"
-                sub.operator("ke.pieops", text="", icon="X").op = "REM_MIRROR_W"
+                mop = sub.operator("ke.pieops", text="", icon="ORIENTATION_GLOBAL")
+                mop.op = "MIRROR_W"
+                mop.mname = m.name
+                xmop = sub.operator("ke.pieops", text="", icon="X")
+                xmop.op = "REM_MIRROR_W"
+                xmop.mname = m.name
                 c.separator(factor=0.7)
-
         else:
             sub = c.box().column(align=True)
             c.scale_y = 1.0

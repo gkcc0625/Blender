@@ -23,6 +23,7 @@ class VIEW3D_PT_KCM(Panel):
     bl_label = "KCM"
 
     def draw(self, context):
+        bookmarks = bool(bpy.context.preferences.addons[__package__].preferences.m_bookmarks)
         k = context.scene.kekit_temp
         layout = self.layout
         c = layout.column()
@@ -53,6 +54,41 @@ class VIEW3D_PT_KCM(Panel):
         row.operator("view3d.snap_cursor_to_selected", text="Selected")
         row.operator("view3d.snap_cursor_to_active", text="Active")
         row.operator("view3d.snap_cursor_to_grid", text="Grid")
+
+        if bookmarks:
+            c.label(text="Cursor Bookmarks")
+            row = c.grid_flow(row_major=True, columns=6, align=True)
+            row.operator('view3d.ke_cursor_bookmark', text="", icon="IMPORT").mode = "SET1"
+            row.operator('view3d.ke_cursor_bookmark', text="", icon="IMPORT").mode = "SET2"
+            row.operator('view3d.ke_cursor_bookmark', text="", icon="IMPORT").mode = "SET3"
+            row.operator('view3d.ke_cursor_bookmark', text="", icon="IMPORT").mode = "SET4"
+            row.operator('view3d.ke_cursor_bookmark', text="", icon="IMPORT").mode = "SET5"
+            row.operator('view3d.ke_cursor_bookmark', text="", icon="IMPORT").mode = "SET6"
+
+            if sum(k.cursorslot1) == 0:
+                row.operator('view3d.ke_cursor_bookmark', text="1", depress=False).mode = "USE1"
+            else:
+                row.operator('view3d.ke_cursor_bookmark', text="1", depress=True).mode = "USE1"
+            if sum(k.cursorslot2) == 0:
+                row.operator('view3d.ke_cursor_bookmark', text="2", depress=False).mode = "USE2"
+            else:
+                row.operator('view3d.ke_cursor_bookmark', text="2", depress=True).mode = "USE2"
+            if sum(k.cursorslot3) == 0:
+                row.operator('view3d.ke_cursor_bookmark', text="3", depress=False).mode = "USE3"
+            else:
+                row.operator('view3d.ke_cursor_bookmark', text="3", depress=True).mode = "USE3"
+            if sum(k.cursorslot4) == 0:
+                row.operator('view3d.ke_cursor_bookmark', text="4", depress=False).mode = "USE4"
+            else:
+                row.operator('view3d.ke_cursor_bookmark', text="4", depress=True).mode = "USE4"
+            if sum(k.cursorslot5) == 0:
+                row.operator('view3d.ke_cursor_bookmark', text="5", depress=False).mode = "USE5"
+            else:
+                row.operator('view3d.ke_cursor_bookmark', text="5", depress=True).mode = "USE5"
+            if sum(k.cursorslot6) == 0:
+                row.operator('view3d.ke_cursor_bookmark', text="6", depress=False).mode = "USE6"
+            else:
+                row.operator('view3d.ke_cursor_bookmark', text="6", depress=True).mode = "USE6"
 
         cf = c.column_flow(columns=2, align=True)
         cf.prop(context.scene.cursor, "location", text="Cursor Location", expand=True)

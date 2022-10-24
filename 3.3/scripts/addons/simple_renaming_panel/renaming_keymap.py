@@ -2,6 +2,7 @@ import bpy
 
 addon_keymaps = []
 
+
 def remove_hotkey():
     ''' clears addon keymap hotkeys stored in addon_keymaps '''
 
@@ -12,6 +13,7 @@ def remove_hotkey():
                 km.keymap_items.remove(kmi)
 
     addon_keymaps.clear()
+
 
 def add_hotkey(context=None):
     '''Add default hotkey konfiguration'''
@@ -34,6 +36,11 @@ def add_hotkey(context=None):
         kmi.active = True
         addon_keymaps.append((km, kmi))
 
+        km = wm.keyconfigs.addon.keymaps.new(name='Outliner', space_type='OUTLINER')
+        kmi = km.keymap_items.new(idname='wm.call_panel', type='F2', value='PRESS', ctrl=True)
+        kmi.properties.name = 'VIEW3D_PT_tools_renaming_panel'
+        kmi.active = True
+        addon_keymaps.append((km, kmi))
 
 def get_hotkey_entry_item(km, kmi_name, kmi_value=None):
     ''' returns hotkey of specific type, with specific properties.name (keymap is not a dict, so referencing by keys is not enough
@@ -52,6 +59,7 @@ def get_hotkey_entry_item(km, kmi_name, kmi_value=None):
 
     return None
 
+
 class RENAMING_OT_add_hotkey_renaming(bpy.types.Operator):
     ''' Add hotkey entry '''
     bl_idname = "renaming.add_hotkey"
@@ -61,6 +69,7 @@ class RENAMING_OT_add_hotkey_renaming(bpy.types.Operator):
     def execute(self, context):
         add_hotkey(context)
         return {'FINISHED'}
+
 
 classes = (
     RENAMING_OT_add_hotkey_renaming,

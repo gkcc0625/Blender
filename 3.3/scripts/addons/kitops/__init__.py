@@ -3,8 +3,8 @@
 bl_info = {
     'name': 'KIT OPS',
     'author': 'Chipp Walters, MX2, proxe, bonjorno7, Mark Kingsnorth',
-    'version': (2, 20, 53),
-    'blender': (2, 83, 0),
+    'version': (2, 22, 8),
+    'blender': (3, 0, 0),
     'location': 'View3D > Toolshelf (T)',
     'description': 'Streamlined kit bash library with additional productivity tools',
     'wiki_url': 'http://cw1.me/kops2docs',

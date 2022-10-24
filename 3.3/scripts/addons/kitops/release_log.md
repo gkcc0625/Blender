@@ -2,6 +2,62 @@
 
 ## Release Log
 
+### 2.22.7
+- Still fixing bug when object deleted but parent is none.
+
+### 2.22.6
+- Fixed bug when object deleted but parent is none.
+
+### 2.22.5
+- Fixed bug when insert is deleted but its parent remains.
+
+### 2.22.4
+- Disabled 'Use INSERT HARDPOINTS' feature.
+- Restricted HARDPOINTS use to only be on Factory panel.
+
+### 2.22.3
+- Fixed bug when converting to Mesh in Smart mode.
+- Reinstated 'Use INSERT HARDPOINTS' feature.
+
+### 2.22.2
+- Fixed bug when hardpoint is marked as main kitops object.
+- Fixed bug when auto creating an object, only one main object is marked.
+- Made Hardpoints panel open by default.
+- Fixed bug when temporary duplicate is not removed when placing a hardpoint in factory mode.
+
+### 2.22.1
+- Bug Fix for deletion override (recursive collection not in Blender 3.0).
+
+### 2.22.0
+Initial version for Beta Test.
+
+### 2.21.8 - 2.21.14
+- Merge from Master
+
+### 2.21.5
+- Removed rotation of hardpoint in opposite direction.
+
+### 2.21.4
+- Fix on Convert to Mesh crash.
+
+### 2.21.3
+- Added further fixes for KIT OPS crash.
+
+### 2.21.2
+- Merge from Master branch for Hardpoints.
+
+### 2.21.1
+- Fixed placement bug when trying to offset by central cached object.
+
+### 2.21.00
+- Added initial implementation of HARDPOINTS
+
+### 2.20.55
+- Added fix for import error for linux users.7
+
+### 2.20.54
+- Added fix for select all runtime error.
+
 ### 2.20.53
 - Added potential fix for boolean objects remaining as cutter even when deleted.
 

@@ -3,6 +3,12 @@ import bpy
 import os
 from . import addon, id, modifier, handler
 
+
+authoring_enabled = True
+try: from . import matrixmath
+except ImportError: authoring_enabled = False
+
+
 def insert_path(insert_name, context):
     file_name = '_'.join(insert_name.split(' ')) + '.blend'
     directory = directory_from(context.window_manager.kitops.kpack)
@@ -157,6 +163,10 @@ def new_factory_scene(context, link_selected=False, link_children=False, duplica
 
     original = bpy.data.scenes[context.scene.name]
     active_name = context.active_object.name
+
+    # record whether this was a wire object as we will automatically make this a cutter later
+    was_wire = context.active_object.display_type == 'WIRE'
+
     material = context.active_object.active_material
     materials = [slot.material for slot in context.active_object.material_slots if slot.material]
 
@@ -210,7 +220,6 @@ def new_factory_scene(context, link_selected=False, link_children=False, duplica
         obj.kitops.is_factory_scene = True
         obj.kitops.id = ''
         obj.kitops.insert = False
-        obj.kitops.insert_target = None
         obj.kitops.main = False
         obj.kitops.temp = True
         obj.select_set(False)
@@ -322,6 +331,13 @@ def new_factory_scene(context, link_selected=False, link_children=False, duplica
         if obj.kitops.temp and obj.type == 'CAMERA':
             context.scene.camera = obj
 
+    # if this was a cutter then adjust scene accordingly.
+    if was_wire:
+        if context.active_object and authoring_enabled and not context.active_object.kitops.is_hardpoint:
+            matrixmath.calc_cutter(context.active_object)
+        if active_name in bpy.data.objects:
+            bpy.data.objects[active_name].display_type = 'WIRE'
+
     scene.kitops.original_scene = original.name
     return original, scene
 
@@ -366,10 +382,6 @@ def save_insert(path='', objects=[]):
         obj.kitops.insert = False
         obj.kitops.applied = False
         obj.kitops.animated = scene.kitops.animated
-        obj.kitops['insert_target'] = None
-        obj.kitops['mirror_target'] = None
-        obj.kitops['reserved_target'] = None
-        obj.kitops['main_object'] = None
 
         if obj.kitops.duplicate:
             was_duplicate = True
@@ -396,8 +408,11 @@ def save_insert(path='', objects=[]):
                 if slot.material and slot.material.name.rstrip('0123456789.') == 'Material':
                     slot.material.name = context.window_manager.kitops.insert_name
 
+    try:
+        bpy.ops.file.pack_all()
+    except Exception as e:
+        pass
 
-    bpy.ops.file.pack_all()
 
     bpy.data.libraries.write(path, {scene}, compress=True)
     import subprocess
@@ -465,7 +480,10 @@ class update:
 
         for obj in all_objects:
             if obj.kitops.type == 'SOLID' or obj.type == 'GPENCIL':
-                obj.display_type = 'SOLID' if obj.type != 'GPENCIL' else 'TEXTURED'
+                
+                if not obj.kitops.is_hardpoint:
+                    obj.display_type = 'SOLID' if obj.type != 'GPENCIL' else 'TEXTURED'
+
 
                 if obj.type == 'MESH':
                     obj.hide_render = False

@@ -24,8 +24,11 @@ class InvertSelection(Operator):
         return context.mode == 'EDIT_MESH'
 
     def execute(self, context):
+        scene = context.scene
+        current_uv_select_mode = scene.tool_settings.uv_select_mode
+
         if self.local:
-            scene = context.scene
+
             if scene.tool_settings.use_uv_select_sync:
                 self.report({'INFO'}, "Need to disable UV Sync")
                 return {'CANCELLED'}
@@ -67,4 +70,7 @@ class InvertSelection(Operator):
             view_layer.objects.active = act_ob
         else:
             bpy.ops.uv.select_all(action='INVERT')
+
+        scene.tool_settings.uv_select_mode = 'VERTEX'
+        scene.tool_settings.uv_select_mode = current_uv_select_mode
         return {'FINISHED'}

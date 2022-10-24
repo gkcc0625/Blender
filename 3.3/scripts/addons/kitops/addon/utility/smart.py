@@ -359,49 +359,88 @@ class KO_OT_stretch_tall(Operator):
         return {'FINISHED'}
 
 
+
+smart_update = True
 class update:
+
+
     def main(prop, context):
-        for obj in bpy.data.objects:
-            if obj != context.active_object:
-                obj.kitops['main'] = False
-            else:
-                obj.kitops['main'] = True
+        global smart_update
+        if not smart_update:
+            return
+        smart_update = False
+        try:
+            for obj in bpy.data.objects:
+                if obj != context.active_object:
+                    obj.kitops.main = False
+                else:
+                    obj.kitops.main = True
+
+        finally:
+            smart_update = True
 
     def insert_target(prop, context):
-        inserts = insert.collect(context.selected_objects)
+        global smart_update
+        if not smart_update:
+            return
+        smart_update = False
+        try:
+            inserts = insert.collect(context.selected_objects)
 
-        for obj in inserts:
-            if not context.active_object:
-                continue
-            obj.kitops.applied = False
-            obj.kitops['insert_target'] = context.active_object.kitops.insert_target
+            for obj in inserts:
+                if not context.active_object:
+                    continue
+                obj.kitops.applied = False
 
-            if obj.kitops.insert_target:
-                obj.kitops.reserved_target = context.active_object.kitops.insert_target
+                if obj.kitops.insert_target:
+                    obj.kitops.reserved_target = context.active_object.kitops.insert_target
+        finally:
+            smart_update = True
 
     def mirror_x(prop, context):
-        inserts = insert.collect(context.selected_objects)
+        global smart_update
+        if not smart_update:
+            return
+        smart_update = False
+        try:
+            inserts = insert.collect(context.selected_objects)
 
-        for obj in inserts:
-            obj.kitops['mirror_x'] = bpy.context.active_object.kitops.mirror_x
+            for obj in inserts:
+                obj.kitops.mirror_x = bpy.context.active_object.kitops.mirror_x
 
-        validate_mirror(inserts, axis='X')
+            validate_mirror(inserts, axis='X')
+        finally:
+            smart_update = True
 
     def mirror_y(prop, context):
-        inserts = insert.collect(context.selected_objects)
+        global smart_update
+        if not smart_update:
+            return
+        smart_update = False
+        try:
+            inserts = insert.collect(context.selected_objects)
 
-        for obj in inserts:
-            obj.kitops['mirror_y'] = bpy.context.active_object.kitops.mirror_y
+            for obj in inserts:
+                obj.kitops.mirror_y = bpy.context.active_object.kitops.mirror_y
 
-        validate_mirror(inserts, axis='Y')
+            validate_mirror(inserts, axis='Y')
+        finally:
+            smart_update = True
 
     def mirror_z(prop, context):
-        inserts = insert.collect(context.selected_objects)
+        global smart_update
+        if not smart_update:
+            return
+        smart_update = False
+        try:  
+            inserts = insert.collect(context.selected_objects)
 
-        for obj in inserts:
-            obj.kitops['mirror_z'] = bpy.context.active_object.kitops.mirror_z
+            for obj in inserts:
+                obj.kitops.mirror_z = bpy.context.active_object.kitops.mirror_z
 
-        validate_mirror(inserts, axis='Z')
+            validate_mirror(inserts, axis='Z')
+        finally:
+            smart_update = True
 
 
 classes = [

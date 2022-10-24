@@ -292,16 +292,14 @@ class KeMouseMirrorFlip(Operator):
                                      use_proportional_edit=False, proportional_edit_falloff='SMOOTH',
                                      proportional_size=1.0, use_proportional_connected=False,
                                      use_proportional_projected=False, snap=False,
-                                     snap_target='CLOSEST', snap_point=(0.0, 0.0, 0.0), snap_align=False,
-                                     snap_normal=(0.0, 0.0, 0.0), gpencil_strokes=False, texture_space=False,
+                                     gpencil_strokes=False, texture_space=False,
                                      remove_on_cancel=False, center_override=avg_pos, release_confirm=False,
                                      use_accurate=False)
 
         if em:
             bpy.ops.mesh.flip_normals()
 
-        if not em:
-            restore_transform(og)
+        restore_transform(og)
 
         if self.linked and not em and self.mode == "MIRROR":
             og_obj[0].select_set(True)

@@ -13,7 +13,7 @@ from bpy.props import *
 from bpy.utils import register_class, unregister_class
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 
-from .. utility import addon, backup, bbox, dpi, insert, ray, remove, update, view3d, collections, smart, persistence, handler, id
+from .. utility import addon, backup, bbox, dpi, insert, ray, remove, update, view3d, collections, smart, persistence, handler, id, hardpoints
 
 from .. t3dn_bip import ops
 
@@ -21,7 +21,7 @@ import os
 
 authoring_enabled = True
 try: from .. utility import matrixmath
-except: authoring_enabled = False
+except ImportError: authoring_enabled = False
 
 
 class KO_OT_purchase(Operator):
@@ -41,6 +41,17 @@ class KO_OT_store(Operator):
 
     def execute(self, context):
         bpy.ops.wm.url_open('INVOKE_DEFAULT', url='https://www.kit-ops.com/the-store')
+
+        return {'FINISHED'}
+
+
+class KO_OT_store_kpacks(Operator):
+    bl_idname = 'ko.kpackslink'
+    bl_label = 'Get KPACKS and INSERTs'
+    bl_description = 'Get KPACKs and INSERTs'
+
+    def execute(self, context):
+        bpy.ops.wm.url_open('INVOKE_DEFAULT', url='https://filedn.com/lLMW4jXsJqxXkRYjd1UCoKL/online_docs/kpacks.html')
 
         return {'FINISHED'}
 
@@ -207,6 +218,8 @@ class add_insert():
 
     rotation_amount : FloatProperty(default=0)
 
+    scene_hardpoints = []
+
     @classmethod
     def poll(cls, context):
         return not context.space_data.region_quadviews and not context.space_data.local_view
@@ -230,9 +243,11 @@ class add_insert():
         collections.init(context)
 
         if self.init_active:
-            if self.init_active.kitops.insert and self.init_active.kitops.insert_target:
+            if self.init_active.kitops.insert and preference.place_on_insert:
+                self.boolean_target = self.init_active
+            elif self.init_active.kitops.insert and self.init_active.kitops.insert_target:
                 self.boolean_target = self.init_active.kitops.insert_target
-            elif preference.mode == 'REGULAR' and self.init_active.kitops.reserved_target:
+            elif preference.mode == 'REGULAR' and self.init_active.kitops.insert and self.init_active.kitops.reserved_target:
                 self.boolean_target = self.init_active.kitops.reserved_target
             elif self.init_active.kitops.insert:
                 self.boolean_target = None
@@ -297,12 +312,31 @@ class add_insert():
             option = addon.option()
             self.main.scale = self.main.scale * option.scale_amount
 
-        if self.init_selected and self.boolean_target:
+
+        scene_hardpoints = []
+
+        if preference.snap_mode == 'HARDPOINT':
+            # deal with hardpoint positioning.
+            scene_hardpoints = [o for o in context.visible_objects if o.kitops.is_hardpoint and o.kitops.main_object !=  self.main]
+
+            if preference.use_snap_mode_hardpoint_tag_match:
+
+                insert_restrict_list = hardpoints.get_tags_from_str(preference.snap_mode_hardpoint_tag_match)
+                scene_hardpoints = [hp for hp in scene_hardpoints if hardpoints.intersecting_tags(hardpoints.get_tags_from_str(hp.kitops.hardpoint_tags), insert_restrict_list)]
+
+            if preference.snap_to_empty_hardpoints_only:
+                scene_hardpoints = [hp for hp in scene_hardpoints if hp not in [o.kitops.hardpoint_object for o in context.visible_objects]]
+
+        self.scene_hardpoints = scene_hardpoints
+
+        self.is_hardpoint_mode = preference.snap_mode == 'HARDPOINT' and len(self.scene_hardpoints)
+
+        if (self.init_selected and self.boolean_target) or self.is_hardpoint_mode:
             self.mouse = Vector((event.mouse_x, event.mouse_y))
             self.mouse.x -= view3d.region().x - preference.insert_offset_x * dpi.factor()
             self.mouse.y -= view3d.region().y - preference.insert_offset_y * dpi.factor()
 
-            insert.hide_handler(self)
+            insert.hide_handler(context, self)
 
             context.window_manager.modal_handler_add(self)
 
@@ -324,6 +358,10 @@ class add_insert():
 
         preference = addon.preference()
         
+        try:
+            self.main, self.main.location
+        except ReferenceError as e:
+            return {'CANCELLED'}
 
         if not insert.operator:
             self.exit(context)
@@ -336,6 +374,8 @@ class add_insert():
                 preference.snap_mode = 'EDGE'
             if event.type == 'V':
                 preference.snap_mode = 'VERTEX'
+            if event.type == 'H':
+                preference.snap_mode = 'HARDPOINT'
             if event.type == 'N':
                 preference.snap_mode = 'NONE'
             if event.type == 'P':
@@ -356,11 +396,11 @@ class add_insert():
             self.mouse = Vector((event.mouse_x, event.mouse_y))
             self.mouse.x -= view3d.region().x - preference.insert_offset_x * dpi.factor()
             self.mouse.y -= view3d.region().y - preference.insert_offset_y * dpi.factor()
-            update.location()
+            update.location(context, self)
             self.main.scale = temp_scale
             self.main.rotation_euler.rotate_axis("Z", radians(self.rotation_amount))
 
-        insert.hide_handler(self)
+        insert.hide_handler(context, self)
 
         if event.type in {'ESC', 'RIGHTMOUSE'} and event.value == 'PRESS':
 
@@ -386,9 +426,20 @@ class add_insert():
 
         elif event.type == 'WHEELDOWNMOUSE':      
             if event.alt:
-                rotation_amount = 15 if not event.shift else 1
-                self.main.rotation_euler.rotate_axis("Z", radians(rotation_amount))
-                self.rotation_amount+=rotation_amount
+
+                insert_hardpoints = None
+                # if preference.use_insert_hardpoints:
+                #     insert_hardpoints = hardpoints.get_hardpoints(self.main)
+
+                #     if preference.use_insert_hardpoint_tag_match:
+                #         insert_restrict_list = hardpoints.get_tags_from_str(preference.insert_hardpoint_tag_match)
+                #         insert_hardpoints = [hp for hp in insert_hardpoints if hardpoints.intersecting_tags(hardpoints.get_tags_from_str(hp.kitops.hardpoint_tags), insert_restrict_list)]
+
+
+                if not insert_hardpoints:
+                    rotation_amount = 15 if not event.shift else 1
+                    self.main.rotation_euler.rotate_axis("Z", radians(rotation_amount))
+                    self.rotation_amount+=rotation_amount
                 return {'RUNNING_MODAL'}
 
             if preference.auto_scale:
@@ -401,9 +452,18 @@ class add_insert():
 
         elif event.type == 'WHEELUPMOUSE':
             if event.alt:
-                rotation_amount = 15 if not event.shift else 1
-                self.main.rotation_euler.rotate_axis("Z", radians(-rotation_amount))
-                self.rotation_amount-=rotation_amount
+                insert_hardpoints = None
+                # if preference.use_insert_hardpoints:
+                #     insert_hardpoints = hardpoints.get_hardpoints(self.main)
+
+                #     if preference.use_insert_hardpoint_tag_match:
+                #         insert_restrict_list = hardpoints.get_tags_from_str(preference.insert_hardpoint_tag_match)
+                #         insert_hardpoints = [hp for hp in insert_hardpoints if hardpoints.intersecting_tags(hardpoints.get_tags_from_str(hp.kitops.hardpoint_tags), insert_restrict_list)]
+
+                if not insert_hardpoints:
+                    rotation_amount = 15 if not event.shift else 1
+                    self.main.rotation_euler.rotate_axis("Z", radians(-rotation_amount))
+                    self.rotation_amount-=rotation_amount
                 return {'RUNNING_MODAL'}
 
 
@@ -471,6 +531,15 @@ class add_insert():
                 if not child.objects and not child.children:
                     bpy.data.collections.remove(child)
 
+        # if we were in hardpoint mode, add a reference to the hardpoint on the object.
+        if hasattr(self, 'is_hardpoint_mode') and self.is_hardpoint_mode and (update.last_hardpoint_obj_name and update.last_hardpoint_obj_name in bpy.data.objects):
+            try:
+                hardpoint_obj = bpy.data.objects[update.last_hardpoint_obj_name]
+                self.main.kitops.hardpoint_object = hardpoint_obj
+                update.last_hardpoint_obj_name = None
+            except ReferenceError:
+                pass
+
         ray.success = bool()
         ray.location = Vector()
         ray.normal = Vector()
@@ -489,6 +558,15 @@ class add_insert():
         insert.show_solid_objects()
         insert.show_cutter_objects()
         insert.show_wire_objects()
+
+        # remove any created duplicates.
+        for obj in [ob for ob in bpy.data.objects if ob.kitops.duplicate]:
+            remove.object(obj, data=True)
+
+        # remove INSERT collection if empty.
+        for collection in bpy.data.collections:
+            if collection.name == "INSERTS" and not collection.all_objects:
+                bpy.data.collections.remove(collection)
 
 def get_description():
     if authoring_enabled:
@@ -533,7 +611,7 @@ class move_insert(add_insert):
 
     @classmethod
     def poll(cls, context):
-        return context.active_object and context.active_object.kitops.insert
+        return context.active_object and context.active_object.kitops.insert and context.active_object.kitops.main_object
 
     def invoke(self, context, event):
         self.main = context.active_object.kitops.main_object        
@@ -622,13 +700,23 @@ class KO_OT_auto_create_insert(Operator):
         # because of sys.exit() protection, we have to set the objects into a temporary state.
         old_saving = handler.is_saving
         handler.is_saving = True
-        old_id = obj.kitops.id
+        id_present = obj.kitops.id != ''
+        if id_present:
+            old_id = obj.kitops.id
         old_main = obj.kitops.main
+
+        old_main_map = {}
+        for o in bpy.data.objects:
+            old_main_map[o.name] = o.kitops.main
+
+        smart.smart_update = False
         try:
 
             # open a new factory mode, position the camera, save the insert, and render the thumbnail.
             obj.kitops.id = id.uuid()
             obj.kitops.main = True
+            for other_obj in [o for o in bpy.data.objects if o != obj]:
+                other_obj.kitops.main = False
 
             if not bpy.data.use_autopack:
                 bpy.ops.file.autopack_toggle()
@@ -653,7 +741,8 @@ class KO_OT_auto_create_insert(Operator):
                 insert.set_origin(obj, original_translation)
             obj.rotation_euler = old_euler
             handler.is_saving = old_saving
-            obj.kitops.id = old_id
+            if id_present:
+                obj.kitops.id = old_id
             if old_main:
                 obj.kitops.main = True
             else:
@@ -662,7 +751,11 @@ class KO_OT_auto_create_insert(Operator):
                 obj.kitops.main = old_main
                 context.view_layer.objects.active = obj
 
+            for o in bpy.data.objects:
+                if o.name in old_main_map:
+                    o.kitops.main = old_main_map[o.name]
 
+            smart.smart_update = True
 
         return {'FINISHED'}
 
@@ -697,6 +790,26 @@ class KO_OT_add_insert(Operator, add_insert):
     bl_idname = 'ko.add_insert'
     bl_label = 'Add INSERT'
     bl_description = get_description()
+
+class KO_OT_add_hardpoint(Operator, add_insert):
+    bl_idname = 'ko.add_hardpoint'
+    bl_label = 'Add Hardpoint'
+    bl_description = "Add a Hardpoint"
+
+    location: StringProperty(
+        name = 'Blend path',
+        description = 'Path to blend file',
+        default=addon.path.hardpoint_location(),
+        options={"HIDDEN"})
+
+    def invoke(self, context, event):
+        global authoring_enabled
+
+        preference = addon.preference()
+
+        preference.snap_mode = 'NONE'
+
+        return super().invoke(context, event)
 
 class KO_OT_move_insert(Operator, move_insert):
     bl_idname = 'ko.move_insert'
@@ -757,15 +870,24 @@ class KO_OT_select_inserts(Operator):
 
         if self.solids:
             for obj in solids:
-                obj.select_set(True)
+                try:
+                    obj.select_set(True)
+                except RuntimeError:
+                    pass
 
         if self.cutters:
             for obj in cutters:
-                obj.select_set(True)
+                try:
+                    obj.select_set(True)
+                except RuntimeError:
+                    pass
 
         if self.wires:
             for obj in wires:
-                obj.select_set(True)
+                try:
+                    obj.select_set(True)
+                except RuntimeError:
+                    pass
 
         return {'FINISHED'}
 
@@ -780,12 +902,7 @@ class remove_insert_properties():
     def execute(self, context):
         objects = context.selected_objects if not self.uuid else [obj for obj in bpy.data.objects if obj.kitops.id == self.uuid]
         for obj in objects:
-            obj.kitops['insert'] = False
-            obj.kitops['insert_target'] = None
-            obj.kitops['mirror_target'] = None
-            obj.kitops['reserved_target'] = None
-            obj.kitops['main_object'] = None
-
+            obj.kitops.insert = False
         if self.remove:
             bpy.ops.object.delete({'active_object': objects[0], 'selected_objects': objects}, confirm=False)
 
@@ -862,22 +979,18 @@ class KO_OT_convert_to_mesh(Operator):
 
 
     def execute(self, context):
+        inserts = [obj for obj in bpy.data.objects if obj.kitops.insert]
+
+        # set applied flag.
+        for obj in inserts:
+            obj.kitops.applied = True
+
         bpy.ops.object.convert(target='MESH')
 
         for obj in context.selected_objects:
-            for mod in obj.modifiers:
-                if mod.type == 'BOOLEAN' and mod.object:
-                    mod.object.kitops['insert_target'] = None
-                    mod.object.kitops['mirror_target'] = None
-                    mod.object.kitops['reserved_target'] = None
-                    mod.object.kitops['main_object'] = None
 
-            obj.kitops['insert'] = False
-            obj.kitops['main'] = False
-            obj.kitops['insert_target'] = None
-            obj.kitops['mirror_target'] = None
-            obj.kitops['reserved_target'] = None
-            obj.kitops['main_object'] = None
+            obj.kitops.insert = False
+            obj.kitops.main = False
 
         for obj in context.selected_objects:
             for mod in obj.modifiers:
@@ -983,6 +1096,141 @@ class KO_OT_OpenHelpURL(Operator):
         bpy.ops.wm.url_open(url = self.url)
         return {'FINISHED'}
 
+import blf
+from bpy_extras import view3d_utils
+
+def draw_callback_3d(self, context):
+
+    try:
+
+        if not (KO_OT_PreviewHardpointTags.running_preview_tags.get(self._region) is self): return
+
+        font_id = 0  # XXX, need to find out how best to get this.
+
+        preference = addon.preference()
+
+
+        hardpoints = [hp for hp in context.visible_objects if hp.kitops.is_hardpoint]    
+        
+        for hp in hardpoints:
+
+            view2d_co = view3d_utils.location_3d_to_region_2d(context.region, context.space_data.region_3d, hp.matrix_world.to_translation()   )
+
+            if not view2d_co:
+                continue
+
+            # draw some text
+            blf.position(font_id, view2d_co.x, view2d_co.y, 0)
+            blf.size(font_id, 20, 72)
+            color = preference.hardpoint_preview_color
+            if hp.kitops.hardpoint_tags:
+                blf.color(font_id, color[0], color[1], color[2], color[3])
+                blf.draw(font_id, "%s" % ('[' + hp.kitops.hardpoint_tags + ']'))
+            else:
+                blf.color(font_id, color[0]*.01, color[1]*.01, color[2]*.01, color[3])
+                blf.draw(font_id, "%s" % ('[NONE]'))
+    except ReferenceError:
+        pass
+
+
+class KO_OT_PreviewHardpointTags(Operator):
+    """Tooltip"""
+    bl_idname = "ko.preview_hardpoint_tags"
+    bl_label = "Preview Hardpoint Tags"
+    bl_options = {'INTERNAL'}
+
+
+    _handle_3d = None
+    running_preview_tags = {}
+
+
+    def validate_region(self):
+        if not (KO_OT_PreviewHardpointTags.running_preview_tags.get(self._region) is self): return False
+        return self.region_exists(self._region)
+
+    def region_exists(self, r):
+        wm = bpy.context.window_manager
+        for window in wm.windows:
+            for area in window.screen.areas:
+                for region in area.regions:
+                    if region == r: return True
+        return False
+
+    def update_view(self, context):
+        bpy.context.area.tag_redraw()
+        context.region.tag_redraw()
+        layer = context.view_layer
+        layer.update()
+
+    def modal(self, context, event):
+        """Modal execution method for the addon."""
+        
+        try:
+            if not self.validate_region() or \
+                not context.scene.kitops.preview_hardpoints:
+                self.cancel(context)
+                return {'CANCELLED'}
+            
+            return {'PASS_THROUGH'}
+        except Exception as e:
+            self.cancel(context)
+            self.report({'ERROR'}, "An error occured: " + str(e))
+            return {'CANCELLED'}
+
+    def cancel(self, context):
+        """Reset the screen by removing custom draw handlers."""
+        try:
+            context.scene.kitops.preview_hardpoints = False
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle_3d, 'WINDOW')
+            self.update_view(context)
+            if KO_OT_PreviewHardpointTags.running_preview_tags.get(self._region) is self:
+                del KO_OT_PreviewHardpointTags.running_preview_tags[self._region]
+        except Exception as e:
+            pass
+
+
+    def invoke(self, context, event):
+        """Initialise the operator."""
+
+        if context.area.type == 'VIEW_3D':
+
+            self._region = context.region
+
+            KO_OT_PreviewHardpointTags.running_preview_tags[self._region] = self
+
+            self._handle_3d = bpy.types.SpaceView3D.draw_handler_add(draw_callback_3d, (self, context), 'WINDOW', 'POST_PIXEL')
+            self.update_view(context)
+
+            # set up modal handler.
+            context.window_manager.modal_handler_add(self)
+            context.scene.kitops.preview_hardpoints = True
+            
+            # ...and away we go...
+            return {'RUNNING_MODAL'}
+        else:
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+
+class KO_OT_copy_hardpoint_tags(bpy.types.Operator):
+    bl_idname = 'ko.copy_hardpoint_tags'
+    bl_label = 'Copy tags'
+    bl_description = 'Copy tags to others'
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    tags: StringProperty()
+
+    def execute(self, context):
+        hardpoint_objs = [o for o in context.selected_objects if o.kitops.is_hardpoint]
+
+        for hp in hardpoint_objs:
+            hp.kitops.hardpoint_tags = self.tags
+
+        context.area.tag_redraw()
+
+        return {'FINISHED'}
+
 class KO_MT_KITOPS(bpy.types.Menu):
     bl_idname = 'KO_MT_KITOPS'
     bl_label = 'KIT OPS'
@@ -997,12 +1245,70 @@ class KO_MT_KITOPS(bpy.types.Menu):
         else:
             col.operator(KO_OT_auto_create_insert.bl_idname, text="Create INSERT - Use Object Origin").set_object_origin_to_bottom = False
             col.operator(KO_OT_auto_create_insert.bl_idname, text="Create INSERT - Use Bottom of Object as Origin").set_object_origin_to_bottom = True
+        global authoring_enabled
+        if not authoring_enabled:
+            col.separator()
+            col.label(text='Note: Automatically Create Cutters in KIT OPS PRO')
+    
 
+class KO_OT_delete_override(bpy.types.Operator):
+    """OK?"""
+    bl_idname = "object.delete"
+    bl_label = "Delete"
+    use_global : BoolProperty(default=False)
+    confirm: BoolProperty(default=True)
+    bl_options = {'INTERNAL', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+
+    def invoke(self, context, event):
+        if self.confirm:
+            return context.window_manager.invoke_confirm(self, event)
+        else:
+            self.confirm = True
+            return self.execute(context)
+
+    def execute(self, context):
+        for obj in context.selected_objects:
+            if (obj.kitops.insert and not insert.authoring()) and \
+                (context.scene and not context.scene.kitops.thumbnail):
+                # before deletion, tidy up modifiers.
+                for visible_obj in context.visible_objects:
+                    for mod in visible_obj.modifiers:
+                        if mod.type != 'BOOLEAN':
+                            continue
+
+                        if mod.object  == obj:
+                            visible_obj.modifiers.remove(mod)
+            
+            if self.use_global:
+                bpy.data.objects.remove(obj)            
+            else:
+                if hasattr(context.scene.collection, 'children_recursive'):
+                    collections_in_scene = [context.scene.collection] + context.scene.collection.children_recursive
+                else:
+                    all_children = []
+                    all_children = collections.get_children_recursive(context.scene.collection)
+                    collections_in_scene = [context.scene.collection] + all_children
+
+                for collection in collections_in_scene:
+                    if obj in [o for o in collection.objects]:
+                        collection.objects.unlink(obj)
+            
+                if obj.users == 0 or (obj.users == 1 and (obj.parent and obj.parent.name in context.scene.objects)):
+                    bpy.data.objects.remove(obj)
+
+            
+        return {'FINISHED'}
 
 
 classes = [
     KO_OT_purchase,
     KO_OT_store,
+    KO_OT_store_kpacks,
     KO_OT_documentation,
     KO_OT_add_kpack_path,
     KO_OT_remove_kpack_path,
@@ -1025,10 +1331,12 @@ classes = [
     KO_OT_OpenHelpURL,
     KO_OT_auto_create_insert,
     KO_OT_auto_create_insert_confirm,
-    KO_MT_KITOPS
+    KO_MT_KITOPS,
+    KO_OT_add_hardpoint,
+    KO_OT_PreviewHardpointTags,
+    KO_OT_copy_hardpoint_tags,
+    KO_OT_delete_override
 ]
-
-
 
 
 def menu_func(self, context):
@@ -1049,7 +1357,6 @@ def register():
     except: pass
 
     bpy.types.VIEW3D_MT_object_context_menu.append(menu_func)
-
 
 def unregister():
     bpy.types.VIEW3D_MT_object_context_menu.remove(menu_func)

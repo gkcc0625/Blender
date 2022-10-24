@@ -212,6 +212,7 @@ class KePieOps(Operator):
 
     op :  bpy.props.StringProperty(default="GRID")
     mirror_ops = {"MIRROR_X", "MIRROR_Y", "MIRROR_Z", "MIRROR_W", "REM_MIRROR_W", "SYM_X", "SYM_Y", "SYM_Z"}
+    mname : bpy.props.StringProperty(default="None")
 
     @classmethod
     def description(cls, context, properties):
@@ -467,12 +468,18 @@ class KePieOps(Operator):
                 if active:
                     if self.op == "MIRROR_W" or self.op == "REM_MIRROR_W":
                         e = wempty(context)
-                        m = [m for m in active.modifiers if m.type == "MIRROR"]
-                        if m and e:
-                            if self.op == "REM_MIRROR_W":
-                                m[0].mirror_object = None
+                        mods = [m for m in active.modifiers if m.type == "MIRROR"]
+                        if mods and e:
+                            active_m = [m for m in mods if m.name == self.mname]
+                            if active_m:
+                                active_m = active_m[0]
                             else:
-                                m[0].mirror_object = e
+                                active_m = mods[0]
+
+                            if self.op == "REM_MIRROR_W":
+                                active_m.mirror_object = None
+                            else:
+                                active_m.mirror_object = e
                     else:
                         bpy.ops.object.modifier_add(type='MIRROR')
                         m = active.modifiers[-1]

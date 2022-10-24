@@ -4,7 +4,7 @@ import bmesh
 from bpy_types import Panel, Operator
 from ._utils import vertloops, average_vector, get_distance, correct_normal, get_midpoint, get_closest_midpoint, \
     rotation_from_vector, point_to_plane, get_selection_islands, mouse_raycast, pie_pos_offset, flatten, tri_order, \
-    get_layer_collection, set_status_text
+    set_active_collection, set_status_text
 from mathutils import Vector, Matrix
 from math import cos, pi, sqrt
 from cmath import sqrt as cmath_sqrt
@@ -403,17 +403,7 @@ class KeFitPrim(Operator):
         og_orientation = str(context.scene.transform_orientation_slots[0].type)
 
         if self.itemize or self.edit_mode == "OBJECT" and context.object is not None:
-            # make sure the new object is in the same layer as context object
-            objc = context.object.users_collection[0]
-            layer_collection = context.view_layer.layer_collection
-            layer_coll = get_layer_collection(layer_collection, objc.name)
-            alc = context.view_layer.active_layer_collection
-
-            if objc.name != alc.name and alc.name != "Master Collection":
-                context.view_layer.active_layer_collection = layer_coll
-
-            elif objc.name != "Master Collection" and objc.name != alc.name:
-                context.view_layer.active_layer_collection = layer_coll
+            set_active_collection(context, context.object)
 
         #
         # MULTI OBJECT CHECK & SETUP

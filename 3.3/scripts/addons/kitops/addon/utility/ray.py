@@ -21,10 +21,9 @@ init_active_obj = None
 
 authoring_enabled = True
 try: from . import matrixmath
-except:
-    traceback.print_exc()
-    authoring_enabled = False
-    
+except ImportError: authoring_enabled = False
+
+
 def cast(op):
     global success
     global location
@@ -49,14 +48,13 @@ def cast(op):
     success = location != None
 
     if success:
-        new_location = None
+        # new_location = None
         if authoring_enabled and preference.snap_mode != 'NONE':
-            new_location = matrixmath.calc_location(op.duplicate.matrix_world, bm, face_index, location)
+            location, to_track_quat, normal = matrixmath.calc_location(op, normal, bm, face_index, location)
         else:
-            new_location = op.duplicate.matrix_world @ location
-        location = new_location
-        to_track_quat = op.duplicate.matrix_world.to_quaternion() @ normal.to_track_quat('Z', 'Y')
-        normal = op.duplicate.matrix_world.to_3x3() @ normal       
+            location = op.duplicate.matrix_world @ location
+            to_track_quat = op.duplicate.matrix_world.to_quaternion() @ normal.to_track_quat('Z', 'Y')
+            normal = op.duplicate.matrix_world.to_3x3() @ normal
 
 def flip_placement():
     global bm

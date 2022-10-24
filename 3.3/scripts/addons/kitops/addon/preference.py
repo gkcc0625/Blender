@@ -13,8 +13,7 @@ from . t3dn_bip.utils import support_pillow
 
 authoring_enabled = True
 try: from . utility import matrixmath
-except:
-    authoring_enabled = False
+except ImportError: authoring_enabled = False
 
 class folder(PropertyGroup):
     icon: StringProperty(default='FILE_FOLDER')
@@ -251,7 +250,8 @@ class kitops(AddonPreferences):
                 ('NONE', 'None', 'No snapping \n Keyboard shortcut: N', 'CANCEL', 1),
                 ('FACE', 'Face', 'Snap to face \n Keyboard shortcut: F', 'SNAP_FACE', 2),
                 ('EDGE', 'Edge', 'Snap to edge \n Keyboard shortcut: E [C - Toggle Snap to Edge Center]', 'SNAP_EDGE', 3),
-                ('VERTEX', 'Vertex', 'Snap to vertex \n Keyboard shortcut: V', 'SNAP_VERTEX', 4)],
+                ('VERTEX', 'Vertex', 'Snap to vertex \n Keyboard shortcut: V', 'SNAP_VERTEX', 4),
+                ('HARDPOINT', 'Hardpoint', 'Snap to hardpoint \n Keyboard shortcut: H', 'EMPTY_ARROWS', 5)],
             default = 'NONE')
 
     snap_mode_edge : EnumProperty(
@@ -261,6 +261,39 @@ class kitops(AddonPreferences):
                 ('NEAREST', 'Nearest', 'Snap to nearest point on edge \n Keyboard shortcut: C'),
                 ('CENTER', 'Center', 'Snap to edge center \n Keyboard shortcut: C')],
             default = 'NEAREST')
+
+    snap_to_empty_hardpoints_only : BoolProperty(
+        name="Only Snap to Empty Hardpoints",
+        description="Only snap to hardpoints that have not already been snapped to.",
+        default=True
+    )
+
+    use_snap_mode_hardpoint_tag_match : BoolProperty(
+        name="Only Use Tags matching",
+        description="Restrict which hardpoints are used"
+    )
+
+    snap_mode_hardpoint_tag_match : StringProperty(
+        name = "Tags to match on",
+        description = "Use these tags to restrict which hardpoints to use"
+    )
+
+    # TODO temporary disable until feature is elaborated.
+    # use_insert_hardpoints : BoolProperty(
+    #     name = "Use INSERT Hardpoints",
+    #     description = "Use hardpoints from the INSERT when placing it",
+    #     default=False
+    # )
+
+    use_insert_hardpoint_tag_match  : BoolProperty(
+        name="Only Use Tags matching",
+        description="Restrict which hardpoints are used"
+    )
+
+    insert_hardpoint_tag_match : StringProperty(
+        name = "Tags to match on",
+        description = "Use these tags to restrict which of the INSERT\'s hardpoints to use"
+    )
 
     flip_placement : BoolProperty(
         name = "Flip Placement",
@@ -484,6 +517,11 @@ class kitops(AddonPreferences):
         maxlen = 1,
         default = '_')
 
+    hardpoint_preview_color : FloatVectorProperty(name="Hardpoint Preview Color",
+                                        subtype='COLOR',
+                                        size=4,
+                                        default=[0, 1, 0, 0.5])
+
 
     def draw(self, context):
         layout = self.layout
@@ -586,6 +624,10 @@ class kitops(AddonPreferences):
             col.separator()
             col.operator("ko.clear_favorites_confirm", text="Clear All Favorites")
 
+            col = layout.column()
+            col.label(text="Hardpoints")
+            col.separator()
+            col.prop(self, 'hardpoint_preview_color', text="Hardpoint Preview Color")
 
 
 
