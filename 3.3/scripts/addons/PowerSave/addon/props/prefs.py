@@ -63,6 +63,12 @@ class PowerSavePrefs(bpy.types.AddonPreferences):
         update=utils.files.sanitize_autosave_name,
     )
 
+    autosave_external_text: bpy.props.BoolProperty(
+        name='Autosave External Text',
+        description='Autosave external text files you have open in Blender',
+        default=False,
+    )
+
     save_on_startup: bpy.props.BoolProperty(
         name='Save on Startup',
         description='Whether to save new projects in your base folder automatically',
@@ -82,6 +88,12 @@ class PowerSavePrefs(bpy.types.AddonPreferences):
         name='Increment Format',
         description='What characters to put before the increment number and how many zeroes to pad it with',
         default='_01',
+    )
+
+    increment_strict: bpy.props.BoolProperty(
+        name='Increment Strict',
+        description='Only recognize version numbers prefixed the same way as your Increment Format',
+        default=False,
     )
 
     icon_preset: bpy.props.EnumProperty(
@@ -145,9 +157,14 @@ class PowerSavePrefs(bpy.types.AddonPreferences):
         col.enabled = self.use_autosave and self.autosave_format == 'CUSTOM'
         utils.ui.draw_prop(col, 'Autosave Name', self, 'autosave_name')
 
+        col = layout.column()
+        col.enabled = self.use_autosave
+        utils.ui.draw_bool(col, 'Autosave External Text', self, 'autosave_external_text')
+
         utils.ui.draw_bool(layout, 'Save On Startup', self, 'save_on_startup')
         utils.ui.draw_prop(layout, 'Date Time Format', self, 'date_time_format')
         utils.ui.draw_prop(layout, 'Increment Format', self, 'increment_format')
+        utils.ui.draw_bool(layout, 'Increment Strict', self, 'increment_strict')
         utils.ui.draw_prop(layout, 'Icon Preset', self, 'icon_preset')
         utils.ui.draw_prop(layout, 'Popover Width', self, 'popover_width')
         utils.ui.draw_prop(layout, 'Panel Category', self, 'panel_category')

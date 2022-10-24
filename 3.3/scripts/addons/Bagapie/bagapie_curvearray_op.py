@@ -2,7 +2,6 @@ import bpy
 import json
 from bpy.types import Operator
 from . presets import bagapieModifiers
-#from . __init__ import WarningPopup
 
 class BAGAPIE_OT_curvearray_remove(Operator):
     """ Remove Bagapie Wall modifiers """
@@ -165,3 +164,8 @@ def Warning(message = "", title = "Message Box", icon = 'INFO'):
         self.layout.label(text=message)
 
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
+classes = [
+    BAGAPIE_OT_curvearray_remove,
+    BAGAPIE_OT_curvearray
+]

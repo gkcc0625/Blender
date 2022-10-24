@@ -235,15 +235,15 @@ class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
                     if obj in self.visible_meshes:
                         self.form_obj = context.active_object
         self.form = None
-        if self.form_obj:
+        if self.form_obj and get_preferences().property.in_tool_popup_style == 'DEFAULT':
             if len(self.form_obj.modifiers) > 0:
                 self.setup_form(context, event)
-        
+
         self.form_obj_mod_mapping = {}
         if self.form_obj != None:
             for mod in self.form_obj.modifiers:
                 self.form_obj_mod_mapping[mod.name] = mod.show_viewport
-        
+
         # Base Systems
         self.master = Master(context=context)
         self.master.only_use_fast_ui = True
@@ -528,6 +528,9 @@ class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
             self.notify('FINISHED')
             return {'FINISHED'}
 
+        elif event.type == 'TAB' and event.value == 'PRESS' and get_preferences().property.in_tool_popup_style == 'BLENDER':
+            bpy.ops.hops.modlist_popover(allow_removal=False)
+
         self.draw_ui(context)
         redraw_areas(context)
         return {'RUNNING_MODAL'}
@@ -545,7 +548,7 @@ class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
         collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
         self.master.run_fade()
         redraw_areas(context)
-        
+
         # Form
         self.remove_shader()
         if self.form:
@@ -554,8 +557,8 @@ class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
             for mod_name, show in self.form_obj_mod_mapping.items():
                 if mod_name in self.form_obj.modifiers:
                     self.form_obj.modifiers[mod_name].show_viewport = show
-    
-    
+
+
     def update_dots(self, context, event):
         vec2d = event.mouse_region_x, event.mouse_region_y
         origin = region_2d_to_origin_3d(context.region, context.space_data.region_3d, vec2d)
@@ -800,6 +803,7 @@ class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
             ("O", "Toggle viewport rendering")]
 
         help_items["STANDARD"] = [
+            ("TAB", f"Modifier list") if get_preferences().property.in_tool_popup_style == 'BLENDER' else ('', ''),
             ("B", f"Toggle {'Bounds' if not self.bounds_only else 'Mesh'} mode"),
             ("C", f"Object lock: {self.object_lock}"),
             ("F", f"Location : {'First' if not self.median_loc else 'Median'} [Alt]"),
@@ -843,12 +847,12 @@ class HOPS_OT_SET_ORIGIN(bpy.types.Operator):
                 highlight_hook_obj=mod, highlight_hook_attr='show_viewport'))
             group.row_insert(row)
         row = self.form.row()
-        
+
         box_height = 160
-        
+
         if len(self.form_obj.modifiers) < 8:
             box_height = 20 * len(self.form_obj.modifiers)
-        
+
         mod_box = form.Scroll_Box(width=165, height=box_height, scroll_group=group, view_scroll_enabled=True)
         row.add_element(mod_box)
         self.form.row_insert(row, active=True)

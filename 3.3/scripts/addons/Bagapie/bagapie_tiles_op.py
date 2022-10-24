@@ -120,3 +120,7 @@ def Collection_Add(self,context):
 
     return array_coll
 
+classes = [
+    BAGAPIE_OT_tiles_remove,
+    BAGAPIE_OT_tiles
+]

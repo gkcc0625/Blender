@@ -174,3 +174,8 @@ def RemoveOBJandDeleteColl(self, context, collection):
         collection.objects.unlink(obj)
 
     bpy.data.collections.remove(collection)
+
+classes = [
+    BAGAPIE_OT_pipes_remove,
+    BAGAPIE_OT_pipes,
+]

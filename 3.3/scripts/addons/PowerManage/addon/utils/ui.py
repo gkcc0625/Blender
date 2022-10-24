@@ -36,16 +36,17 @@ def draw_prefs(layout: bpy.types.UILayout):
     layout.separator(factor=0.5)
 
     split = layout.split(factor=0.5)
-    split.label(text='Additive Presets')
-    row = split.row()
-    row.alignment = 'RIGHT'
-    row.prop(prefs, 'additive_presets', text='')
-
-    layout.separator(factor=0.5)
-
-    split = layout.split(factor=0.5)
     split.label(text='Panel Category')
     split.prop(prefs, 'panel_category', text='')
+
+    if utils.meta.check_simple_tabs():
+        layout.separator(factor=0.5)
+
+        split = layout.split(factor=0.5)
+        split.label(text='SIMPLE TABS Integration')
+        row = split.row()
+        row.alignment = 'RIGHT'
+        row.prop(prefs, 'simple_tabs', text='')
 
     layout.separator(factor=0.5)
 
@@ -73,7 +74,7 @@ def draw_panel(layout: bpy.types.UILayout):
             row.operator('powermanage.new_preset', icon='ADD')
 
         box = col.box()
-        box.prop(prefs, 'additive_presets')
+        box.prop(preset, 'additive')
 
         if prefs.addon_sorting == 'NAME':
             draw_by_name(layout, prefs, addons)

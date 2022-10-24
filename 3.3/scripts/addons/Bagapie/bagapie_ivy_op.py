@@ -105,7 +105,10 @@ class BAGAPIE_OT_ivy(Operator):
 
         ivy_coll = Collection_Setup(self,context,target)
         for ob in target:
-            ivy_coll.objects.link(ob)
+            if ivy_coll in ob.users_collection:
+                print(ob.name + " is already set as target")
+            else:
+                ivy_coll.objects.link(ob)
 
         # ADD MODIFIER AND NODES
         new = bpy.data.objects[ivy.name].modifiers.new
@@ -448,4 +451,169 @@ def Import_Assets(self,context,object_name):
             filename=object_name
             )
     return assets
-    # return {'FINISHED'}
+
+###################################################################################
+# APPLY MODIFIER IVY
+###################################################################################
+class Apply_Ivy_OP(Operator):
+    """Apply Ivy Modifier"""
+    bl_idname = "use.applyivy"
+    bl_label = "Apply Ivy"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    instances_count: bpy.props.IntProperty(default=0)
+    instances_polygon_count: bpy.props.IntProperty(default=0)
+    index: bpy.props.IntProperty(default=0)
+
+    def invoke(self, context, event):
+        wm = context.window_manager
+        
+        return wm.invoke_props_dialog(self)
+
+
+    def draw(self, context):
+        obj = context.object
+        self.instances_polygon_count = 0
+        self.instances_count = 0
+
+        depsgraph = bpy.context.evaluated_depsgraph_get()
+        eval = obj.evaluated_get(depsgraph)
+        instA = [inst for inst in depsgraph.object_instances if inst.is_instance and inst.parent == eval]
+
+        coll_assets=bpy.data.collections['BagaPie_Ivy_Assets']
+        for ob in coll_assets.objects:
+            self.instances_polygon_count += len(ob.data.polygons)
+
+
+        self.instances_count = int(len(instA)*(self.instances_polygon_count/len(coll_assets.objects)))
+
+        layout = self.layout
+        col = layout.column(align=True)
+        col.label(text = "About {} polygons will be created.".format(str(self.instances_count)))
+        col.label(text = "Continue ?")
+
+
+    def execute(self, context):
+    
+        target = bpy.context.active_object
+        val = json.loads(target.bagapieList[target.bagapieIndex]['val'])
+        modifiers = val['modifiers']
+        modifier = target.modifiers[modifiers[0]]
+
+        # REALIZE INSTANCES
+        ivy_node_group = modifier.node_group
+        nodes = ivy_node_group.nodes
+        ivy_node_output = nodes.get("Group Output")
+        ivy_nde_ri = nodes.get("EndNode")
+        link = ivy_nde_ri.outputs[0].links[0]
+        ivy_node_group.links.remove(link)
+        ivy_nde_release = nodes.new(type='GeometryNodeRealizeInstances')
+
+        # LINK NODES
+        new_link = ivy_node_group.links
+        new_link.new(ivy_nde_ri.outputs[0], ivy_nde_release.inputs[0])
+        new_link.new(ivy_nde_release.outputs[0], ivy_node_output.inputs[0])
+            
+        target_coll = modifier['Input_9']
+        asset_coll = modifier['Input_16']
+        empty_coll = modifier['Input_17']
+            
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+
+        for ob in target_coll.objects:
+            target_coll.objects.unlink(ob) 
+        bpy.data.collections.remove(target_coll)
+
+        for ob in asset_coll.objects:
+            asset_coll.objects.unlink(ob) 
+        bpy.data.collections.remove(asset_coll)
+
+        for ob in empty_coll.objects:
+            empty_coll.objects.unlink(ob) 
+        bpy.data.collections.remove(empty_coll)
+        
+        target.data.attributes.active_index = 0
+
+        for at in target.data.attributes:
+            
+            if at.name == "Leaves":
+                bpy.ops.geometry.attribute_convert(mode="UV_MAP")
+            else:
+                target.data.attributes.active_index += 1
+
+        # for at in target.data.attributes:
+        #     bpy.ops.geometry.attribute_remove()
+
+        
+        context.object.bagapieList.remove(self.index)
+        
+        return {'FINISHED'}
+
+###################################################################################
+# Get OBJ children
+###################################################################################
+def get_children(ob):
+    return [ob_child for ob_child in bpy.data.objects if ob_child.parent == ob and ob_child.name.startswith("BagaPie_Ivy")]
+
+###################################################################################
+# ADD OBJECT TARGET
+###################################################################################
+class BAGAPIE_OT_RemoveSingleIvy(Operator):
+    """Remove ivy based on his parent (Empty Object)."""
+    bl_idname = "bagapie.removesingleivy"
+    bl_label = "Remove Single Ivy"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        o = context.object
+
+        return (
+            o is not None and 
+            o.type == 'EMPTY'
+        )
+
+    def execute(self, context):
+        parent_ivy = context.object
+        ivy = get_children(parent_ivy)[0]
+        coll_source = None
+
+        for coll in ivy.users_collection:
+            if coll.name.startswith("BagaPie_Ivy_Source_"):
+                coll_source = coll
+
+        bpy.ops.object.select_all(action='DESELECT')
+        if coll_source is not None:
+            for ob in coll_source.objects:
+                if ivy == ob:
+                    ivy.select_set(True)
+                    parent_ivy.select_set(True)
+                    bpy.ops.object.delete()
+
+        else:
+            Warning(message = "Select Ivy, then delete it via the BagaPie panel. The selected Ivy will be deleted.", title = "Main Ivy Detected", icon = 'INFO')
+        
+
+        return {'FINISHED'}
+
+
+###################################################################################
+# DISPLAY WARNING MESSAGE
+###################################################################################
+def Warning(message = "", title = "Message Box", icon = 'INFO'):
+
+    def draw(self, context):
+        self.layout.label(text=message)
+
+    bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
+
+classes = [
+    BAGAPIE_OT_ivy_remove,
+    BAGAPIE_OT_ivy,
+    BAGAPIE_OT_AddVertOBJ,
+    BAGAPIE_OT_AddObjectTarget,
+    BAGAPIE_OT_RemoveObjectTarget,
+    Apply_Ivy_OP,
+    BAGAPIE_OT_RemoveSingleIvy,
+]

@@ -222,3 +222,9 @@ class BAGAPIE_OT_boolean(Operator):
         item.val = json.dumps(val)
 
         return {'FINISHED'}
+
+
+classes = [
+    BAGAPIE_OT_boolean_remove,
+    BAGAPIE_OT_boolean
+]

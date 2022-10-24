@@ -5,10 +5,6 @@ from .. import utils
 
 def update_exclude_tabs(self, context):
     exclude = [tab.strip() for tab in self.exclude_tabs.split(',')]
-
-    if 'Item' not in exclude:
-        exclude.insert(0, 'Item')
-
     self['exclude_tabs'] = ', '.join(tab for tab in exclude if tab)
 
 
@@ -41,8 +37,15 @@ class AddonPrefs(bpy.types.AddonPreferences):
     exclude_tabs: bpy.props.StringProperty(
         name='Exclude Tabs',
         description='A comma separated list of tabs that SIMPLE TABS should ignore',
-        default='Item, ',
+        default='',
         update=update_exclude_tabs,
+    )
+
+
+    show_sidebar: bpy.props.BoolProperty(
+        name='Show Sidebar',
+        description='Open the sidebar when the refresh or update buttons are pressed',
+        default=False,
     )
 
 
@@ -65,3 +68,13 @@ class AddonPrefs(bpy.types.AddonPreferences):
         split = column.split(factor=0.5)
         split.label(text='Exclude Tabs')
         split.prop(self, 'exclude_tabs', text='')
+
+        split = column.split(factor=0.5)
+        split.label(text='Show Sidebar')
+        split.prop(self, 'show_sidebar', text='')
+
+        column.separator()
+
+        split = column.split(factor=0.5)
+        split.operator('simpletabs.export_settings')
+        split.operator('simpletabs.import_settings')

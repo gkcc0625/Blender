@@ -17,6 +17,13 @@ axis_items = [
     ("Y", "y", "", "NONE", 1),
     ("Z", "z", "", "NONE", 2)]
 
+def active_mod_index(self, context):
+    try: # for obsolete blender versions
+        obj = self.id_data
+        mod = obj.modifiers[self.active_modifier_index]
+        obj.modifiers.active = mod
+    except:
+        pass
 
 class HOpsObjectProperties(PropertyGroup):
 
@@ -36,6 +43,7 @@ class HOpsObjectProperties(PropertyGroup):
     last_array_axis: EnumProperty(name="array_axis", default="X", items=axis_items)
 
     is_poly_debug_display: BoolProperty(name="Poly Debug Display", default=False)
+    active_modifier_index: IntProperty(update=active_mod_index)
 
 
 class HOpsMeshProperties(PropertyGroup):

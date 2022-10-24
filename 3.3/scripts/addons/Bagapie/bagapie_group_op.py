@@ -287,3 +287,12 @@ class BAGAPIE_OT_deletegroup(Operator):
 
         return {'FINISHED'}
 
+classes = [
+    BAGAPIE_OT_ungroup,
+    BAGAPIE_OT_group,
+    BAGAPIE_OT_editgroup,
+    BAGAPIE_OT_lockgroup,
+    BAGAPIE_OT_duplicategroup,
+    BAGAPIE_OT_duplicatelinkedgroup,
+    BAGAPIE_OT_deletegroup
+]

@@ -119,3 +119,8 @@ def Collection_Add(self,context):
 
     return array_coll
 
+
+classes = [
+    BAGAPIE_OT_stairlinear_remove,
+    BAGAPIE_OT_stairlinear
+]

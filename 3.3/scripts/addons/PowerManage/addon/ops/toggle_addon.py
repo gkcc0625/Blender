@@ -21,5 +21,7 @@ class ToggleAddon(bpy.types.Operator):
         addon = prefs.addon_items[self.addon]
         utils.addon.toggle_addon(self, addon)
 
+        utils.meta.update_simple_tabs()
+
         utils.meta.save_userpref()
         return {'FINISHED'}

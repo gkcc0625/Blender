@@ -34,6 +34,8 @@ class BAGAPIE_OT_displace_remove(Operator):
             print("Some elements (modifier or objects) were missing.")
         
         context.object.bagapieList.remove(self.index)
+        if len(obj.bagapieList) <= obj.bagapieIndex and obj.bagapieIndex != 0:
+            obj.bagapieIndex -= 1
 
         return {'FINISHED'}
 
@@ -148,3 +150,8 @@ class BAGAPIE_OT_displace(Operator):
         target.bagapieIndex = len(target.bagapieList)-1
         
         return {'FINISHED'}
+    
+classes = [
+    BAGAPIE_OT_displace_remove,
+    BAGAPIE_OT_displace
+]

@@ -414,8 +414,6 @@ class BAGAPIE_OT_scatterpaint(Operator):
 
             return {'FINISHED'}
 
-
-
 ###################################################################################
 # DISPLAY WARNING MESSAGE
 ###################################################################################
@@ -521,8 +519,13 @@ def BagaPie_Assets_Check(self,context,obj):
     use_bagapie_assets = False
     for ob in obj:
         try:
-            if "BagaPie" in ob.name:
+            if ob.bagapieList:
                 use_bagapie_assets = True
         except:
             pass
     return use_bagapie_assets
+
+classes = [
+    BAGAPIE_OT_scatterpaint_remove,
+    BAGAPIE_OT_scatterpaint
+]

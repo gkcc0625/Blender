@@ -49,40 +49,23 @@ class Child_Tracker:
             self.current_obj = None
 
         # Local mode support
-        objs = []
-        obj_stats = []
-        for obj in self.children:
-            objs.append(obj)
-            obj_stats.append((obj, obj.hide_get(), obj.select_get()))
-
-        # Other Objects in local mode
-        other_local_objects = []
-        for o in context.visible_objects:
-            if o not in objs:
-                if not o.visible_in_viewport_get(context.space_data):
-                    objs.append(o)
-                    other_local_objects.append((o, o.select_get()))
-
-        if update_local_view(context, objs):
-            for obj, hide, select in obj_stats:
-                obj.select_set(select)
-                obj.hide_set(hide)
-
-            for obj, select in other_local_objects:
-                obj.select_set(select)
+        if context.space_data.local_view:
+            override = {'selected_objects': self.children + context.visible_objects[:]}
+            bpy.ops.view3d.localview(frame_selected=False)
+            bpy.ops.view3d.localview(override, frame_selected=False)
 
 
     def cycle_children(self, context, step=0):
         if len(self.children) == 0: return
 
         self.auto_scroll_sequance_begin = False
-        
+
         for obj in self.children:
             obj.select_set(False)
-            
+
         if get_preferences().property.modal_handedness == 'RIGHT':
             step *= -1
-    
+
         self.index += step
         if self.index < 0:
             self.index = 0
@@ -102,7 +85,7 @@ class Child_Tracker:
         self.last_affected = obj.name
 
     # --- OPERATIONS --- #
-    
+
     def event_update(self, op, context, event, obj):
 
         # Delete object
@@ -156,7 +139,7 @@ class Child_Tracker:
             for o in self.children:
                 if o not in self.tracked:
                     o.hide_set(show)
-            
+
 
     def toggle_boolean_visible(self, obj):
         if not obj: return

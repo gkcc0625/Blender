@@ -3,7 +3,7 @@ from .... preferences import get_preferences
 from .... utility.base_modal_controls import increment_maps, decrement_maps
 
 from . import States, Auto_Scroll, update_local_view, mods_exit_options, turn_on_coll, get_mod_object, get_node_graph_objects
-
+from .... utility.collections import unhide_layers
 
 class Mod_Tracker:
     def __init__(self):
@@ -67,8 +67,21 @@ class Mod_Tracker:
             if obj.users_collection[0] != colls:
                 filtered.append(obj)
 
+        cache = set()
         for obj in filtered:
-            turn_on_coll(obj, main_coll)
+            unhide_layers(obj)
+
+            for coll in obj.users_collection:
+                if coll != main_coll:
+                    if coll in cache: continue
+                    cache.add(coll)
+
+                for object in coll.objects:
+                    if object.display_type == 'WIRE':
+                        if object.hide_viewport:
+                            object.hide_viewport = False
+                        if not object.hide_get():
+                            object.hide_set(True)
 
         for mod in self.mods:
             mod.show_viewport = False
@@ -142,7 +155,7 @@ class Mod_Tracker:
                 self.reveal_mod_object(context)
             else:
                 self.toggle_visible()
-        
+
         # Apply mod
         elif event.type == 'F' and event.value == 'PRESS':
             if event.shift:
@@ -193,7 +206,7 @@ class Mod_Tracker:
         def reveal(obj):
 
             if context.space_data.local_view:
-                
+
                 objs = []
 
                 if obj.hide_get() == True:
@@ -271,7 +284,7 @@ class Mod_Tracker:
 
             # Standard
             else:
-                for obj in objs:                    
+                for obj in objs:
                     if obj.hide_get():
                         obj.hide_set(False)
                     else:
@@ -346,7 +359,7 @@ class Mod_Tracker:
             obj = self.current_mod.object
         elif hasattr(self.current_mod, 'mirror_object'):
             obj = self.current_mod.mirror_object
-        
+
         if obj:
             bpy.ops.hops.draw_wire_mesh_launcher(object_name=obj.name)
 
@@ -368,7 +381,7 @@ class Mod_Tracker:
         if self.current_mod.type == 'BOOLEAN':
             if self.current_mod.object:
                 bpy.ops.hops.draw_wire_mesh_launcher(object_name=self.current_mod.object.name)
-        
+
         if reveal_object:
             self.reveal_mod_object(context)
 
@@ -423,7 +436,7 @@ class Mod_Tracker:
                     obj.modifiers.remove(mod)
                 if should_break: break
             bpy.ops.hops.display_notification(info=f'{count} modifiers applied')
-            
+
             for mod in obj.modifiers:
                 mod.show_viewport = True
         else:
@@ -433,7 +446,7 @@ class Mod_Tracker:
                 bpy.ops.hops.display_notification(info=f'Applied : {name}')
             except:
                 obj.modifiers.remove(apply_mod)
-        
+
         self.update_data(context, obj)
         op.alter_form_layout(context)
 

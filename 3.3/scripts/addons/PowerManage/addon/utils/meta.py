@@ -43,6 +43,22 @@ def save_userpref():
         bpy.ops.wm.save_userpref()
 
 
+def check_simple_tabs() -> bool:
+    wm = bpy.context.window_manager
+
+    if hasattr(wm, 'simpletabs'):
+        if hasattr(wm.simpletabs, 'version'):
+            if wm.simpletabs.version >= (1, 2, 2):
+                return True
+
+    return False
+
+
+def update_simple_tabs():
+    if check_simple_tabs() and prefs().simple_tabs:
+        bpy.ops.simpletabs.update()
+
+
 def other_modules() -> dict:
     addon_utils.modules_refresh()
     modules, own_name = addon_utils.modules(), module()

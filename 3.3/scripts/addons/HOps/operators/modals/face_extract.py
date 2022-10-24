@@ -332,7 +332,7 @@ class HOPS_OT_FaceExtract(bpy.types.Operator):
         if self.use_decimate:
             mod = self.obj.modifiers.new("Decimate", 'DECIMATE')
             mod.decimate_type = 'DISSOLVE'
-            mod.angle_limit = math.radians(5)
+            mod.angle_limit = math.radians(.05)
             
         if self.use_last_bevel == False:
             for mod in reversed(self.obj.modifiers):

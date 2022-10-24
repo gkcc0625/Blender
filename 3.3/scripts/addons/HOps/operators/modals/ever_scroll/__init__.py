@@ -62,7 +62,7 @@ class Auto_Scroll:
         draw_text(self.display_msg(), self.x, self.y, size=self.size, color=self.font_color)
 
 
-def update_local_view(context, objs):    
+def update_local_view(context, objs):
     if context.space_data.local_view:
         # Come out of Local view
         bpy.ops.view3d.localview(frame_selected=False)
@@ -120,8 +120,10 @@ def turn_on_coll(obj, main_coll):
         if coll != main_coll:
             for object in coll.objects:
                 if object.display_type == 'WIRE':
-                    object.hide_viewport = False
-                    object.hide_set(True)
+                    if object.hide_viewport:
+                        object.hide_viewport = False
+                    if not object.hide_get():
+                        object.hide_set(True)
 
 
 def get_mod_object(mod):
@@ -140,13 +142,13 @@ def get_mod_object(mod):
     f_curves = obj.animation_data.drivers
 
     for f_cruve in f_curves:
-        
+
         path = f_cruve.data_path
         s = path.index('[') + 2
         e = path.index(']') - 1
 
         if mod.name != path[s:e]: continue
-        
+
         driver = f_cruve.driver
         for var in driver.variables:
             for tar in var.targets:

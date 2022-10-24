@@ -119,3 +119,7 @@ def Collection_Add(self,context,coll_name):
 
     return sub_coll
 
+classes = [
+    BAGAPIE_OT_column_remove,
+    BAGAPIE_OT_column
+]

@@ -100,3 +100,8 @@ class BAGAPIE_OT_wall(Operator):
         item.val = json.dumps(val)
         
         return {'FINISHED'}
+
+classes = [
+    BAGAPIE_OT_wall_remove,
+    BAGAPIE_OT_wall
+]

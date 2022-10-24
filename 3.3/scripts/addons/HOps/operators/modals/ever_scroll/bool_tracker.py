@@ -3,6 +3,7 @@ from .... preferences import get_preferences
 from .... utility.base_modal_controls import increment_maps, decrement_maps
 
 from . import States, Auto_Scroll, update_local_view, mods_exit_options, turn_on_coll
+from .... utility.collections import unhide_layers
 
 
 class Bool_Data:
@@ -58,7 +59,7 @@ class Recursive_Group:
     def hide_bool_mods(self, group):
         for bool_data in self.bool_datas:
             if bool_data.tracked: continue
-            
+
             obj, mod = self.get_real_refs(bool_data)
             if not obj or not mod: continue
 
@@ -75,7 +76,7 @@ class Recursive_Group:
         if not obj: return (None, None)
         mod = bool_data.real_mod()
         if not mod: return (None, None)
-        return (obj, mod) 
+        return (obj, mod)
 
 
     def get_bool_data(self, index):
@@ -115,10 +116,15 @@ class Recursive_Tracker:
         self.reveal_objects = []
 
         self.temp_data = []
+        rec_filter = set()
 
         def bool_collect(mod):
             if mod.type != 'BOOLEAN': return
             if not mod.object: return
+            if mod.object in rec_filter:
+                return
+            else:
+                rec_filter.add(mod.object)
 
             for next_mod in mod.object.modifiers:
                 if next_mod.type != 'BOOLEAN': continue
@@ -271,7 +277,7 @@ class Recursive_Tracker:
 
     def tracked_img_key_update(self, index):
         group = self.__group_with_index_check(index)
-        if not group: return 'eyecon_closed'        
+        if not group: return 'eyecon_closed'
         if group.bool_datas[index].tracked: return 'eyecon_open'
         return 'eyecon_closed'
 
@@ -326,7 +332,7 @@ class Recursive_Tracker:
             if i == group.index:
                 context.view_layer.objects.active = reset_active
                 break
-        
+
         self.setup(root_obj)
 
 
@@ -389,7 +395,7 @@ class Bool_Tracker:
                 self.bools.append(mod)
                 if bool_mod_valid_obj(context, mod):
                     objs.append(mod.object)
-                    
+
         objs = list(set(objs))
 
         filtered = []
@@ -402,9 +408,23 @@ class Bool_Tracker:
             if not obj.users_collection: continue
             if obj.users_collection[0] != colls:
                 filtered.append(obj)
-        
+
+        cache = set()
+
         for obj in filtered:
-            turn_on_coll(obj, main_coll)
+            unhide_layers(obj)
+
+            for coll in obj.users_collection:
+                if coll != main_coll:
+                    if coll in cache: continue
+                    cache.add(coll)
+
+                for object in coll.objects:
+                    if object.display_type == 'WIRE':
+                        if object.hide_viewport:
+                            object.hide_viewport = False
+                        if not object.hide_get():
+                            object.hide_set(True)
 
         if self.bools:
             self.index = len(self.bools) -1
@@ -413,29 +433,10 @@ class Bool_Tracker:
             self.current_mod = None
 
         # Local mode support
-        objs = []
-        obj_stats = []
-        for mod in self.bools:
-            if mod.object:
-                obj = mod.object
-                objs.append(obj)
-                obj_stats.append((obj, obj.hide_get(), obj.select_get()))
-
-        # Other Objects in local mode
-        other_local_objects = []
-        for o in context.visible_objects:
-            if o not in objs:
-                if not o.visible_in_viewport_get(context.space_data):
-                    objs.append(o)
-                    other_local_objects.append((o, o.select_get()))
-
-        if update_local_view(context, objs):
-            for obj, hide, select in obj_stats:
-                obj.select_set(select)
-                obj.hide_set(hide)
-            
-            for obj, select in other_local_objects:
-                obj.select_set(select)
+        if context.space_data.local_view:
+            override = {'selected_objects': self.bools + context.visible_objects[:]}
+            bpy.ops.view3d.localview(frame_selected=False)
+            bpy.ops.view3d.localview(override, frame_selected=False)
 
         # Additive : turn_on_coll will hide all objects that are using wire
         # Its best to not mess with this and just turn on whats needed after
@@ -445,6 +446,7 @@ class Bool_Tracker:
 
         # Select first
         self.cycle_bools(context, step=0)
+
 
 
     def cycle_bools(self, context, step=0):
@@ -595,16 +597,16 @@ class Bool_Tracker:
         mod = obj.modifiers[mod_name]
         if not mod: return
         if not bool_mod_valid_obj(bpy.context, mod): return
-    
+
         if mod.object not in self.tracked_bools:
             self.tracked_bools.append(mod.object)
             bpy.ops.hops.draw_wire_mesh_launcher(object_name=mod.object.name)
-            bpy.ops.hops.display_notification(info='Bool appended to visibility')    
-            mod.object.hide_set(False)              
+            bpy.ops.hops.display_notification(info='Bool appended to visibility')
+            mod.object.hide_set(False)
         else:
             self.tracked_bools.remove(mod.object)
             bpy.ops.hops.draw_wire_mesh_launcher(object_name=mod.object.name)
-            bpy.ops.hops.display_notification(info='Bool removed from visibility')     
+            bpy.ops.hops.display_notification(info='Bool removed from visibility')
             mod.object.hide_set(True)
 
 
@@ -667,7 +669,7 @@ class Bool_Tracker:
     def wire_display_current(self):
         if not self.current_mod: return
         if not bool_mod_valid_obj(bpy.context, self.current_mod): return
-        bpy.ops.hops.draw_wire_mesh_launcher(object_name=self.current_mod.object.name)       
+        bpy.ops.hops.draw_wire_mesh_launcher(object_name=self.current_mod.object.name)
 
 
     def exit_tracker(self, context, select_all=False):
@@ -773,7 +775,7 @@ class Bool_Tracker:
         if mod_name not in obj.modifiers: return
         mod = obj.modifiers[mod_name]
         apply_mod = mod
-        
+
         if up_to:
             count = 0
             for mod in obj.modifiers:

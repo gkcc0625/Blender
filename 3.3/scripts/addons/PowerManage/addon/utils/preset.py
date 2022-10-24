@@ -80,7 +80,7 @@ def load_preset(self: bpy.types.Operator, preset: props.preset.Preset):
         if not addon.visible:
             continue
 
-        if prefs.additive_presets:
+        if preset.additive:
             if addon.enabled() or not preset.stored(addon):
                 continue
 

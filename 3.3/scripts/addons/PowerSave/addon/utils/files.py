@@ -24,6 +24,8 @@ def add_to_recent_files():
             recent_files.seek(0, 0)
             recent_files.write('\n'.join(lines))
 
+        bpy.ops.wm.read_history()
+
     except:
         traceback.print_exc()
         print('Failed to add to recent files')
@@ -67,7 +69,7 @@ def as_autosave(path: pathlib.Path, mkdir: bool = False) -> pathlib.Path:
         return path.with_suffix('.blend.autosave')
 
     elif prefs.autosave_format == 'SUFFIX':
-        return path.with_stem(f'{path.stem}_autosave')
+        return path.with_name(f'{path.stem}_autosave.blend')
 
     elif prefs.autosave_format == 'FOLDER':
         folder = path.parent.joinpath('autosave')
@@ -110,24 +112,39 @@ def sanitize_autosave_name(self, context: bpy.types.Context):
             self['autosave_name'] = self.autosave_name[index + 1:]
 
 
-def change_version(path: pathlib.Path, direction: int) -> pathlib.Path:
+def increment_version(path: pathlib.Path) -> pathlib.Path:
     stem = path.stem
-    numbers = re.findall(r'\d+', stem)
+    increment = utils.common.increment()
 
-    if numbers:
-        last = numbers[-1]
-        length = len(last)
-        number = str(int(last) + direction)
-
-        index = stem.rfind(last)
-        start = index + max(length - len(number), 0)
-        end = index + length
-
-        name = f'{stem[:start]}{number}{stem[end:]}.blend'
-        path = path.with_name(name)
-
+    if utils.common.prefs().increment_strict:
+        separator = re.sub(r'\d+$', '', increment)
+        match = re.search(fr'(?<={separator})\d+$', stem)
     else:
-        name = f'{stem}{utils.common.increment()}.blend'
-        path = path.with_name(name)
+        match = re.search(r'\d+$', stem)
 
-    return path
+    if match:
+        stem = stem[:match.start()]
+        number = str(int(match.group()) + 1)
+        digits = len(match.group())
+        increment = number.zfill(digits)
+
+    return path.with_name(f'{stem}{increment}.blend')
+
+
+def find_version(path: pathlib.Path, direction: int) -> typing.Union[pathlib.Path, None]:
+    stem = path.stem
+    match = re.search(r'\d+$', stem)
+
+    if match:
+        stem = stem[:match.start()]
+        number = str(int(match.group()) + direction)
+        digits = len(match.group())
+
+        for zeros in range(max(1, digits - 1), digits + 2):
+            increment = number.zfill(zeros)
+            path = path.with_name(f'{stem}{increment}.blend')
+
+            if path.is_file():
+                return path
+
+    return None

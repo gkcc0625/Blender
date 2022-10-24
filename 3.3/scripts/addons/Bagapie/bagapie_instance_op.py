@@ -138,3 +138,8 @@ class BAGAPIE_OT_instance(Operator):
             instances_coll.objects.link(instance)
 
         return {'FINISHED'}
+
+classes = [
+    BAGAPIE_OT_makereal,
+    BAGAPIE_OT_instance
+]

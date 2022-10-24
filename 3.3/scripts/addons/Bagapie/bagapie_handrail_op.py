@@ -155,3 +155,8 @@ def Collection_Add(self,context,coll_name):
         sub_coll = bpy.data.collections.get(coll_name) 
 
     return sub_coll
+
+classes = [
+    BAGAPIE_OT_handrail_remove,
+    BAGAPIE_OT_handrail
+]

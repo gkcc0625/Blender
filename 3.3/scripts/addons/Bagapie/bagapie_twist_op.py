@@ -108,3 +108,9 @@ def Import_Nodes(self,context,nodes_name):
         )
     
     return {'FINISHED'}
+
+
+classes = [
+    BAGAPIE_OT_deform_remove,
+    BAGAPIE_OT_deform
+]

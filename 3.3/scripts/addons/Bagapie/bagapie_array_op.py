@@ -586,3 +586,9 @@ def OBJ_Dimension(self,context,ob):
     dimmension = instances_max_dimensions*inc_dim
     
     return dimmension
+
+classes = [
+    BAGAPIE_OT_array_remove,
+    BAGAPIE_OT_array,
+    BAGAPIE_OT_drawarray
+]

@@ -19,11 +19,11 @@ from ... addon.utility import method_handler
 from ... addon.utility.screen import dpi_factor
 
 
-DESC = """Array V2 
+DESC = """Array V2
 
 CTRL - New Array
 
-Adds an array on the mesh. 
+Adds an array on the mesh.
 Supports multiple modifiers.
 V during modal for 2d / 3d mode.
 
@@ -106,6 +106,15 @@ class Edit_Space(Enum):
     View_2D = 1
     View_3D = 2
 
+# set controller index and notification
+def mod_name_update(self, context):
+    op = HOPS_OT_ST3_Array.operator
+    if not op: return
+
+    valid = op.mod_controller.set_active_obj_mod_index(op.mod_selected)
+    if valid:
+        bpy.ops.hops.display_notification(info=f'Target Array : {op.mod_selected}')
+        op.set_initial_axis()
 
 class HOPS_OT_ST3_Array(bpy.types.Operator):
     bl_idname = "hops.st3_array"
@@ -113,9 +122,13 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
     bl_description = DESC
     bl_options = {"REGISTER", "UNDO", "BLOCKING"}
 
+    exit_with_empty_driver: bpy.props.BoolProperty("Exit with empty", name='Driver', description='Crate empty with a driver')
+
     # Popover
     operator = None
-    mod_selected = ""
+    mod_selected: bpy.props.StringProperty(update=mod_name_update)
+    array_index: bpy.props.IntProperty(name='ArrayIndex')
+    popover_active = False
 
     @classmethod
     def poll(cls, context):
@@ -140,7 +153,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
         self.freeze_controls = False              # Used to freeze the mouse
         self.use_snaps = False                    # Used to offset by object dimensions
         self.exit_with_empty_driver = False       # If an empty should be calculated for the arrays (Drivers)
-        self.exit_with_empty_obj = False           
+        self.exit_with_empty_obj = False
 
         # Setup
         types = {bpy.types.Mesh, bpy.types.GreasePencil}
@@ -160,6 +173,8 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
         # OP Prefs settings
         if get_preferences().property.array_v2_use_2d == '3D':
             self.edit_space = Edit_Space.View_3D
+
+        self.popup_style = get_preferences().property.in_tool_popup_style
 
         # Widgets : Deadzone
         self.widget = Widget(event)
@@ -238,19 +253,25 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
         self.base_controls.update(context, event)
         self.widget_update(context, event)
 
-        if self.edit_space == Edit_Space.View_2D:
+        if self.edit_space == Edit_Space.View_2D and not self.__class__.popover_active:
             mouse_warp(context, event)
 
         self.props_update()
 
         self.mouse_x_offset_2D = self.base_controls.mouse
-        self.form.update(context, event)
+        if self.popup_style == 'DEFAULT':
+            self.form.update(context, event)
 
         if not self.form.active():
             self.axial.update(context, event, self.axial_callback)
 
         # Popover
         self.popover(context)
+
+        if self.__class__.popover_active:
+            self.interface(context)
+            context.area.tag_redraw()
+            return {'RUNNING_MODAL'}
 
         # --- Base Controls --- #
         if self.base_controls.pass_through:
@@ -322,6 +343,10 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
 
             if self.freeze_controls:
                 self.form.open_dot()
+
+                if self.popup_style == 'BLENDER':
+                    bpy.ops.hops.st3_array_popup('INVOKE_DEFAULT')
+                    self.__class__.popover_active = True
             else:
                 self.form.close_dot()
 
@@ -387,7 +412,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
             self.deadzone_previous = False
             self.deadzone_active = True
             self.widget.circle_setup(event)
-            self.set_arrays_to_zero()                
+            self.set_arrays_to_zero()
 
         if self.base_controls.scroll:
             # Increment / Decrement / Axis change scrolling
@@ -478,7 +503,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
 
         self.master.setup()
         if not self.master.should_build_fast_ui(): return
-    
+
         win_list = []
         mods_list = []
 
@@ -588,7 +613,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
         row.add_element(form.Input(obj=self, attr="x_offset", width=75, increment=.1))
         row.add_element(form.Button(text="1", width=20, tips=tips, callback=self.set_to_one, pos_args=(False, 'X'), neg_args=(True, 'X'), alt_callback=self.set_others_to_one, alt_args=('X',)))
         self.form.row_insert(row)
-        
+
         row = self.form.row()
         row.add_element(form.Label(text="Y", width=30))
         row.add_element(form.Input(obj=self, attr="y_offset", width=75, increment=.1))
@@ -797,7 +822,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
     def adjust_2D(self, accelerated=True):
 
         speed_bonus = 10 if accelerated else 5
-        
+
         for obj_data in self.mod_controller.validated_obj_datas():
             mod = obj_data.active_mod()
 
@@ -912,7 +937,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
 
             # Put the intersection point back for drawing
             self.intersection_point = obj.matrix_local @ self.intersection_point
-            
+
 
     def adjust_constant_arrays_3D(self, intersection, index, mod, obj, dims):
         '''Adjust constant arrays based on 3D mouse coordinates.'''
@@ -1076,7 +1101,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
             if obj_data.active_mod_data().was_created and len(obj_data.mod_datas) > 1:
                 prev_mod = obj_data.mod_datas[-2].mod
                 cur_mod = obj_data.active_mod()
-                
+
                 # Make sure new array isnt using same axis as array before it
                 axises = ['X', 'Y', 'Z']
                 index, compare = 0, 0
@@ -1096,8 +1121,8 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
                     axis = axises[(index + 1) % len(axises)]
                     cur_relative_offset[0] = 0
                     obj.hops.last_array_axis = axis
-                        
-                elif prev_mod.use_constant_offset: 
+
+                elif prev_mod.use_constant_offset:
                     for i in range(3):
                         if abs(prev_constant_offset[i]) > compare:
                             index = i
@@ -1130,7 +1155,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
             A_loc = self.sync_object.matrix_world.translation
             A_sca = Matrix.Diagonal(A_mat.decompose()[2])
             A_mat.translation = Vector()
-            
+
             B_mat = obj.matrix_world
             B_loc = B_mat.translation
             B_sca = Matrix.Diagonal(B_mat.decompose()[2]).inverted()
@@ -1144,7 +1169,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
     def set_initial_axis(self, created_new=False):
         obj_data = self.mod_controller.active_object_mod(as_obj_data=True)
         if obj_data == None: return
-        
+
         # Check if the array should actually use another axis
         mod = obj_data.active_mod()
 
@@ -1162,7 +1187,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
             offset = list(constant_offset)
         else:
             offset = list(relative_offset)
-        
+
         offset = [abs(o) for o in offset]
         index = offset.index(max(offset))
 
@@ -1562,7 +1587,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
                     loc_z = dims[2] * obj.scale[2] * relative_offset[2]
 
                     empty.location = (loc_x, loc_y, loc_z)
-                
+
                 # Zero out offset for GP array
                 if mod.type == 'GP_ARRAY':
                     for i in range(3): constant_offset[i] = 0
@@ -1575,13 +1600,13 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
 
     def popover(self, context):
 
-        # Popup captured new mod
-        if self.__class__.mod_selected != "":
-            valid = self.mod_controller.set_active_obj_mod_index(self.__class__.mod_selected)
-            if valid:
-                bpy.ops.hops.display_notification(info=f'Target Array : {self.__class__.mod_selected}')
-                self.set_initial_axis()
-            self.__class__.mod_selected = ""
+        # # Popup captured new mod
+        # if self.__class__.mod_selected != "":
+        #     valid = self.mod_controller.set_active_obj_mod_index(self.__class__.mod_selected)
+        #     if valid:
+        #         bpy.ops.hops.display_notification(info=f'Target Array : {self.__class__.mod_selected}')
+        #         self.set_initial_axis()
+        #     self.__class__.mod_selected = ""
 
         # Spawns
         if self.base_controls.popover:
@@ -1606,7 +1631,8 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
     def draw_shader_2D(self, context):
         '''Draw shader handle.'''
 
-        self.form.draw()
+        if self.popup_style == 'DEFAULT':
+            self.form.draw()
         self.axial.draw()
 
         if self.edit_space == Edit_Space.View_2D:
@@ -1668,7 +1694,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
                 vert = vert @ rot_mat
 
             else:
-                rot_mat = obj.matrix_world.to_quaternion() 
+                rot_mat = obj.matrix_world.to_quaternion()
                 rot_mat = rot_mat.to_matrix()
                 rot_mat = rot_mat.inverted()
                 vert = vert @ rot_mat
@@ -1711,7 +1737,7 @@ class HOPS_OT_ST3_Array(bpy.types.Operator):
         mat = obj.matrix_world
         x_offset = 1
         y_offset = 1
-        
+
         scale = obj.matrix_world.inverted()
         scale = scale.to_scale()
 
@@ -1804,18 +1830,161 @@ def popup_draw(self, context):
     layout = self.layout
 
     op = HOPS_OT_ST3_Array.operator
-    if not op: return {'CANCELLED'}
+    if not op: return
 
     layout.label(text='Selector')
-    
+
     mods = [m.name for m in op.mod_controller.active_obj_mods()]
 
     broadcaster = "hops.popover_data"
 
-    for mod in mods:
+    for i, mod in enumerate(mods):
         row = layout.row()
         row.scale_y = 2
         props = row.operator(broadcaster, text=mod)
         props.calling_ops = 'ARRAY_V2'
         props.str_1 = mod
-        
+
+
+class HOPS_OT_ST3_Array_Popup(bpy.types.Operator):
+    bl_idname = "hops.st3_array_popup"
+    bl_label = "Adjust Array V2"
+
+    def __del__(self):
+        HOPS_OT_ST3_Array.popover_active = False
+
+    def execute(self, context):
+        preference = get_preferences().ui
+        return bpy.context.window_manager.invoke_popup(self, width=int(150 * dpi_factor()))
+
+    def draw(self, context):
+        layout = self.layout
+
+        op = HOPS_OT_ST3_Array.operator
+        if not op: return
+
+        mod = op.mod_controller.active_object_mod()
+
+        if not mod: return
+
+        layout.label(text='ARRAY V2')
+
+        if mod.type == 'ARRAY':
+            if mod.use_constant_offset:
+                offset = 'constant_offset_displace'
+            else:
+                offset = 'relative_offset_displace'
+        else:
+            if mod.use_constant_offset:
+                offset = 'constant_offset'
+            else:
+                offset = 'relativet_offset'
+
+        row = layout.row()
+        row.label(text='X')
+        row.prop(mod, offset, index=0, text='')
+        sone = row.row().operator('hops.st3_add_setone', text='', icon='THREE_DOTS')
+        sone.axis ='X'
+
+        row = layout.row()
+        row.label(text='Y')
+        row.prop(mod, offset, index=1, text='')
+        sone = row.row().operator('hops.st3_add_setone', text='', icon='THREE_DOTS')
+        sone.axis ='Y'
+
+        row = layout.row()
+        row.label(text='Z')
+        row.prop(mod, offset, index=2, text='')
+        sone = row.row().operator('hops.st3_add_setone', text='', icon='THREE_DOTS')
+        sone.axis ='Z'
+
+        func_row = layout.row(align=True)
+        func_row.row().prop(mod, 'count', text='')
+
+        offset = op.get_offset_hook()
+        func_row.operator("hops.st3_array_offset", text='', icon='EVENT_R' if offset == 'Relative' else 'EVENT_C',)
+
+        move_ops = func_row
+        move = move_ops.operator("hops.st3_array_modmove", text='', icon='TRIA_UP')
+        move.up = True
+        move = move_ops.operator("hops.st3_array_modmove", text='', icon='TRIA_DOWN')
+        move.up = False
+
+        func_row.prop(op, 'exit_with_empty_driver', text='', icon='DRIVER')
+
+        add_rem = func_row.row()
+        add_rem.operator_context = 'INVOKE_DEFAULT'
+        add_rem.operator("hops.st3_add_remove", text='', icon='ADD')
+
+        layout.popover(HOPS_PT_ST3_array_switch.bl_idname, text=mod.name)
+
+class HOPS_PT_ST3_array_switch(bpy.types.Panel):
+    bl_idname = 'HOPS_PT_ST3_array_switch'
+    bl_label = "Selector"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    def draw(self, context):
+        popup_draw(self, context)
+
+class HOPS_OT_ST3_Array_Offset(bpy.types.Operator):
+    bl_idname = "hops.st3_array_offset"
+    bl_label = "Offset"
+    bl_description = 'Set offset type'
+
+    def execute(self, context):
+        op = HOPS_OT_ST3_Array.operator
+        if not op: return {'FINISHED'}
+        offset = op.get_offset_hook()
+
+        offset = 'Relative' if offset == 'Constant' else 'Constant'
+        op.set_relative_constant(offset)
+
+        return {'FINISHED'}
+
+class HOPS_OT_ST3_Array_ModMove(bpy.types.Operator):
+    bl_idname = "hops.st3_array_modmove"
+    bl_label = "Move"
+    bl_description = 'Move modifier'
+
+    up: bpy.props.BoolProperty()
+    def execute(self, context):
+        op = HOPS_OT_ST3_Array.operator
+        if not op: return {'FINISHED'}
+
+        op.move_mod(context, self.up)
+
+        return {'FINISHED'}
+
+class HOPS_OT_ST3_Array_AddRemove(bpy.types.Operator):
+    bl_idname = "hops.st3_add_remove"
+    bl_label = "Add"
+    bl_description = '''Click to Add a new array
+    Shift + Click to remove current array'''
+
+    def invoke(self, context, event):
+        op = HOPS_OT_ST3_Array.operator
+        if not op: return {'FINISHED'}
+
+        op.add_remove_array(remove=event.shift)
+
+        return {'FINISHED'}
+
+class HOPS_OT_ST3_Array_SetOne(bpy.types.Operator):
+    bl_idname = "hops.st3_add_setone"
+    bl_label = "Add"
+    bl_description = '''Click - Set Array to 1
+    Shift + Click - Add 1
+    Alt + Click - Set array to 1 and others to 0'''
+
+    axis: bpy.props.StringProperty()
+
+    def invoke(self, context, event):
+        op = HOPS_OT_ST3_Array.operator
+        if not op: return {'FINISHED'}
+
+        if event.alt:
+            op.set_others_to_one(preserve_axis=self.axis)
+        else:
+            op.set_to_one(shift=event.shift, axis=self.axis)
+
+        return {'FINISHED'}

@@ -16,7 +16,7 @@ bl_info = {
     'author': 'bonjorno7, Michael Semprevivo, TeamC',
     'description': 'A powerful addon manager',
     'blender': (2, 80, 0),
-    'version': (0, 2, 6),
+    'version': (0, 2, 7),
     'category': '3D View',
     'location': 'View3D',
     'wiki_url': '',

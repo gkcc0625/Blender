@@ -19,12 +19,12 @@ class HOPS_OT_POPOVER(bpy.types.Operator):
 
 
     def execute(self, context):
-        
+
         if self.calling_ops == 'BEVEL_ADJUST':
             HOPS_OT_AdjustBevelOperator.mod_selected = self.str_1
-        
+
         elif self.calling_ops == 'ARRAY_V2':
-            HOPS_OT_ST3_Array.mod_selected = self.str_1
+            HOPS_OT_ST3_Array.operator.mod_selected = self.str_1
 
         elif self.calling_ops == 'BOOL_MODAL':
             HOPS_OT_BoolModal.selected_operation = self.str_1

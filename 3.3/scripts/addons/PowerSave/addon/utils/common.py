@@ -3,6 +3,7 @@ import datetime
 import re
 import pathlib
 import platform
+import typing
 from .. import props
 from .. import ui
 
@@ -31,8 +32,13 @@ def date_time() -> str:
 
 def increment() -> str:
     form = sanitize(prefs().increment_format)
-    numbers = re.findall(r'\d+', form)
-    return form if numbers else f'{form}1'
+    match = re.search(r'\d+$', form)
+
+    if match:
+        number = '1'.zfill(len(match.group()))
+        return re.sub(r'\d+$', number, form)
+    else:
+        return f'{form}1'
 
 
 def date_time_increment() -> str:
@@ -50,6 +56,25 @@ def update_panel_category(self, context):
     ui.main_panel.PowerSavePanel.bl_region_type = 'UI' if category else 'HEADER'
     bpy.utils.unregister_class(ui.main_panel.PowerSavePanel)
     bpy.utils.register_class(ui.main_panel.PowerSavePanel)
+
+
+def context_override(
+    context: bpy.types.Context,
+    override: dict,
+    operator: typing.Callable,
+    arguments: dict = None,
+    execution: str = 'EXEC_DEFAULT',
+) -> typing.Set[str]:
+    override = dict(context.copy(), **override)
+
+    if arguments is None:
+        arguments = {}
+
+    if hasattr(context, 'temp_override'):
+        with context.temp_override(**override):
+            return operator(execution, **arguments)
+
+    return operator(override, execution, **arguments)
 
 
 def documents() -> pathlib.Path:

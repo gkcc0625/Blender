@@ -41,7 +41,8 @@ class HOPS_OT_Slash(bpy.types.Operator):
             for f in cutter.data.polygons:
                 f.use_smooth = True
 
-            cutter.data.use_customdata_edge_bevel = True
+            if bpy.app.version[:2] < (3, 4):
+                cutter.data.use_customdata_edge_bevel = True
 
             new_obj = object.copy()
             new_obj.data = object.data.copy()

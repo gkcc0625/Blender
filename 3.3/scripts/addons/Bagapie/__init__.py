@@ -32,11 +32,11 @@
 bl_info = {
     "name": "BagaPie Modifier",
     "author": "Antoine Bagattini",
-    "version": (0, 7, 2, 1),
+    "version": (0, 8, 1, 0),
     "description": "Use a pie menu to add modifier and Geometry Nodes preset.",
     "blender": (3, 2, 0),
     "cathegory": "3D view",
-    "location": "Pie Menue, shortcut : J"
+    "location": "Pie Menu > Shortcut : J | Addon panel in 3d view (N key)",
 }
 
 from re import T
@@ -47,65 +47,6 @@ import addon_utils
 from bl_keymap_utils.io import keyconfig_merge
 from bpy.types import Menu, Operator, Panel
 
-from . bagapie_ui import (
-    BAGAPIE_MT_pie_menu,
-    BAGAPIE_PT_modifier_panel, 
-    MY_UL_List,
-    BAGAPIE_OP_modifierDisplay,
-    BAGAPIE_OP_modifierDisplayRender,
-    BAGAPIE_OP_modifierApply,
-    BAGAPIE_OP_addparttype,
-    BAGAPIE_OP_switchinput,
-    BAGAPIE_OP_switchboolnode,
-    BagaPie_tooltips,
-)
-from . bagapie_ui_op import ( 
-    SwitchMode,
-    EditMode,
-    UseSolidify,
-    InvertPaint,
-    CleanWPaint,
-    InvertWeight,
-    ADD_Assets,
-    REMOVE_Assets,
-    Rename_Layer,
-    SetupAssetBrowser,
-    SetupAssetBrowserForAssets,
-)
-from . bagapie_boolean_op import BAGAPIE_OT_boolean, BAGAPIE_OT_boolean_remove
-from . bagapie_wall_op import BAGAPIE_OT_wall_remove, BAGAPIE_OT_wall
-from . bagapie_array_op import BAGAPIE_OT_array_remove, BAGAPIE_OT_array, BAGAPIE_OT_drawarray
-from . bagapie_scatter_op import BAGAPIE_OT_scatter_remove, BAGAPIE_OT_scatter, UseProperty, Use_Proxy_On_Assets, Use_Camera_Culling_On_Layer, Apply_Scatter_OP
-from . bagapie_scatterpaint_op import BAGAPIE_OT_scatterpaint_remove, BAGAPIE_OT_scatterpaint
-from . bagapie_displace_op import BAGAPIE_OT_displace_remove, BAGAPIE_OT_displace
-from . bagapie_curvearray_op import BAGAPIE_OT_curvearray_remove, BAGAPIE_OT_curvearray
-from . bagapie_window_op import BAGAPIE_OT_window_remove, BAGAPIE_OT_window
-from . bagapie_group_op import BAGAPIE_OT_ungroup, BAGAPIE_OT_group, BAGAPIE_OT_editgroup, BAGAPIE_OT_lockgroup, BAGAPIE_OT_duplicategroup, BAGAPIE_OT_duplicatelinkedgroup, BAGAPIE_OT_deletegroup
-from . bagapie_instance_op import BAGAPIE_OT_makereal, BAGAPIE_OT_instance
-from . bagapie_pointeffector_op import BAGAPIE_OT_pointeffector_remove, BAGAPIE_OT_pointeffector
-from . bagapie_import_op import BAGAPIE_OT_importnodes
-from . bagapie_proxy_op import BAGAPIE_OT_proxy, BAGAPIE_OT_proxy_remove
-from . bagapie_wallbrick_op import BAGAPIE_OT_wallbrick, BAGAPIE_OT_wallbrick_remove
-from . bagapie_ivy_op import BAGAPIE_OT_ivy, BAGAPIE_OT_ivy_remove, BAGAPIE_OT_AddVertOBJ, BAGAPIE_OT_AddObjectTarget, BAGAPIE_OT_RemoveObjectTarget
-from . bagapie_pointsnapinstance import BAGAPIE_OT_pointsnapinstance, BAGAPIE_OT_pointsnapinstance_remove
-from . bagapie_instancesdisplace_op import BAGAPIE_OT_instancesdisplace, BAGAPIE_OT_instancesdisplace_remove
-from . bagapie_saveasset_op import BAGAPIE_OT_saveasset, BAGAPIE_OT_saveasset_list, BAGAPIE_OT_savematerial, UseLibrary
-from . bagapie_pipes_op import BAGAPIE_OT_pipes, BAGAPIE_OT_pipes_remove
-from . bagapie_beamwire_op import BAGAPIE_OT_beamwire, BAGAPIE_OT_beamwire_remove
-from . bagapie_stairlinear_op import BAGAPIE_OT_stairlinear,BAGAPIE_OT_stairlinear_remove
-from . bagapie_stairspiral_op import BAGAPIE_OT_stairspiral, BAGAPIE_OT_stairspiral_remove
-from . bagapie_beam_op import BAGAPIE_OT_beam, BAGAPIE_OT_beam_remove
-from . bagapie_floor_op import BAGAPIE_OT_floor, BAGAPIE_OT_floor_remove
-from . bagapie_handrail_op import BAGAPIE_OT_handrail, BAGAPIE_OT_handrail_remove
-from . bagapie_column_op import BAGAPIE_OT_column, BAGAPIE_OT_column_remove
-from . bagapie_twist_op import BAGAPIE_OT_deform, BAGAPIE_OT_deform_remove
-from . bagapie_camera_op import BAGAPIE_OT_camera, BAGAPIE_OT_camera_remove
-from . bagapie_cable_op import BAGAPIE_OT_cable, BAGAPIE_OT_cable_remove
-from . bagapie_fence_op import BAGAPIE_OT_fence, BAGAPIE_OT_fence_remove
-from . bagapie_siding_op import BAGAPIE_OT_siding, BAGAPIE_OT_siding_remove
-from . bagapie_tiles_op import BAGAPIE_OT_tiles, BAGAPIE_OT_tiles_remove
-
-# _______________________________________________ REGISTER / UNREGISTER
 
 class BagapieSettings(bpy.types.PropertyGroup):
     val: bpy.props.StringProperty()
@@ -118,6 +59,10 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
     asset_browser: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
     pie_custom: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
     how_it_works: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
+    nodes_to_addon: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
+    our_addon: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
+    help_support: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
+    issues: bpy.props.BoolProperty(name="Scattering Preferences", default=False)
     
     security_features: bpy.props.BoolProperty(name="Security Features", default=True)
     use_default_proxy: bpy.props.BoolProperty(name="Use Default Proxy", default=True)
@@ -177,8 +122,9 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
         wm = context.window_manager
         pref = context.preferences.addons['Bagapie'].preferences
         
-
+        ###################################################################################
         # GENERAL PREFERENCES
+        ###################################################################################
         box = layout.box()
         box.prop(self, 'general_preferences', text = "Preferences", emboss = False, icon = "PREFERENCES")
         if self.general_preferences == True:
@@ -202,7 +148,9 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
                         done_b = False
                         row.prop(kmi, "type", text="Duplicate Group Linked", full_event=True) 
 
+        ###################################################################################
         # ASSET BROWSER
+        ###################################################################################
         box = layout.box()
         box.prop(self, 'asset_browser', text = "Asset Browser", emboss = False, icon = "ASSET_MANAGER")
         if self.asset_browser == True:
@@ -217,7 +165,9 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
                 col.scale_y = 2
                 col.operator('bagapie.assetsdatabase', icon = "ASSET_MANAGER")
 
+        ###################################################################################
         # SCATTER PREFERENCES
+        ###################################################################################
         box = layout.box()
         box.prop(self, 'scatter_preferences', text = "Scattering Preferences", emboss = False, icon = "OUTLINER_OB_CURVES")
         if self.scatter_preferences == True:
@@ -239,9 +189,11 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
                 col.separator(factor = 1)
                 col.prop(pref, 'default_percent_display', text="Percentage of instances displayed in the viewport")
                 col.prop(pref, 'apply_scale_default', text="Proposes to apply the scale of the target if it is not at 1,1,1.")
-                col.prop(pref, 'use_camera_culling', text="Use Camera Culling if it's present.")
+                col.prop(pref, 'use_camera_culling', text="Use Camera Culling if available.")
 
+        ###################################################################################
         # HOW IT WORKS
+        ###################################################################################
         box = layout.box()
         box.prop(self, 'how_it_works', text = "How it works ?", emboss = False, icon = "QUESTION")
         if self.how_it_works == True:
@@ -256,29 +208,28 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
             box.label(text="You can then choose a modifier in the pie menu (scatter, boolean, displace, ...).")
             box.label(text="Then access the BagaPie panel (aka N panel [N key]) where all the parameters are organized.")
             box.separator(factor = 2)
-            box.label(text="What's new in BagaPie Modifier V7 ?")
+            box.label(text="What's new in BagaPie Modifier V8 ?")
             box.separator(factor = 1)
-            box.label(text="     - Apply Scatter (Convert to mesh or release instances)")
-            box.label(text="     - Asset Browser integration (+100 parametric presets)")
-            box.label(text="     - Cable Generator")
-            box.label(text="     - Tiles Generator")
-            box.label(text="     - Siding Generator")
-            box.label(text="     - Fence Generator")
-            box.label(text="     - Custom Shortcut")
-            box.label(text="     - Pie menu customisation")
+            box.label(text="     - Ivy Generator Rewrite (Gravity, projection mode, collision, ...")
+            box.label(text="     - Apply Ivy")
+            box.label(text="     - Geometry Nodes Modifier to Panel")
+            box.label(text="     - Shader Node Group to Panel")
+            box.label(text="     - Pref Improvment")
             box.separator(factor = 2)
-            box.label(text="What's new in BagaPie Assets V3 ?")
+            box.label(text="What's new in BagaPie Assets V4 ?")
             box.separator(factor = 1)
-            box.label(text="     - 110 new assets")
-            box.label(text="     - Asset Browser integration")
-            box.label(text="     - New thumbnails with faster loading.")
+            box.label(text="     - +70 new assets")
+            box.label(text="     - The names of the plant species are correctly referenced.")
+            box.label(text="     - Scatter5 partenarship")
+            box.label(text="     - Fixed thumbnail display")
             box.separator(factor = 2)
             col = box.column(align=True)
             col.scale_y = 2
             col.operator("wm.url_open", text="Youtube Tutorial", icon = 'PLAY').url = "https://www.youtube.com/playlist?list=PLSVXpfzibQbh_qjzCP2buB2rK1lQtkQvu"
 
-
+        ###################################################################################
         # PIE MENU CUSTOMIZATION
+        ###################################################################################
         box = layout.box()
         box.prop(self, 'pie_custom', text = "Pie Menu Customization", emboss = False, icon = "MODIFIER")
         if self.pie_custom == True:
@@ -307,17 +258,17 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
             # ARRAY
             box.label(text="Array :", icon = "MOD_ARRAY")
             
-            row = box.row(align=True)
-            row.prop(self, 'line', text = "Line", emboss = self.line, icon="BLANK1")
-            row.label(text=" One object | type mesh or curve")
+            # row = box.row(align=True)
+            # row.prop(self, 'line', text = "Line", emboss = self.line, icon="BLANK1")
+            # row.label(text=" One object | type mesh or curve")
             
-            row = box.row(align=True)
-            row.prop(self, 'grid', text = "Grid", emboss = self.grid, icon="BLANK1")
-            row.label(text=" One object | type mesh or curve")
+            # row = box.row(align=True)
+            # row.prop(self, 'grid', text = "Grid", emboss = self.grid, icon="BLANK1")
+            # row.label(text=" One object | type mesh or curve")
             
-            row = box.row(align=True)
-            row.prop(self, 'circle', text = "Circle", emboss = self.circle, icon="BLANK1")
-            row.label(text=" One object | type mesh or curve")
+            # row = box.row(align=True)
+            # row.prop(self, 'circle', text = "Circle", emboss = self.circle, icon="BLANK1")
+            # row.label(text=" One object | type mesh or curve")
             
             row = box.row(align=True)
             row.prop(self, 'curve', text = "Curve", emboss = self.curve, icon="BLANK1")
@@ -364,17 +315,17 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
             row.label(text=" One or multiple object(s) | type mesh")
             box.separator(factor = 1)
 
-            # BOOLEAN
-            box.label(text="Boolean :", icon = "MOD_BOOLEAN")
+            # # BOOLEAN
+            # box.label(text="Boolean :", icon = "MOD_BOOLEAN")
             
-            row = box.row(align=True)
-            row.prop(self, 'union', text = "Union", emboss = self.union, icon="BLANK1")
-            row.label(text=" One object | type mesh")
+            # row = box.row(align=True)
+            # row.prop(self, 'union', text = "Union", emboss = self.union, icon="BLANK1")
+            # row.label(text=" One object | type mesh")
             
-            row = box.row(align=True)
-            row.prop(self, 'difference', text = "Difference", emboss = self.difference, icon="BLANK1")
-            row.label(text=" One object | type mesh")
-            box.separator(factor = 1)
+            # row = box.row(align=True)
+            # row.prop(self, 'difference', text = "Difference", emboss = self.difference, icon="BLANK1")
+            # row.label(text=" One object | type mesh")
+            # box.separator(factor = 1)
 
             # EFFECTOR
             box.label(text="Effector :", icon = "PARTICLES")
@@ -459,129 +410,205 @@ class bagapie_Preferences(bpy.types.AddonPreferences):
             row.prop(self, 'autoarrayoncurve', text = "Auto Array on Curve", emboss = self.autoarrayoncurve, icon="BLANK1")
             row.label(text="    Auto Array on Curve : Two object | type mesh and curve")
 
+        ###################################################################################
+        # NODES TO PANEL
+        ###################################################################################
+        box = layout.box()
+        box.prop(self, 'nodes_to_addon', text = "Nodes to Panel", emboss = False, icon = "NODETREE")
+        if self.nodes_to_addon == True:
+            box.label(text="BagaPie can tranlate your geometry nodes modifier and shader nodes group into a nice user-freindly interface.")
+            row = box.row(align=True)
+            row.scale_y = 1.5
+            row.operator("wm.url_open", text="Documentation", icon = 'HELP').url = "https://www.f12studio.fr/bagapiev6"
+            row.operator("wm.url_open", text="Node To Panel Quick Demo", icon = 'PLAY').url = "https://youtu.be/LWdByXpfTLY?t=20"
+            col = box.column()
+            col.scale_y = 0.7
+            col.label(text="This feature allows you to easily organize your Geometry Nodes Modifier.")
+            col.label(text="It also allows you to share complex node tree (lot of inputs), users just need to have BagaPie Modifier.")
+            box = box.column(align=True)
+            box.separator(factor = 2)
+            box.scale_y = 0.8
+            box.label(text="Prefix list :")
+            box.separator(factor = 1)
+            box.label(text="B_   >    Create a new box")
+            box.label(text="B    >    Add in the previous box")
+            box.label(text="R_   >    Create a new row")
+            box.label(text="R    >    Add in the previous row")
+            box.label(text="2_   >    Scale button/input")
 
-        col = layout.column(align=True)
-        col.separator(factor = 2)
-        col.scale_y = 1.5
-        col.operator("wm.url_open", text="Get BagaPie Assets !", icon = 'FUND').url = "https://blendermarket.com/products/bagapie-assets"
-        col.operator("wm.url_open", text="BagaPie Documentation", icon = 'TEXT').url = "https://www.f12studio.fr/bagapiev6"
-        col.operator("wm.url_open", text="Help - Support - Bug Report on Discord", icon = 'COMMUNITY').url = "https://discord.gg/YtagqdPW6G"
-        col.operator("wm.url_open", text="Help - Support - Bug Report on BlenderArtists", icon = 'COMMUNITY').url = "https://blenderartists.org/t/bagapie-modifier-free-addon/1310959"
-        col.operator("wm.url_open", text="Youtube Tutorial", icon = 'PLAY').url = "https://www.youtube.com/playlist?list=PLSVXpfzibQbh_qjzCP2buB2rK1lQtkQvu"
+            box.separator(factor = 2)
+            box.label(text="L    >    Displayed as Label")
+            box.label(text="V    >    Displayed as Value (any types)")
+            box.label(text="P    >    Displayed as a Button (must be a bool)")
+            box.label(text="P2   >    Displayed as a Button with identifier 2 (must be between 0 - 9). Can control other values display.")
+            box.label(text="S    >    Displayed as Separator")
+            box.label(text="_    >    End of prefix, then add the name of your Value/Label/Button")
+            box.label(text="URL  >    External link (for Tutorials, Documentation, ...")
+
+            
+            box.separator(factor = 4)
+            box.label(text="Exemples :")
+
+            box.separator(factor = 2)
+            box.label(text="New Box with label :")
+            box.label(text="B_L_MyLabelName")
+
+            box.separator(factor = 2)
+            box.label(text="Button :")
+            box.label(text="P_MyButtonName")
+
+            box.separator(factor = 2)
+            box.label(text="Big Row Button :")
+            box.label(text="R_P_4_MyButtonName")
+            
+        ###################################################################################
+        # OUR ADDONS
+        ###################################################################################
+        box = layout.box()
+        box.prop(self, 'our_addon', text = "Our Addons !", emboss = False, icon = "FUND")
+        if self.our_addon == True:
+            col = box.column(align=True)
+            row = col.row(align=True)
+            row.scale_y = 1.5
+            row.operator("wm.url_open", text="BagaPie Assets", icon = 'FUND').url = "https://abaga.gumroad.com/l/GcYmPC"
+            row.scale_x = 2
+            row.operator("wm.url_open", text="", icon = 'PLAY').url = "https://youtu.be/uK7t_qDjm_0?t=50"
+            row = box.row(align=True)
+            row.scale_y = 1.5
+            row.operator("wm.url_open", text="Quick Compo", icon = 'FUND').url = "https://abaga.gumroad.com/l/QCompo"
+            row.scale_x = 2
+            row.operator("wm.url_open", text="", icon = 'PLAY').url = "https://youtu.be/ZGN9YxvqXgM"
+
+            col = box.column(align=True)
+            col.label(text="Generators / Little Addons / Files :")
+            row = col.row(align=True)
+            row.scale_x = 1.2
+            row.operator("wm.url_open", text="Symbiote Generator").url = "https://abaga.gumroad.com/l/SkyIVq"
+            row.operator("wm.url_open", text="Rain Generator").url = "https://abaga.gumroad.com/l/rain"
+            row.operator("wm.url_open", text="Blender and Print SpongeBob").url = "https://laura3dcraft.gumroad.com/l/bcvfa"
+            row = col.row(align=True)
+            row.scale_x = 1.2
+            row.operator("wm.url_open", text="Ivy Generator").url = "https://abaga.gumroad.com/l/ivygen"
+            row.operator("wm.url_open", text="Arch Generator").url = "https://abaga.gumroad.com/l/UlIvj"
+            row.operator("wm.url_open", text="BagaPassesSaver").url = "https://abaga.gumroad.com/l/MQcAd"
+            row = col.row(align=True)
+            row.scale_x = 1.2
+            row.operator("wm.url_open", text="Render Device Switcher").url = "https://abaga.gumroad.com/l/AKNdXX"
+            row.operator("wm.url_open", text="Lego Generator").url = "https://abaga.gumroad.com/l/zlcrs"
+            row.operator("wm.url_open", text="Fantasy Gate Generator").url = "https://abaga.gumroad.com/l/hcvvq"
+        ###################################################################################
+        # HELP SUPPORT BUGS
+        ###################################################################################
+        box = layout.box()
+        box.prop(self, 'help_support', text = "Help - Support - Issues - Documentation", emboss = False, icon = "COMMUNITY")
+        if self.help_support == True:
+            box = box.column(align=True)
+            box.separator(factor = 2)
+            box.scale_y = 1.5
+            box.operator("wm.url_open", text="BagaPie Documentation", icon = 'TEXT').url = "https://www.f12studio.fr/bagapiev6"
+            box.operator("wm.url_open", text="Help - Support - Bug Report on Discord", icon = 'COMMUNITY').url = "https://discord.gg/YtagqdPW6G"
+            box.operator("wm.url_open", text="Help - Support - Bug Report on BlenderArtists", icon = 'COMMUNITY').url = "https://blenderartists.org/t/bagapie-modifier-free-addon/1310959"
+            box.operator("wm.url_open", text="Youtube Tutorials", icon = 'PLAY').url = "https://www.youtube.com/playlist?list=PLSVXpfzibQbh_qjzCP2buB2rK1lQtkQvu"
+
+        ###################################################################################
+        # COMMON ISSUES
+        ###################################################################################
+        box = layout.box()
+        box.prop(self, 'issues', text = "Common Issues !", emboss = False, icon = "ERROR")
+        if self.issues == True:
+            col = box.column(align=True)
+            col.label(text=" 1| When I apply my modifier, everything disappears.")
+            col = box.column(align=True)
+            col.scale_y = 0.8
+            col.label(text="         You must apply the BagaPie modifiers via the addon's panel. (N key)")
+            col.label(text="         On top of the BagaPie panel press the apply Button : ✓")
+            col.label(text="         Keep in mind that modifiers have an order, apply the ones before your modifier first.")
+            box.separator(factor = 2)
+            
+            col = box.column(align=True)
+            col.label(text="2| My Scattering/Ivy isn't stabble during my animation.")
+            col = box.column(align=True)
+            col.scale_y = 0.8
+            col.label(text="         The scattering/ivy is based on the surface (area) of the object to calculate the position of the instances.")
+            col.label(text="         As your object is animated, the surface (area) may be modified/distorted.")
+            col.label(text="         There are currently no solutions for this issue in BagaPie.")
+            box.separator(factor = 2)
+            
+            col = box.column(align=True)
+            col.label(text="3| My Scattering/Ivy is different when rendered.")
+            col = box.column(align=True)
+            col.scale_y = 0.8
+            col.label(text="         The scattering/ivy is based on the surface (area) of the object to calculate the position of the instances.")
+            col.label(text="         Check that your surface does not change at the time of rendering (Ex: Modify Subdivision).")
+            col.label(text="         OR")
+            col.label(text="         It is possible that the number of particles displayed in the viewport and in the rendering is different.")
+            col.label(text="         Check the % Displayed parameter.")
+            box.separator(factor = 2)
+            
+            col = box.column(align=True)
+            col.label(text="4| The Pie Menu is missing some tools.")
+            col = box.column(align=True)
+            col.scale_y = 0.8
+            col.label(text="         Check that you are in object mode.")
+            col.label(text="         Check that the version of BagaPie is compatible with your Blender version.")
+            box.separator(factor = 2)
+            
+            col = box.column(align=True)
+            col.label(text="Still get an issue ?")
+            row = box.row(align=True)
+            row.operator("wm.url_open", text="Contact us on Discord", icon = 'COMMUNITY').url = "https://discord.gg/YtagqdPW6G"
+            row.operator("wm.url_open", text="Or on BlenderArtists", icon = 'COMMUNITY').url = "https://blenderartists.org/t/bagapie-modifier-free-addon/1310959"
+            
 
 
-bpy.utils.register_class(BagapieSettings)
 
 addon_keymaps = []
-addon_keymaps_group = []
-addon_keymaps_grouplink = []
-classes = [
-    bagapie_Preferences,
-    BAGAPIE_MT_pie_menu,
-    BAGAPIE_PT_modifier_panel,
-    MY_UL_List,
-    BAGAPIE_OP_switchboolnode,
-    SwitchMode,
-    EditMode,
-    UseSolidify,
-    InvertPaint,
-    CleanWPaint,
-    ADD_Assets,
-    UseProperty,
-    REMOVE_Assets,
-    Rename_Layer,
-    Use_Camera_Culling_On_Layer,
-    Use_Proxy_On_Assets,
-    InvertWeight,
-    SetupAssetBrowserForAssets,
-    BAGAPIE_OT_wall_remove,
-    BAGAPIE_OT_array_remove,
-    BAGAPIE_OT_scatter_remove,
-    BAGAPIE_OT_scatterpaint_remove,
-    BAGAPIE_OT_displace_remove,
-    BAGAPIE_OT_curvearray_remove,
-    BAGAPIE_OT_window_remove,
-    BAGAPIE_OT_ungroup,
-    BAGAPIE_OT_makereal,
-    BAGAPIE_OT_pointeffector_remove,
-    BAGAPIE_OT_boolean,
-    BAGAPIE_OT_boolean_remove,
-    BAGAPIE_OT_wall,
-    BAGAPIE_OT_array,
-    BAGAPIE_OT_drawarray,
-    BAGAPIE_OT_scatter,
-    BAGAPIE_OT_scatterpaint,
-    Apply_Scatter_OP,
-    BAGAPIE_OT_displace,
-    BAGAPIE_OT_curvearray,
-    BAGAPIE_OT_window,
-    BAGAPIE_OP_addparttype,
-    BAGAPIE_OT_group,
-    BAGAPIE_OT_editgroup,
-    BAGAPIE_OT_lockgroup,
-    BAGAPIE_OT_duplicategroup,
-    BAGAPIE_OT_duplicatelinkedgroup,
-    BAGAPIE_OT_deletegroup,
-    BAGAPIE_OP_modifierDisplay,
-    BAGAPIE_OP_modifierDisplayRender,
-    BAGAPIE_OP_modifierApply,
-    BAGAPIE_OT_instance,
-    BAGAPIE_OT_pointeffector,
-    BAGAPIE_OT_importnodes,
-    BAGAPIE_OT_proxy_remove,
-    BAGAPIE_OT_proxy,
-    BAGAPIE_OT_wallbrick,
-    BAGAPIE_OT_wallbrick_remove,
-    BAGAPIE_OT_ivy,
-    BAGAPIE_OT_ivy_remove,
-    BAGAPIE_OT_AddObjectTarget,
-    BAGAPIE_OT_RemoveObjectTarget,
-    BAGAPIE_OT_AddVertOBJ,
-    BAGAPIE_OT_pointsnapinstance,
-    BAGAPIE_OT_pointsnapinstance_remove,
-    BAGAPIE_OT_instancesdisplace,
-    BAGAPIE_OT_instancesdisplace_remove,
-    BAGAPIE_OT_saveasset,
-    BAGAPIE_OT_saveasset_list,
-    BAGAPIE_OT_savematerial,
-    UseLibrary,
-    BAGAPIE_OT_pipes,
-    BAGAPIE_OT_pipes_remove,
-    BAGAPIE_OP_switchinput,
-    BAGAPIE_OT_beamwire,
-    BAGAPIE_OT_beamwire_remove,
-    BAGAPIE_OT_stairlinear,
-    BAGAPIE_OT_stairlinear_remove,
-    BAGAPIE_OT_stairspiral,
-    BAGAPIE_OT_stairspiral_remove,
-    BAGAPIE_OT_beam,
-    BAGAPIE_OT_beam_remove,
-    BAGAPIE_OT_floor,
-    BAGAPIE_OT_floor_remove,
-    BAGAPIE_OT_handrail,
-    BAGAPIE_OT_handrail_remove,
-    BAGAPIE_OT_column,
-    BAGAPIE_OT_column_remove,
-    BAGAPIE_OT_deform,
-    BAGAPIE_OT_deform_remove,
-    BAGAPIE_OT_camera,
-    BAGAPIE_OT_camera_remove,
-    BagaPie_tooltips,
-    SetupAssetBrowser,
-    BAGAPIE_OT_cable,
-    BAGAPIE_OT_cable_remove,
-    BAGAPIE_OT_fence,
-    BAGAPIE_OT_fence_remove,
-    BAGAPIE_OT_siding,
-    BAGAPIE_OT_siding_remove,
-    BAGAPIE_OT_tiles,
-    BAGAPIE_OT_tiles_remove,
-    ]
+classes = [bagapie_Preferences, BagapieSettings]
+
+for script in [
+                "bagapie_ui",
+                "bagapie_ui_op",
+                "bagapie_boolean_op",
+                "bagapie_wall_op",
+                "bagapie_array_op",
+                "bagapie_scatter_op",
+                "bagapie_scatterpaint_op",
+                "bagapie_displace_op",
+                "bagapie_curvearray_op",
+                "bagapie_window_op",
+                "bagapie_group_op",
+                "bagapie_instance_op",
+                "bagapie_pointeffector_op",
+                "bagapie_import_op",
+                "bagapie_proxy_op",
+                "bagapie_wallbrick_op",
+                "bagapie_ivy_op",
+                "bagapie_pointsnapinstance",
+                "bagapie_instancesdisplace_op",
+                "bagapie_saveasset_op",
+                "bagapie_pipes_op",
+                "bagapie_beamwire_op",
+                "bagapie_stairlinear_op",
+                "bagapie_stairspiral_op",
+                "bagapie_beam_op",
+                "bagapie_floor_op",
+                "bagapie_handrail_op",
+                "bagapie_column_op",
+                "bagapie_twist_op",
+                "bagapie_camera_op",
+                "bagapie_cable_op",
+                "bagapie_fence_op",
+                "bagapie_siding_op",
+                "bagapie_tiles_op",
+            ]:
+    exec(f"from . import {script}")
+    exec(f"for cls in {script}.classes: classes.append(cls)")
     
 
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon
     if kc:
@@ -594,11 +621,11 @@ def register():
         # Duplicate
         dupli = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
         dupli_id = km.keymap_items.new("bagapie.duplicategroup", type='J', alt=True, value='PRESS')
-        addon_keymaps_group.append((dupli,dupli_id))
+        addon_keymaps.append((dupli,dupli_id))
         # Duplicate linked
         dupli_link = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
         dupli_id_link = km.keymap_items.new("bagapie.duplicatelinkedgroup", type='N', alt=True, value='PRESS')
-        addon_keymaps_grouplink.append((dupli_link,dupli_id_link))
+        addon_keymaps.append((dupli_link,dupli_id_link))
 
     bpy.types.Scene.bagapieValue = bpy.props.StringProperty(
         name="My List",
@@ -613,11 +640,9 @@ def register():
 def unregister():
     for km,kmi in addon_keymaps:
         km.keymap_items.remove(kmi)
-    for dupli,dupli_id in addon_keymaps_group:
-        dupli.keymap_items.remove(dupli_id)
-    for dupli_link,dupli_id_link in addon_keymaps_grouplink:
-        dupli_link.keymap_items.remove(dupli_id_link)
+        #bpy.context.window_manager.keyconfigs.addon.keymaps.remove(km)
     addon_keymaps.clear()
+
 
     for cls in classes:
         bpy.utils.unregister_class(cls)

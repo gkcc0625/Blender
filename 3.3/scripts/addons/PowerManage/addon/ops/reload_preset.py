@@ -19,5 +19,7 @@ class ReloadPreset(bpy.types.Operator):
         preset = prefs.selected_preset()
         utils.preset.load_preset(self, preset)
 
+        utils.meta.update_simple_tabs()
+
         utils.meta.save_userpref()
         return {'FINISHED'}

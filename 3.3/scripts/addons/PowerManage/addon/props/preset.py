@@ -23,6 +23,12 @@ class Preset(bpy.types.PropertyGroup):
 
     addon_items: bpy.props.CollectionProperty(type=bpy.types.PropertyGroup)
 
+    additive: bpy.props.BoolProperty(
+        name="Additive",
+        description="Only enable addons for this preset, do not disable any",
+        default=False,
+    )
+
     def addon_names(self) -> list:
         return [addon.name for addon in self.addon_items]
 

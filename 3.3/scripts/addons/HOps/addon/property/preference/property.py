@@ -286,6 +286,14 @@ class hops(PropertyGroup):
             ("KNIFE", "KNIFE", "")],
             default='SELECT')
 
+    menu_style_selector: EnumProperty(
+        name="Menu Style Selector",
+        description="Menu style selector",
+        items=[
+            ("DEFAULT", "Default", ""),
+            ("BLENDER", "Blender", "")],
+            default='DEFAULT')
+
     array_v2_use_2d: EnumProperty(
         name="Array V2 Adjust Mode",
         description="Method for Array V2",
@@ -800,6 +808,13 @@ class hops(PropertyGroup):
     show_cutter_options: BoolProperty(name="Show Cutter Options", default=False)
     show_misc_options: BoolProperty(name="Show Misc Options", default=False)
 
+    in_tool_popup_style: EnumProperty(
+        name="In-Tool pop-up Style",
+        description="Style of popup when applicable ",
+        items=[
+            ('DEFAULT', "Default", "Default style"),
+            ('BLENDER', "Blender", "Blender style")],
+        default='DEFAULT')
 
 def label_row(path, prop, row, label=''):
     row.label(text=label if label else names[prop])
@@ -871,9 +886,12 @@ def draw(preference, context, layout):
 
         # Clean
         sub_box = split.box()
-        sub_box.label(text="Array")
+        sub_box.label(text="In-Tool")
         sub_box = sub_box.box()
-        label_row(preference.property, 'array_v2_use_2d', sub_box.row(), label='V2 Method')
+        label_row(preference.property, 'array_v2_use_2d', sub_box.row(), label='Array Method')
+        label_row(preference.property, 'multi_tool_entry', sub_box.row(), label='Select Tool ')
+        label_row(preference.property, 'in_tool_popup_style', sub_box.row(), label='Pop-up Style')
+        label_row(preference.property, 'menu_style_selector', sub_box.row(), label='Menu Style')
 
         # Operators
         split = box.split()
@@ -883,18 +901,17 @@ def draw(preference, context, layout):
         label_row(preference.behavior, 'mat_viewport', sub_box.row(), label='Blank Material (view)')
         label_row(preference.property, 'Hops_twist_radial_sort', sub_box.row(), label='Radial / Twist Render')
         label_row(preference.property, 'to_render_jump', sub_box.row(), label='Viewport+ Set Render')
+        label_row(preference.property, 'view_align_filter_empties', sub_box.row(), label='View Align Filter')
         label_row(preference.property, 'meshclean_mode', sub_box.row(), label='Meshclean ')
         label_row(preference.property, 'accu_length', sub_box.row(), label='Accushape ')
-        label_row(preference.property, 'map_scroll_ftype', sub_box.row(), label='Map Scroll')
 
         # Misc
         sub_box = split.box()
         sub_box.label(text=" ")
         sub_box = sub_box.box()
         label_row(preference.property, 'to_light_constraint', sub_box.row(), label='Blank Light Constraint')
-        label_row(preference.property, 'multi_tool_entry', sub_box.row(), label='Select Tool ')
         label_row(preference.property, 'to_cam', sub_box.row(), label='To_Cam ')
-        label_row(preference.property, 'view_align_filter_empties', sub_box.row(), label='View Align Filter')
+        label_row(preference.property, 'map_scroll_ftype', sub_box.row(), label='Map Scroll')
         label_row(preference.property, 'map_scroll_folder_count', sub_box.row(), label='Map Scroll Folders')
         label_row(preference.property, 'map_scroll_file_count', sub_box.row(), label='Map Scroll Files')
 

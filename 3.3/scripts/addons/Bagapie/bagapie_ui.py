@@ -1,5 +1,3 @@
-from operator import index
-from typing import Text
 import bpy
 import json
 import addon_utils
@@ -236,8 +234,12 @@ class MY_UL_List(UIList):
 
         val = json.loads(item.val)
         name = val['name']
-        label = bagapieModifiers[name]['label']
-        icon = bagapieModifiers[name]['icon']
+        if name.startswith('BP_Assets_'):
+            label = name.removeprefix('BP_Assets_')
+            icon = 'MATERIAL'
+        else : 
+            label = bagapieModifiers[name]['label']
+            icon = bagapieModifiers[name]['icon']
 
         obj = context.object
         modifiers = val['modifiers']
@@ -253,16 +255,16 @@ class MY_UL_List(UIList):
             row = layout.row(align=True)
 
 
-            # List of modifier type to avoid dor apply/remove
+            # List of modifier type to avoid or apply/remove
             assets_type_list = ["stump","tree","grass","rock","plant"]
             avoid_list = ["pointeffector","pointsnapinstance","instancesdisplace","camera"]
             for a in assets_type_list:
                 avoid_list.append(a)
 
-            if mo_type not in avoid_list:
+            if mo_type not in avoid_list and not mo_type.startswith('BP_Assets_'):
                 row.operator("apply.modifier",text="", icon='CHECKMARK')
 
-            if mo_type not in assets_type_list:
+            if mo_type not in assets_type_list and not mo_type.startswith('BP_Assets_'):
                 row.operator('bagapie.'+ name +'_remove', text="", icon='REMOVE').index=index
 
             if mo_type == "scatter":
@@ -349,7 +351,7 @@ class MY_UL_List(UIList):
                     if obj.modifiers[modifiers[1]].show_render == False:
                         render_icon = 'RESTRICT_RENDER_ON'
 
-            elif mo_type not in assets_type_list:
+            elif mo_type not in assets_type_list and not mo_type.startswith('BP_Assets_'):
                 viewport_icon = 'RESTRICT_VIEW_OFF'
                 if obj.modifiers[modifiers[0]].show_viewport == False:
                     viewport_icon = 'RESTRICT_VIEW_ON'
@@ -357,7 +359,7 @@ class MY_UL_List(UIList):
                 if obj.modifiers[modifiers[0]].show_render == False:
                     render_icon = 'RESTRICT_RENDER_ON'
 
-            if mo_type not in assets_type_list:
+            if mo_type not in assets_type_list and not mo_type.startswith('BP_Assets_'):
                 row.operator("hide.viewport",text="", icon=viewport_icon).index=index
                 row.operator("hide.render",text="", icon=render_icon).index=index
 
@@ -373,41 +375,48 @@ class BAGAPIE_PT_modifier_panel(Panel):
 
     @classmethod
     def poll(cls, context):
-        o = context.object
+        o = context.object                        
 
         return (
             o is not None and 
             o.type == 'MESH' or 'CURVE'
         )
         
+        #############################################################################
     def draw(self, context):
         layout = self.layout
 
         obj = context.object
         obj_allowed_types = ["MESH","CURVE","EMPTY"]
+        displaymarketing = True
 
         if obj and obj.type in obj_allowed_types:
             col = layout.column()
+                                    
+            # col.template_list("MY_UL_List", "The_List", obj,
+            #                 "bagapieList", obj, "bagapieIndex")
 
-            # col.label(text="Modifier List :")
-
-            col.template_list("MY_UL_List", "The_List", obj,
-                            "bagapieList", obj, "bagapieIndex")
-            
             try:
                 prop = obj["bagapie_child"]
             except:
                 prop = None
-
+            
             if obj.bagapieIndex < len(obj.bagapieList):
-
+                displaymarketing = False
+                
+                col.template_list("MY_UL_List", "The_List", obj,
+                                "bagapieList", obj, "bagapieIndex")
 
                 val = json.loads(obj.bagapieList[obj.bagapieIndex]['val'])
                 type = val['name']
                 modifiers = val['modifiers']
-            
-                label = bagapieModifiers[type]['label']
-                icon = bagapieModifiers[type]['icon']
+                    
+                if type.startswith('BP_Assets_'):
+                    label = type.removeprefix('BP_Assets_')
+                    icon = 'MATERIAL'
+                else : 
+                    label = bagapieModifiers[type]['label']
+                    icon = bagapieModifiers[type]['icon']
 
                 if type == "wall":
                     col.label(text="Modifier Properties :")
@@ -2268,16 +2277,36 @@ class BAGAPIE_PT_modifier_panel(Panel):
                     box = layout.box()
 
                     box.label(text="Ivy")
+                    row = box.row(align=True)
+                    input_index = "Input_23"
+                    if ivy_modifier[input_index] == 1:
+                        props = row.operator('switch.button', text='Spiral', depress = False, icon = 'MOD_DASH')
+                    else:
+                        props = row.operator('switch.button', text='Spiral', depress = True, icon = 'MOD_DASH')
+                    props.index = input_index
+                    if ivy_modifier[input_index] == 0:
+                        props = row.operator('switch.button', text='Grid Project', depress = False, icon = 'VIEW_ORTHO')
+                    else:
+                        props = row.operator('switch.button', text='Grid Project', depress = True, icon = 'VIEW_ORTHO')
+                    props.index = input_index
+                    input_index = "Input_18"
+                    if ivy_modifier[input_index] == 1:
+                        props = box.operator('switch.button', text='View Guide', depress = True, icon = 'HIDE_OFF')
+                    else:
+                        props = box.operator('switch.button', text='View Guide', depress = False, icon = 'HIDE_ON')
+                    props.index = input_index
                     box = box.column(align=True)
                     box.prop(ivy_modifier, '["Input_3"]', text = "Radius")
                     box.prop(ivy_modifier, '["Input_5"]', text = "Height")
                     box.prop(ivy_modifier, '["Input_6"]', text = "Loop")
                     box.prop(ivy_modifier, '["Input_2"]', text = "Resolution")
+                    box.prop(ivy_modifier, '["Input_21"]', text = "Gravity")
+                    box.prop(ivy_modifier, '["Input_19"]', text = "Scale")
 
                     box = layout.box()
                     box = box.column(align=True)
-                    box.prop(ivy_modifier, '["Input_13"]', text = "Distance Min")
                     box.prop(ivy_modifier, '["Input_10"]', text = "Density")
+                    box.prop(ivy_modifier, '["Input_20"]', text = "Decimate")
 
                     box = layout.box()
                     box.label(text="Random")
@@ -2821,12 +2850,8 @@ class BAGAPIE_PT_modifier_panel(Panel):
                     row.prop(psi_modifier, '["Input_5"]', text = "")
 
                 else:
-                    col = layout.column()
-                    col.scale_y = 1.5
-                    col.label(text="Press J !")
-                    col.operator("wm.url_open", text="Youtube Tutorial", icon = 'PLAY').url = "https://www.youtube.com/watch?v=51iRC0A4Nzw&list=PLSVXpfzibQbh_qjzCP2buB2rK1lQtkQvu&index=3"
-                    col.operator("wm.url_open", text="BagaPie Documentation", icon = 'TEXT').url = "https://www.f12studio.fr/bagapiev6"
-                    col.operator("wm.url_open", text="Get BagaPie Assets !", icon = 'FUND').url = "https://blendermarket.com/products/bagapie-assets"
+                    displaymarketing == True
+                    
 
             elif prop is not None and obj is not None:
                 
@@ -2846,20 +2871,6 @@ class BAGAPIE_PT_modifier_panel(Panel):
                 col.operator("bagapie.ungroup", text= "Ungroup")
                 col.operator("bagapie.instance", text= "Instance")
 
-
-            else:
-                if bpy.context.object.mode == 'EDIT':
-                    col = layout.column()
-                    col.scale_y = 2.0
-                    col.operator("bool.mode", text= "EXIT")
-                else:
-                    col = layout.column()
-                    col.scale_y = 1.5
-                    col.label(text="Press J !")
-                    col.operator("wm.url_open", text="Youtube Tutorial", icon = 'PLAY').url = "https://www.youtube.com/watch?v=51iRC0A4Nzw&list=PLSVXpfzibQbh_qjzCP2buB2rK1lQtkQvu&index=3"
-                    col.operator("wm.url_open", text="BagaPie Documentation", icon = 'TEXT').url = "https://www.f12studio.fr/bagapiev6"
-                    col.operator("wm.url_open", text="Get BagaPie Assets !", icon = 'FUND').url = "https://blendermarket.com/products/bagapie-assets"
-
         # In case nothing is selected
         elif obj and obj.type not in obj_allowed_types:
             box = layout.box()
@@ -2872,6 +2883,907 @@ class BAGAPIE_PT_modifier_panel(Panel):
             box = box.column(align=True)
             row = box.row()
             row.label(text="No Object Selected")
+
+        # DISPLAY MODIFIER OR MATERIAL 
+        isbox = False
+        isrow = False
+        buttons_display = []
+        check_BP_ = "BP_"
+        if obj is not None:
+            if obj.type == 'MESH' or 'CURVE':
+                # DISPLAY MODIFIER
+                for mo in obj.modifiers:
+                    if mo.type == "NODES" and mo is not None:
+                        if  mo.name.startswith("BP_") or mo.node_group.name.startswith("BP_"):
+                            displaymarketing = False
+
+                            layout.label(text=mo.name.removeprefix('BP_'))
+                            for input in mo.node_group.inputs:
+                                id = input.name
+
+                                # EXTERNAL LINK
+                                check = "URL_"
+                                if input.name.startswith(check):
+                                    id = id.removeprefix(check)
+                                    col = layout.column()
+                                    if id[0].isdigit() and id[1] == "_":
+                                        col.scale_y = int(id[0])
+                                        id = id.removeprefix(str(id[0])+"_")
+                                    url_link = mo[input.identifier]
+                                    if url_link == "":
+                                        url_link = input.default_value
+                                    col.operator("wm.url_open", text=id, icon = 'URL').url = url_link
+
+                                check = "L_"
+                                if input.name.startswith(check):
+                                    id = id.removeprefix(check)
+                                    col = layout.column()
+                                    if id[0].isdigit() and id[1] == "_":
+                                        col.scale_y = int(id[0])
+                                        id = id.removeprefix(str(id[0])+"_")
+                                    col.label(text=id)
+
+                                check = "S_"
+                                if input.name.startswith(check):
+                                    id = id.removeprefix(check)
+                                    layout.separator(factor = int(id))
+
+                                check = "V_"
+                                if input.name.startswith(check):
+                                    id = id.removeprefix(check)
+                                    col = layout.column()
+                                    if id[0].isdigit() and id[1] == "_":
+                                        col.scale_y = int(id[0])
+                                        id = id.removeprefix(str(id[0])+"_")
+                                    col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                # BUTTON => THIS PART OF THE CODE IS BAD !... But it works
+                                check = "P"
+                                if input.name.startswith(check) and input.type == 'BOOLEAN':
+                                    id = id.removeprefix(check)
+                                    check = "_"
+                                    if id.startswith(check):
+                                        id = id.removeprefix(check)
+
+                                        col = layout.column()
+                                        if id[0].isdigit() and id[1] == "_":
+                                            col.scale_y = int(id[0])
+                                            id = id.removeprefix(str(id[0])+"_")
+                                        
+                                        input_index = input.identifier
+                                        if mo[input_index] == 1:
+                                            props = col.operator('switch.boolcustom', text=id, depress = True)
+                                        else:
+                                            props = col.operator('switch.boolcustom', text=id, depress = False)
+                                        props.index = input_index
+                                        props.modifier = mo.name
+
+                                    elif id[0].isdigit() and id[1] == '_':
+                                        buttons_display.append([id[0], mo[input.identifier]])
+
+                                        id = id.removeprefix(id[0])
+                                        id = id.removeprefix(id[0])
+
+                                        col = layout.column()
+                                        if id[0].isdigit() and id[1] == "_":
+                                            col.scale_y = int(id[0])
+                                            id = id.removeprefix(str(id[0])+"_")
+                                        
+                                        input_index = input.identifier
+                                        if mo[input_index] == 1:
+                                            props = col.operator('switch.boolcustom', text=id, depress = True)
+                                        else:
+                                            props = col.operator('switch.boolcustom', text=id, depress = False)
+                                        props.index = input_index
+                                        props.modifier = mo.name
+                                
+                                if id[0].isdigit():
+                                    button_id = id[0]
+                                    id = id.removeprefix(id[0])
+                                    display_line = False
+
+                                    for button in buttons_display:
+                                        if button_id in button[0] and button[1] == True:
+                                            display_line = True
+                                    if display_line == True:
+                                        
+                                        check = "V_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = layout.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                        check = "P_"
+                                        if id.startswith(check) and input.type == 'BOOLEAN':
+                                            id = id.removeprefix(check)
+                                            col = box.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            input_index = input.identifier
+                                            if mo[input_index] == 1:
+                                                props = col.operator('switch.boolcustom', text=id, depress = True)
+                                            else:
+                                                props = col.operator('switch.boolcustom', text=id, depress = False)
+                                            props.index = input_index
+                                            props.modifier = mo.name
+
+                                        check = "URL_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            layout.operator("wm.url_open", text=id, icon = 'URL').url = mo[input.identifier]
+
+                                        check = "L_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = layout.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            col.label(text=id)
+
+                                        check = "S_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            layout.separator(factor = int(id))
+
+
+                                        # BOX #############################
+                                        check = "B"
+                                        if id.startswith(check) and "_" in id:
+                                            id = id.removeprefix(check)
+
+                                            check = "_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                box = layout.box()
+                                                box = box.column(align=True)
+                                                isbox = True
+
+                                            if isbox:
+                                                check = "L_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.label(text=id)
+
+                                                check = "S_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    box.separator(factor = int(id))
+
+                                                check = "V_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                                check = "P_"
+                                                if id.startswith(check) and input.type == 'BOOLEAN':
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    input_index = input.identifier
+                                                    if mo[input_index] == 1:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = True)
+                                                    else:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = False)
+                                                    props.index = input_index
+                                                    props.modifier = mo.name
+
+                                                check = "URL_"
+                                                if id.startswith(check) and input.type == 'STRING':
+                                                    id = id.removeprefix(check)
+                                                    box.operator("wm.url_open", text=id, icon = 'URL').url = mo[input.identifier]
+
+                                                # ROW #############################
+                                                check = "R"
+                                                if id.startswith(check) and "_" in id:
+                                                    id = id.removeprefix(check)
+                                                    
+                                                    check = "_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        row = box.row(align=True)
+                                                        isrow = True
+
+                                                    if isrow:
+                                                        check = "L_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            col = row.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            col.label(text=id)
+
+                                                        check = "S_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            row.separator(factor = int(id))
+
+                                                        check = "V_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            col = row.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                                        check = "P_"
+                                                        if id.startswith(check) and input.type == 'BOOLEAN':
+                                                            id = id.removeprefix(check)
+                                                            col = row.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            input_index = input.identifier
+                                                            if mo[input_index] == 1:
+                                                                props = col.operator('switch.boolcustom', text=id, depress = True)
+                                                            else:
+                                                                props = col.operator('switch.boolcustom', text=id, depress = False)
+                                                            props.index = input_index
+                                                            props.modifier = mo.name
+                                                
+                                                        check = "URL_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            col = row.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            col.operator("wm.url_open", text=id, icon = 'URL').url = mo[input.identifier]
+
+                                            else:
+                                                box = layout.box()
+                                                box.scale_y = 0.7
+                                                box.label(text=input.name, icon ='ERROR')
+                                                box.label(text="Underscore missing")
+                                                box.label(text="Try: B_"+input.name.removeprefix('B'))
+                                    
+                                        # ROW #############################
+                                        check = "R"
+                                        if id.startswith(check) and "_" in id:
+                                            id = id.removeprefix(check)
+                                            
+                                            check = "_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                row = layout.row(align=True)
+                                                isrow = True
+
+                                            if isrow:
+                                                check = "L_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.label(text=id)
+
+                                                check = "S_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    row.separator(factor = int(id))
+
+                                                check = "V_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                                check = "P_"
+                                                if id.startswith(check) and input.type == 'BOOLEAN':
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    input_index = input.identifier
+                                                    if mo[input_index] == 1:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = True)
+                                                    else:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = False)
+                                                    props.index = input_index
+                                                    props.modifier = mo.name
+
+                                                check = "URL_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.operator("wm.url_open", text=id, icon = 'URL').url = mo[input.identifier]
+
+                                                check = "B"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+
+                                                    check = "_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        box = row.box()
+                                                        # box = box.column(align=True)
+                                                        isbox = True
+
+                                                    if isbox:
+                                                        check = "L_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            col = box.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            col.label(text=id)
+
+                                                        check = "S_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            box.separator(factor = int(id))
+
+                                                        check = "V_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            col = box.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                                        check = "P_"
+                                                        if id.startswith(check) and input.type == 'BOOLEAN':
+                                                            id = id.removeprefix(check)
+                                                            col = box.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            input_index = input.identifier
+                                                            if mo[input_index] == 1:
+                                                                props = col.operator('switch.boolcustom', text=id, depress = True)
+                                                            else:
+                                                                props = col.operator('switch.boolcustom', text=id, depress = False)
+                                                            props.index = input_index
+                                                            props.modifier = mo.name
+
+
+                                                        check = "URL_"
+                                                        if id.startswith(check):
+                                                            id = id.removeprefix(check)
+                                                            col = box.column()
+                                                            if id[0].isdigit() and id[1] == "_":
+                                                                col.scale_y = int(id[0])
+                                                                id = id.removeprefix(str(id[0])+"_")
+                                                            col.operator("wm.url_open", text=id, icon = 'URL').url = mo[input.identifier]
+
+
+                                                    else:
+                                                        box.label(text=input.name, icon ='ERROR')
+                                                        box.label(text="Underscore missing")
+                                                        if input.name.startswith("R_"):
+                                                            box.label(text="Try: R_B_"+input.name.removeprefix('R_B_'))
+                                                        else:
+                                                            box.label(text="Try: RB_"+input.name.removeprefix('RB'))
+
+                                            else:
+                                                box = layout.box()
+                                                box.scale_y = 0.7
+                                                box.label(text=input.name, icon ='ERROR')
+                                                box.label(text="Underscore missing")
+                                                box.label(text="Try: R_"+input.name.removeprefix('R'))
+
+                            
+                                # BOX #############################
+                                check = "B"
+                                if input.name.startswith(check) and "_" in id:
+                                    id = id.removeprefix(check)
+
+                                    check = "_"
+                                    if id.startswith(check):
+                                        id = id.removeprefix(check)
+                                        box = layout.box()
+                                        box = box.column(align=True)
+                                        isbox = True
+
+                                    if isbox:
+                                        check = "L_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = box.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            col.label(text=id)
+
+                                        check = "S_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            box.separator(factor = int(id))
+
+                                        check = "V_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = box.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                        check = "P_"
+                                        if id.startswith(check) and input.type == 'BOOLEAN':
+                                            id = id.removeprefix(check)
+                                            col = box.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            input_index = input.identifier
+                                            if mo[input_index] == 1:
+                                                props = col.operator('switch.boolcustom', text=id, depress = True)
+                                            else:
+                                                props = col.operator('switch.boolcustom', text=id, depress = False)
+                                            props.index = input_index
+                                            props.modifier = mo.name
+
+                                        check = "URL_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = box.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            url_link = mo[input.identifier]
+                                            if url_link == "":
+                                                url_link = input.default_value
+                                            col.operator("wm.url_open", text=id, icon = 'URL').url = url_link
+
+                                        # ROW #############################
+                                        check = "R"
+                                        if id.startswith(check) and "_" in id:
+                                            id = id.removeprefix(check)
+                                            
+                                            check = "_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                row = box.row(align=True)
+                                                isrow = True
+
+                                            if isrow:
+                                                check = "L_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.label(text=id)
+
+                                                check = "S_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    row.separator(factor = int(id))
+
+                                                check = "V_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                                check = "P_"
+                                                if id.startswith(check) and input.type == 'BOOLEAN':
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    input_index = input.identifier
+                                                    if mo[input_index] == 1:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = True)
+                                                    else:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = False)
+                                                    props.index = input_index
+                                                    props.modifier = mo.name
+                                        
+                                                check = "URL_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = row.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.operator("wm.url_open", text=id, icon = 'URL').url = mo[input.identifier]
+
+                                    else:
+                                        box = layout.box()
+                                        box.scale_y = 0.7
+                                        box.label(text=input.name, icon ='ERROR')
+                                        box.label(text="Underscore missing")
+                                        box.label(text="Try: B_"+input.name.removeprefix('B'))
+                            
+                                # ROW #############################
+                                check = "R"
+                                if input.name.startswith(check) and "_" in id:
+                                    id = id.removeprefix(check)
+                                    
+                                    check = "_"
+                                    if id.startswith(check):
+                                        id = id.removeprefix(check)
+                                        row = layout.row(align=True)
+                                        isrow = True
+
+                                    if isrow:
+                                        check = "L_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = row.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            col.label(text=id)
+
+                                        check = "S_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            row.separator(factor = int(id))
+
+                                        check = "V_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = row.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                        check = "P_"
+                                        if id.startswith(check) and input.type == 'BOOLEAN':
+                                            id = id.removeprefix(check)
+                                            col = row.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            input_index = input.identifier
+                                            if mo[input_index] == 1:
+                                                props = col.operator('switch.boolcustom', text=id, depress = True)
+                                            else:
+                                                props = col.operator('switch.boolcustom', text=id, depress = False)
+                                            props.index = input_index
+                                            props.modifier = mo.name
+
+                                        check = "URL_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            col = row.column()
+                                            if id[0].isdigit() and id[1] == "_":
+                                                col.scale_y = int(id[0])
+                                                id = id.removeprefix(str(id[0])+"_")
+                                            url_link = mo[input.identifier]
+                                            if url_link == "":
+                                                url_link = input.default_value
+                                            col.operator("wm.url_open", text=id, icon = 'URL').url = url_link
+
+                                        check = "B"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+
+                                            check = "_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                box = row.box()
+                                                # box = box.column(align=True)
+                                                isbox = True
+
+                                            if isbox:
+                                                check = "L_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.label(text=id)
+
+                                                check = "S_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    box.separator(factor = int(id))
+
+                                                check = "V_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    col.prop(mo, '["{}"]'.format(input.identifier), text=id)
+
+                                                check = "P_"
+                                                if id.startswith(check) and input.type == 'BOOLEAN':
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    input_index = input.identifier
+                                                    if mo[input_index] == 1:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = True)
+                                                    else:
+                                                        props = col.operator('switch.boolcustom', text=id, depress = False)
+                                                    props.index = input_index
+                                                    props.modifier = mo.name
+
+
+                                                check = "URL_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    col = box.column()
+                                                    if id[0].isdigit() and id[1] == "_":
+                                                        col.scale_y = int(id[0])
+                                                        id = id.removeprefix(str(id[0])+"_")
+                                                    url_link = mo[input.identifier]
+                                                    if url_link == "":
+                                                        url_link = input.default_value
+                                                    col.operator("wm.url_open", text=id, icon = 'URL').url = url_link
+
+
+                                            else:
+                                                box.label(text=input.name, icon ='ERROR')
+                                                box.label(text="Underscore missing")
+                                                if input.name.startswith("R_"):
+                                                    box.label(text="Try: R_B_"+input.name.removeprefix('R_B_'))
+                                                else:
+                                                    box.label(text="Try: RB_"+input.name.removeprefix('RB'))
+
+                                    else:
+                                        box = layout.box()
+                                        box.scale_y = 0.7
+                                        box.label(text=input.name, icon ='ERROR')
+                                        box.label(text="Underscore missing")
+                                        box.label(text="Try: R_"+input.name.removeprefix('R'))
+
+                # DISPLAY MATERIAL
+                for mat in obj.material_slots:
+                    material = bpy.data.materials[mat.name]
+                    for node in material.node_tree.nodes:
+                        if node.type == 'GROUP':
+                            if node.node_tree.name.startswith(check_BP_) or node.name.startswith(check_BP_) or node.label.startswith(check_BP_):
+                                displaymarketing = False
+                                layout.label(text=node.name.removeprefix('BP_'))
+
+                                for input in node.inputs:
+                                    id = input.name
+
+                                    check = "L_"
+                                    if input.name.startswith(check):
+                                        id = id.removeprefix(check)
+                                        col = layout.column()
+                                        if id[0].isdigit() and id[1] == "_":
+                                            col.scale_y = int(id[0])
+                                            id = id.removeprefix(str(id[0])+"_")
+                                        col.label(text=id)
+
+                                    check = "S_"
+                                    if input.name.startswith(check):
+                                        id = id.removeprefix(check)
+                                        layout.separator(factor = int(id))
+
+                                    check = "V_"
+                                    if input.name.startswith(check):
+                                        id = id.removeprefix(check)
+                                        col = layout.column()
+                                        if id[0].isdigit() and id[1] == "_":
+                                            col.scale_y = int(id[0])
+                                            id = id.removeprefix(str(id[0])+"_")
+                                        col.prop(input, "default_value", text=id)
+                                        
+                                    # BOX #############################
+                                    check = "B"
+                                    if input.name.startswith(check) and "_" in id:
+                                        id = id.removeprefix(check)
+
+                                        check = "_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            box = layout.box()
+                                            box = box.column(align=True)
+                                            isbox = True
+
+                                        if isbox:
+                                            check = "L_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                col = box.column()
+                                                if id[0].isdigit() and id[1] == "_":
+                                                    col.scale_y = int(id[0])
+                                                    id = id.removeprefix(str(id[0])+"_")
+                                                col.label(text=id)
+
+                                            check = "S_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                box.separator(factor = int(id))
+
+                                            check = "V_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                col = box.column()
+                                                if id[0].isdigit() and id[1] == "_":
+                                                    col.scale_y = int(id[0])
+                                                    id = id.removeprefix(str(id[0])+"_")
+                                                col.prop(input, "default_value", text=id)
+
+                                            # ROW #############################
+                                            check = "R"
+                                            if id.startswith(check) and "_" in id:
+                                                id = id.removeprefix(check)
+                                                
+                                                check = "_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    row = box.row(align=True)
+                                                    isrow = True
+
+                                                if isrow:
+                                                    check = "L_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        col = row.column()
+                                                        if id[0].isdigit() and id[1] == "_":
+                                                            col.scale_y = int(id[0])
+                                                            id = id.removeprefix(str(id[0])+"_")
+                                                        col.label(text=id)
+
+                                                    check = "S_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        row.separator(factor = int(id))
+
+                                                    check = "V_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        col = row.column()
+                                                        if id[0].isdigit() and id[1] == "_":
+                                                            col.scale_y = int(id[0])
+                                                            id = id.removeprefix(str(id[0])+"_")
+                                                        col.prop(input, "default_value", text=id)
+
+                                                # else:
+                                                #     box.label(text=input.name, icon ='ERROR')
+                                                #     box.label(text="Underscore missing")
+                                                #     if input.name.startswith("B_"):
+                                                #         box.label(text="Try: B_R_"+input.name.removeprefix('B_R'))
+                                                #     else:
+                                                #         box.label(text="Try: BR_"+input.name.removeprefix('BR'))
+
+                                        else:
+                                            box = layout.box()
+                                            box.scale_y = 0.7
+                                            box.label(text=input.name, icon ='ERROR')
+                                            box.label(text="Underscore missing")
+                                            box.label(text="Try: B_"+input.name.removeprefix('B'))
+                                
+                                    # ROW #############################
+                                    check = "R"
+                                    if input.name.startswith(check) and "_" in id:
+                                        id = id.removeprefix(check)
+                                        
+                                        check = "_"
+                                        if id.startswith(check):
+                                            id = id.removeprefix(check)
+                                            row = layout.row(align=True)
+                                            isrow = True
+
+                                        if isrow:
+                                            check = "L_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                col = row.column()
+                                                if id[0].isdigit() and id[1] == "_":
+                                                    col.scale_y = int(id[0])
+                                                    id = id.removeprefix(str(id[0])+"_")
+                                                col.label(text=id)
+
+                                            check = "S_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                row.separator(factor = int(id))
+
+                                            check = "V_"
+                                            if id.startswith(check):
+                                                id = id.removeprefix(check)
+                                                col = row.column()
+                                                if id[0].isdigit() and id[1] == "_":
+                                                    col.scale_y = int(id[0])
+                                                    id = id.removeprefix(str(id[0])+"_")
+                                                col.prop(input, "default_value", text=id)
+
+                                            check = "B"
+                                            if id.startswith(check) and "_" in id:
+                                                id = id.removeprefix(check)
+
+                                                check = "_"
+                                                if id.startswith(check):
+                                                    id = id.removeprefix(check)
+                                                    box = row.box()
+                                                    # box = box.column(align=True)
+                                                    isbox = True
+
+                                                if isbox:
+                                                    check = "L_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        col = box.column()
+                                                        if id[0].isdigit() and id[1] == "_":
+                                                            col.scale_y = int(id[0])
+                                                            id = id.removeprefix(str(id[0])+"_")
+                                                        col.label(text=id)
+
+                                                    check = "S_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        box.separator(factor = int(id))
+
+                                                    check = "V_"
+                                                    if id.startswith(check):
+                                                        id = id.removeprefix(check)
+                                                        col = box.column()
+                                                        if id[0].isdigit() and id[1] == "_":
+                                                            col.scale_y = int(id[0])
+                                                            id = id.removeprefix(str(id[0])+"_")
+                                                        col.prop(input, "default_value", text=id)
+
+
+                                                else:
+                                                    box.label(text=input.name, icon ='ERROR')
+                                                    box.label(text="Underscore missing")
+                                                    if input.name.startswith("R_"):
+                                                        box.label(text="Try: R_B_"+input.name.removeprefix('R_B_'))
+                                                    else:
+                                                        box.label(text="Try: RB_"+input.name.removeprefix('RB'))
+
+                                        else:
+                                            box = layout.box()
+                                            box.scale_y = 0.7
+                                            box.label(text=input.name, icon ='ERROR')
+                                            box.label(text="Underscore missing")
+                                            box.label(text="Try: R_"+input.name.removeprefix('R'))
+
+            if obj.name.startswith("Ivy_Parent"):
+                box = layout.box()
+                box.scale_y = 2
+                box.operator("bagapie.removesingleivy", text= "Delete this part of ivy")
+
+        if displaymarketing == True:
+            if obj is not None:
+                if obj.mode == 'EDIT':
+                    col = layout.column()
+                    col.scale_y = 2.0
+                    col.operator("bool.mode", text= "EXIT")
+                else:
+                    col = layout.column()
+                    col.scale_y = 1.5
+                    col.label(text="Press J !")
+                    col.operator("wm.url_open", text="Youtube Tutorial", icon = 'PLAY').url = "https://www.youtube.com/watch?v=51iRC0A4Nzw&list=PLSVXpfzibQbh_qjzCP2buB2rK1lQtkQvu&index=3"
+                    col.operator("wm.url_open", text="BagaPie Documentation", icon = 'TEXT').url = "https://www.f12studio.fr/bagapiev6"
+                    col.operator("wm.url_open", text="Get BagaPie Assets !", icon = 'FUND').url = "https://blendermarket.com/products/bagapie-assets"
 
 
 class BAGAPIE_OP_modifierDisplay(Operator):
@@ -3244,6 +4156,12 @@ class BAGAPIE_OP_modifierApply(Operator):
                     bpy.ops.use.applyscatter('INVOKE_DEFAULT')
 
                     return {'FINISHED'}
+                    
+                elif mo_type == 'ivy':
+                    
+                    bpy.ops.use.applyivy('INVOKE_DEFAULT')
+
+                    return {'FINISHED'}
                 
                 elif mo_type == "window":
                     
@@ -3314,7 +4232,6 @@ class BAGAPIE_OP_modifierApply(Operator):
                     if mo_type == "window":
                         wall.bagapieList.remove(index)
                         index -=1
-                        # wall.bagapieIndex = wall.bagapieIndex -1
                 bpy.context.view_layer.objects.active = obj
 
 
@@ -3356,7 +4273,6 @@ class BAGAPIE_OP_modifierApply(Operator):
                     if mo_type == "window":
                         win.bagapieList.remove(index)
                         index -=1
-                        # obj.bagapieIndex = obj.bagapieIndex -1
                 bpy.context.view_layer.objects.active = obj
 
 
@@ -3413,7 +4329,6 @@ class BAGAPIE_OP_switchinput(Operator):
     bl_label = "switch.button"
 
     index: bpy.props.StringProperty(name="None")
-
     def execute(self, context):
 
         obj = context.object
@@ -3488,3 +4403,17 @@ def RemoveOBJandDeleteColl(self, context, collection):
         collection.objects.unlink(obj)
 
     bpy.data.collections.remove(collection)
+
+
+classes = [
+    BAGAPIE_MT_pie_menu,
+    MY_UL_List,
+    BAGAPIE_PT_modifier_panel,
+    BAGAPIE_OP_modifierDisplay,
+    BAGAPIE_OP_modifierDisplayRender,
+    BAGAPIE_OP_modifierApply,
+    BAGAPIE_OP_addparttype,
+    BAGAPIE_OP_switchinput,
+    BAGAPIE_OP_switchboolnode,
+    BagaPie_tooltips
+]

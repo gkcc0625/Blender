@@ -313,6 +313,27 @@ class Rename_Layer(Operator):
         
         return {'FINISHED'}
 
+class SwitchBoolCustom(Operator):
+    """Switch the selected input, only for Bool"""
+    bl_idname = "switch.boolcustom"
+    bl_label = "Switch Bool Custom"
+
+    index: bpy.props.StringProperty(name="None")
+    modifier: bpy.props.StringProperty(name="None")
+
+    def execute(self, context):
+
+        obj = context.object
+        modifier = obj.modifiers[self.modifier]
+        if modifier[self.index] == 1:
+            modifier[self.index] = 0
+        else:
+            modifier[self.index] = 1
+        bpy.ops.object.editmode_toggle()
+        bpy.ops.object.editmode_toggle()
+        
+        return {'FINISHED'}
+
 ###################################################################################
 # DISPLAY WARNING MESSAGE
 ###################################################################################
@@ -331,3 +352,18 @@ def Get_Addon_Path(self, context):
         if mod.bl_info['name'] == "BagaPie Modifier":
             filepath = mod.__file__
     return filepath
+
+classes = [
+    SwitchMode,
+    EditMode,
+    UseSolidify,
+    InvertPaint,
+    InvertWeight,
+    CleanWPaint,
+    SetupAssetBrowser,
+    SetupAssetBrowserForAssets,
+    ADD_Assets,
+    REMOVE_Assets,
+    Rename_Layer,
+    SwitchBoolCustom,
+]

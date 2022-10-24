@@ -40,9 +40,12 @@ CTRL + SHIFT - Wash invalid modifiers
     def draw(self, context):
         self.layout.prop(self, 'mode')
         if  self.mode == 'COLLECT':
-            self.layout.prop(self, 'collection_name')
+            self.layout.prop_search(self, 'collection_name', bpy.data, "collections")
             self.layout.prop(self, 'collection_link')
             self.layout.prop(self, 'collect_mode')
+
+        elif self.mode == 'EVICT':
+            self.layout.prop(self, 'wire_curve')
 
     mode: bpy.props.EnumProperty(
         name="Operation",
@@ -72,6 +75,11 @@ CTRL + SHIFT - Wash invalid modifiers
         ],
         default = 'Rendered')
 
+    wire_curve: bpy.props.BoolProperty(
+        name="Wire Curves", description="Include curves without bevel or extrusion",
+        default = False
+    )
+
     def invoke (self, context, event):
 
         # Set the operation mode
@@ -98,18 +106,31 @@ CTRL + SHIFT - Wash invalid modifiers
         if self.mode == 'UNIFY':
             if not context.active_object:
                 self.report({'INFO'}, 'No Active object')
-                return {'FINISHED'}
+                return {'FINISHED'},
+
+            def obj_filter(obj):
+                if obj is context.active_object:
+                    return False
+
+                if obj.type == 'MESH':
+                    return obj.display_type not in {'WIRE', 'BOUNDS'}
+
+                elif obj.type == 'CURVE':
+                    return is_geo_curve(obj)
+
+                return False
 
             shape_count = 0
-            shapes = [obj for obj in context.visible_objects if obj.type == 'MESH' and  obj.display_type not in {'WIRE', 'BOUNDS'} and obj != context.active_object]
+            shapes = [obj for obj in context.visible_objects if obj_filter(obj)]
             for shape in shapes:
                 shape_count += 1
                 full_unlink(shape)
                 link_to_active(shape, context.active_object)
 
         elif self.mode == 'EVICT':
+
             evicted_cutters = 0
-            cutters = [obj for obj in context.selected_objects if (obj.type == 'MESH' and obj.display_type in {'WIRE', 'BOUNDS'}) or (obj.type == 'EMPTY' and not obj.is_instancer)]
+            cutters = [obj for obj in context.selected_objects if (obj.type == 'MESH' and obj.display_type in {'WIRE', 'BOUNDS'}) or (obj.type == 'EMPTY' and not obj.is_instancer) or (self.wire_curve and obj.type == 'CURVE' and not is_geo_curve(obj))]
             evicted_cutters += len(cutters)
             for cutter in cutters:
                 full_unlink( cutter)
@@ -330,6 +351,14 @@ def wash(context) -> int:
                     count += 1
 
     return count
+
+def is_geo_curve(obj):
+    if obj.data.extrude: return True
+
+    if obj.data.bevel_mode == 'OBJECT':
+        return obj.data.bevel_object
+    else:
+        return obj.data.bevel_depth
 
 class HOPS_OT_COLLECT(bpy.types.Operator):
     bl_idname = "hops.collect"

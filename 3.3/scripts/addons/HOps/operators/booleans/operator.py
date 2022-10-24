@@ -50,7 +50,8 @@ def add(context, operation='DIFFERENCE', collection='Cutters', boolshape=True, s
                 del temp_matrix
 
         data = cutter.data
-        data.use_customdata_edge_bevel = True
+        if bpy.app.version[:2] < (3, 4):
+            data.use_customdata_edge_bevel = True
 
         if operation in {'SLASH', 'INSET'}:
             # TODO: material setup to be moved away

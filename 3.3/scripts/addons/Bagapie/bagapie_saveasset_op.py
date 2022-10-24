@@ -224,7 +224,7 @@ class BAGAPIE_OT_savematerial(Operator):
         idx = obj.active_material_index
         mat = obj.material_slots[idx].material
 
-        layout.template_list("BAGAPIE_OT_saveasset_list", "", obj, "material_slots", obj, "active_material_index")
+        layout.template_list("BAGAPIE_UL_saveasset_list", "", obj, "material_slots", obj, "active_material_index")
 
         prefs = bpy.context.preferences
         filepaths = prefs.filepaths
@@ -330,7 +330,7 @@ class BAGAPIE_OT_savematerial(Operator):
         return {'FINISHED'}
 
 
-class BAGAPIE_OT_saveasset_list(bpy.types.UIList):
+class BAGAPIE_UL_saveasset_list(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
         ob = data
         slot = item
@@ -373,3 +373,10 @@ def Warning(message = "", title = "Message Box", icon = 'INFO'):
         self.layout.label(text=message)
 
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
+classes = [
+    BAGAPIE_OT_saveasset,
+    BAGAPIE_OT_savematerial,
+    BAGAPIE_UL_saveasset_list,
+    UseLibrary
+]

@@ -119,3 +119,7 @@ def Collection_Add(self,context):
 
     return array_coll
 
+classes = [
+    BAGAPIE_OT_beam_remove,
+    BAGAPIE_OT_beam
+]

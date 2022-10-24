@@ -263,3 +263,8 @@ class BAGAPIE_OT_window(Operator):
         item.val = json.dumps(val)
         
         return {'FINISHED'}
+    
+classes = [
+    BAGAPIE_OT_window_remove,
+    BAGAPIE_OT_window
+]

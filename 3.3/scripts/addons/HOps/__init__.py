@@ -23,7 +23,7 @@ bl_info = {
     "name": "Hard Ops 9",
     "description": "Hard Ops 9 - Francium",
     "author": "AR / MX, proxe, bonjorno7, Neerhom / c0, ST3, General Ginsu, MACHIN3, Jacques Lucke, Ivan Santic, Robert Fornoff, Johnathan Mueller, Batfinger, SE, PL, MKB, CGStrive, PG, AX, Adam K, WZ, PW, and you",
-    "version": (0, 9, 87, 32),
+    "version": (0, 9, 87, 33),
     "blender": (2, 83, 0),
     "location": "View3D",
     # "warning": "Hard Ops - The Global Bevelling Offensive V 007x",
@@ -187,7 +187,7 @@ from .operators.modals.taper import HOPS_OT_TaperOperator
 from .operators.modals.accu_shape import HOPS_OT_Accu_Shape
 from .operators.modals.accu.operator import HOPS_OT_Accu_Shape_V2
 from .operators.modals.to_shape_1_5 import HOPS_OT_Conv_To_Shape_1_5
-from .operators.modals.ever_scroll.operator import HOPS_OT_Ever_Scroll_V2
+from .operators.modals.ever_scroll.operator import *
 from .operators.modals.map_scroll import HOPS_OT_Map_Scroll
 from .operators.modals.face_extract import HOPS_OT_FaceExtract
 
@@ -250,6 +250,7 @@ from .ui.nodes_menu import HOPS_MT_NodesMenu
 from .ui.main_pie import *
 from .ui.status_helper import *
 from .ui.select_menu import *
+from .ui import modifier_uilist
 
 from .utility import check_for_update
 
@@ -406,6 +407,12 @@ classes = (
     HOPS_OT_AdjustBevelOperator,
     #HOPS_OT_SuperArray,
     HOPS_OT_ST3_Array,
+    HOPS_OT_ST3_Array_Popup,
+    HOPS_OT_ST3_Array_Offset,
+    HOPS_OT_ST3_Array_ModMove,
+    HOPS_OT_ST3_Array_AddRemove,
+    HOPS_OT_ST3_Array_SetOne,
+    HOPS_PT_ST3_array_switch,
     HOPS_OT_FastMeshEditor,
     HOPS_OT_Blank_Light,
     HOPS_OT_ViewAlign,
@@ -414,6 +421,11 @@ classes = (
     HOPS_OT_AdjustAutoSmooth,
     HOPS_OT_AdjustViewport,
     HOPS_OT_AdjustTthickOperator,
+    HOPS_OT_AdjustTthicPopup,
+    HOPS_OT_AdjustTthicConfirm,
+    HOPS_PT_AdjustTthicSelector,
+    HOPS_OT_AdjustTthicModSet,
+    HOPS_OT_AdjustTthicOffset,
     HOPS_OT_BoolObjectScroll,
     HOPS_OT_ModifierScroll,
     HOPS_OT_CurveGuide,
@@ -578,10 +590,23 @@ classes = (
     HOPS_OT_Arcade_Pong,
     HOPS_OT_TaperOperator,
     HOPS_OT_AdjustClothOperator,
+    HOPS_OT_AdjustClothPopup,
     HOPS_OT_Accu_Shape,
     HOPS_OT_Accu_Shape_V2,
     HOPS_OT_Conv_To_Shape_1_5,
     HOPS_OT_Ever_Scroll_V2,
+    HOPS_OT_Ever_Scroll_V2_Popup,
+    HOPS_OT_Ever_Scroll_V2_Scroll,
+    HOPS_OT_Ever_Scroll_V2_Finish,
+    HOPS_OT_Ever_Scroll_V2_FinishObj,
+    HOPS_OT_Ever_Scroll_V2_Apply,
+    HOPS_OT_Ever_Scroll_V2_ModBtn,
+    HOPS_OT_Ever_Scroll_V2_BoolBtn,
+    HOPS_OT_Ever_Scroll_V2_BoolVisBtn,
+    HOPS_OT_Ever_Scroll_V2_ObjBtn,
+    HOPS_OT_Ever_Scroll_V2_ObjVis,
+    HOPS_OT_Ever_Scroll_V2_ObjVisAdd,
+    HOPS_OT_Ever_Scroll_V2_ModEdit,
     HOPS_OT_Map_Scroll,
     HOPS_OT_FaceExtract,
     HOPS_OT_CursorSnap,
@@ -594,7 +619,14 @@ classes = (
 
     HOPS_OT_Cycle_Geo_Nodes,
     HOPS_OT_All_Nodes,
-    HOPS_OT_Cycle_Node_Groups
+    HOPS_OT_Cycle_Node_Groups,
+
+    modifier_uilist.HOPS_UL_Modlist,
+    modifier_uilist.HOPS_OT_ModRemove,
+    modifier_uilist.HOPS_OT_ModRenderVis,
+    modifier_uilist.HOPS_OT_ModVis,
+    modifier_uilist.HOPS_OT_ModListPopover,
+
 )
 
 from . import addon

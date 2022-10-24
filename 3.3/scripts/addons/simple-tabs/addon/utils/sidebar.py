@@ -27,7 +27,10 @@ def is_excluded(panel: bpy.types.Panel) -> bool:
 
 
 def module(panel: bpy.types.Panel) -> str:
-    return inspect.getmodule(panel).__name__.split('.')[0]
+    try:
+        return inspect.getmodule(panel).__name__.split('.')[0]
+    except:
+        utils.addon.popup('ERROR', f'{panel} has no module')
 
 
 def is_special(panel: bpy.types.Panel) -> bool:
@@ -40,12 +43,14 @@ def is_special(panel: bpy.types.Panel) -> bool:
 
 
 def is_registered(panel: bpy.types.Panel) -> bool:
-    if getattr(panel, 'bl_idname', None):
-        name = panel.bl_idname
-    else:
-        name = panel.__name__
+    return hasattr(bpy.types, idname(panel))
 
-    return hasattr(bpy.types, name)
+
+def idname(panel: bpy.types.Panel) -> str:
+    if getattr(panel, 'bl_idname', None):
+        return panel.bl_idname
+    else:
+        return panel.__name__
 
 
 def poll(panel: bpy.types.Panel) -> bool:
@@ -63,8 +68,8 @@ def check(panel: bpy.types.Panel) -> bool:
     if getattr(panel, 'bl_parent_id', None):
         parent = getattr(bpy.types, panel.bl_parent_id, None)
 
-        if parent and not check(parent):
-            return False
+        if parent:
+            return check(parent)
 
     if getattr(panel, 'bl_space_type', None) != 'VIEW_3D':
         return False
@@ -85,6 +90,9 @@ def check(panel: bpy.types.Panel) -> bool:
         if not poll(panel):
             return False
 
+    if idname(panel) == 'VIEW3D_PT_context_properties':
+        return False
+
     return True
 
 
@@ -96,8 +104,7 @@ def panels() -> list:
             if check(b):
                 panels.append(b)
 
-            for c in b.__subclasses__():
-                find_subclasses(c)
+            find_subclasses(b)
 
     find_subclasses(bpy.types.Panel)
 
@@ -130,3 +137,12 @@ def update(panel: bpy.types.Panel):
         print(f'Failed to register {panel}')
         traceback.print_exc()
         print('-' * 50)
+
+
+def show():
+    prefs = utils.addon.prefs()
+
+    if prefs.show_sidebar:
+        if hasattr(bpy.context.space_data, 'show_region_ui'):
+            if not bpy.context.space_data.show_region_ui:
+                bpy.context.space_data.show_region_ui = True

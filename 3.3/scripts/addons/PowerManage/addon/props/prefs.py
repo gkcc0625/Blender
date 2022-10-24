@@ -35,17 +35,17 @@ class Prefs(bpy.types.AddonPreferences):
         set=props.preset.set_enum,
     )
 
-    additive_presets: bpy.props.BoolProperty(
-        name='Additive Presets',
-        description='Switching preset will enable addons, but not disable any',
-        default=False,
-    )
-
     panel_category: bpy.props.StringProperty(
         name='Panel Category',
         description='Sidebar category to show the panel in, empty to hide it',
         default='PowerSave',
         update=utils.meta.update_panel_category,
+    )
+
+    simple_tabs: bpy.props.BoolProperty(
+        name='SIMPLE TABS Integration',
+        description='Loading a preset or enabling an addon will update SIMPLE TABS',
+        default=True,
     )
 
     def category_dict(self) -> dict:

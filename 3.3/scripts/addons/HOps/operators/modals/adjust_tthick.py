@@ -3,7 +3,7 @@ import gpu
 from bgl import *
 from gpu_extras.batch import batch_for_shader
 from mathutils import Vector
-from ... utils.blender_ui import get_dpi, get_dpi_factor
+from ... addon.utility.screen import dpi_factor
 from ... utility import modifier
 from ... utility.base_modal_controls import Base_Modal_Controls
 from ... utils.toggle_view3d_panels import collapse_3D_view_panels
@@ -19,6 +19,15 @@ from ... utils.modal_frame_drawing import draw_modal_frame
 from ... addon.utility import method_handler
 
 
+# set controller index and notification
+def mod_name_update(self, context):
+    op = HOPS_OT_AdjustTthickOperator.operator
+    if not op: return
+
+    valid = op.mod_controller.set_active_obj_mod_index(op.active_mod_name)
+    if valid and get_preferences().ui.Hops_extra_info:
+        bpy.ops.hops.display_notification(info=f'Target Solidify: {op.active_mod_name}')
+
 DESC = """LMB - Adjust SOLIDIFY modifier
 LMB + Ctrl - Add New SOLIDIFY modifier
 
@@ -30,6 +39,10 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
     bl_label = "Adjust Tthick"
     bl_description = DESC
     bl_options = {"REGISTER", "UNDO", "BLOCKING"}
+
+    operator = None
+    popup = False
+    active_mod_name: bpy.props.StringProperty(update=mod_name_update)
 
     @classmethod
     def poll(cls, context):
@@ -58,6 +71,8 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
 
     def invoke(self, context, event):
 
+        self.__class__.operator = self
+
         objs = [o for o in context.selected_objects if o.type == 'MESH']
         for obj in objs: modifier.sort(obj, sort_types=['WEIGHTED_NORMAL'])
 
@@ -77,11 +92,17 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
         self.index_button = None
         self.setup_form(context, event)
 
+        self.popup_style = get_preferences().property.in_tool_popup_style
+
         self.master = Master(context)
         self.master.only_use_fast_ui = True
         self.base_controls = Base_Modal_Controls(context, event)
         self.original_tool_shelf, self.original_n_panel = collapse_3D_view_panels()
-        self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_shader, (context,), 'WINDOW', 'POST_PIXEL')
+
+        self.draw_handle = None
+        if self.popup_style == 'DEFAULT':
+            self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_shader, (context,), 'WINDOW', 'POST_PIXEL')
+
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
@@ -90,10 +111,17 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
 
         self.master.receive_event(event)
         self.base_controls.update(context, event)
-        self.form.update(context, event)
+
+        if self.popup_style == 'DEFAULT':
+            self.form.update(context, event)
 
         # Label
         self.index_button.text = str(self.mod_controller.active_obj_mod_index() + 1)
+
+        if self.popup:
+            self.FAS_interface(context, event)
+            context.area.tag_redraw()
+            return {'RUNNING_MODAL'}
 
         if self.base_controls.pass_through:
             if not self.form.active():
@@ -116,10 +144,16 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
             return {'FINISHED'}
 
         if event.type == 'TAB' and event.value == 'PRESS':
-            if self.form.is_dot_open(): 
-                self.form.close_dot()
+
+            if self.popup_style == 'BLENDER':
+                bpy.ops.hops.adjust_tthick_popup()
+                self.popup = True
+
             else:
-                self.form.open_dot()
+                if self.form.is_dot_open():
+                    self.form.close_dot()
+                else:
+                    self.form.open_dot()
 
         # Modal Mouse
         if not self.form.is_dot_open():
@@ -178,7 +212,7 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
 
         elif event.type in {'NUMPAD_PLUS'} and event.value == 'PRESS':
             self.mod_index_move(forward=True)
-        
+
         elif event.type in {'NUMPAD_MINUS'} and event.value == 'PRESS':
             self.mod_index_move(forward=False)
 
@@ -343,7 +377,7 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
         row.add_element(form.Label(text='Thickness', width=65))
         row.add_element(form.Input(obj=self, attr="thickness", width=45, increment=.1))
         self.form.row_insert(row)
-        
+
         row = self.form.row()
         row.add_element(form.Label(text='Offset', width=65))
         row.add_element(form.Input(obj=self, attr="offset", width=45, increment=.1))
@@ -371,6 +405,7 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
 
 
     def confirm_exit(self, context, event):
+        self.__class__.operator = None
         self.form.shut_down(context)
         self.remove_shader()
         self.mod_controller.confirm_exit()
@@ -378,7 +413,9 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
         self.master.run_fade()
 
 
+
     def cancel_exit(self, context, event):
+        self.__class__.operator = None
         self.form.shut_down(context)
         self.remove_shader()
         collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
@@ -406,3 +443,124 @@ class HOPS_OT_AdjustTthickOperator(bpy.types.Operator):
         if not self.form.is_dot_open():
             draw_modal_frame(context)
 
+class HOPS_OT_AdjustTthicPopup(bpy.types.Operator):
+    bl_idname = "hops.adjust_tthick_popup"
+    bl_label = "Adjust Tthick"
+    bl_description = ""
+
+    def __del__(self):
+        op = HOPS_OT_AdjustTthickOperator.operator
+        if not op: return
+
+        op.popup = False
+
+    def execute(self, context):
+        return bpy.context.window_manager.invoke_popup(self, width=int(150 * dpi_factor()))
+
+    def draw(self, context):
+
+        op = HOPS_OT_AdjustTthickOperator.operator
+        if not op: return
+        if op.form_exit:
+            self.layout.label(text='Pres ESC or move cursor')
+            return
+
+        layout = self.layout
+        layout.label(text="Solidify")
+
+        mod = op.mod_controller.active_object_mod()
+
+        row = layout.row(align=True)
+        row.label(text=mod.name)
+        row.operator("hops.adjust_tthick_confirm", text='', icon='CHECKMARK')
+
+        row = layout.row(align=True)
+        row.prop(mod, 'thickness')
+
+
+        row = layout.row(align=True)
+        # row.alignment = 'LEFT'
+        row.prop(mod, 'offset')
+
+
+        row = layout.row(align=True)
+
+        offset = row.operator("hops.adjust_tthick_offset", text='-1')
+        offset.value = -1.0
+        offset = row.operator("hops.adjust_tthick_offset", text='0')
+        offset.value = 0
+        offset = row.operator("hops.adjust_tthick_offset", text='1')
+        offset.value = 1.0
+
+        row.prop(mod, 'use_rim_only', icon='EVENT_R', text='')
+
+        row = layout.row(align=True)
+        row.prop(mod, 'solidify_mode')
+
+        layout.popover(HOPS_PT_AdjustTthicSelector.bl_idname, text=mod.name)
+
+class HOPS_OT_AdjustTthicConfirm(bpy.types.Operator):
+    bl_idname = "hops.adjust_tthick_confirm"
+    bl_label = """Confirm and exit\nCtrl-Click Remove modifier and exit"""
+    bl_description = ""
+
+    def invoke(self, context, event):
+        op = HOPS_OT_AdjustTthickOperator.operator
+        if not op: return
+
+        if event.ctrl:
+            op.remove_and_exit()
+        else:
+            op.exit_button()
+
+        return {'FINISHED'}
+
+class HOPS_PT_AdjustTthicSelector(bpy.types.Panel):
+    bl_idname = "HOPS_PT_AdjustTthicSelector"
+    bl_label = ""
+    bl_description = 'Selector'
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+
+    def draw(self, context):
+        layout = self.layout
+
+        op = HOPS_OT_AdjustTthickOperator.operator
+        if not op: return
+
+        layout.label(text='Selector')
+
+        mods = [m.name for m in op.mod_controller.active_obj_mods()]
+
+        for mod in mods:
+            row = layout.row()
+            row.scale_y = 2
+            props = row.operator("hops.adjust_tthick_modset", text=mod)
+            props.modname = mod
+
+class HOPS_OT_AdjustTthicModSet(bpy.types.Operator):
+    bl_idname = "hops.adjust_tthick_modset"
+    bl_label = ""
+    bl_description = 'Selector'
+
+    modname: bpy.props.StringProperty()
+
+    def execute(self, context):
+        HOPS_OT_AdjustTthickOperator.operator.active_mod_name = self.modname
+
+        return {'FINISHED'}
+
+class HOPS_OT_AdjustTthicOffset(bpy.types.Operator):
+    bl_idname = "hops.adjust_tthick_offset"
+    bl_label = "Offset"
+    bl_description = 'Offset preset'
+
+    value: bpy.props.FloatProperty()
+
+    def execute(self, context):
+        op = HOPS_OT_AdjustTthickOperator.operator
+        if not op: return
+        mod = op.mod_controller.active_object_mod()
+        mod.offset = self.value
+
+        return {'FINISHED'}

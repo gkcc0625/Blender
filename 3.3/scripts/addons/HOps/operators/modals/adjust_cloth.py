@@ -33,26 +33,34 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
 
     shrink_presets = {
         'ZERO' : 0 ,
-        'ONE'  : -0.1, 
-        'TWO'  : -0.3, 
-        'THREE': -1.5, 
-        'FOUR' : -2.0, 
+        'ONE'  : -0.1,
+        'TWO'  : -0.3,
+        'THREE': -1.5,
+        'FOUR' : -2.0,
         'FIVE' : -5.0}
 
     pressure_presets = {
         'ZERO' : 0,
-        'ONE'  : 1, 
-        'TWO'  : 2, 
-        'THREE': 5, 
-        'FOUR' : 10, 
+        'ONE'  : 1,
+        'TWO'  : 2,
+        'THREE': 5,
+        'FOUR' : 10,
         'FIVE' : 15}
+
+    operator = None
+    popover_active = False
+    apply_mods_on_exit: bpy.props.BoolProperty(name='Apply Mods', description="Apply Modifiers on exit")
+    auto_restart: bpy.props.BoolProperty(name='Auto Refresh', description="Refresh timeline on paremeter change")
 
     @classmethod
     def poll(cls, context):
         return context.selected_objects
-    
+
 
     def invoke(self, context, event):
+        self.__class__.operator = self
+        self.auto_restart = False
+        self.b_popup = get_preferences().property.in_tool_popup_style == 'BLENDER'
 
         self.param_names = {
             'uniform_pressure_force' : 'Pressure',
@@ -119,8 +127,15 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
         self.master.only_use_fast_ui = True
         self.base_controls = Base_Modal_Controls(context, event)
         self.original_tool_shelf, self.original_n_panel = collapse_3D_view_panels()
-        self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_shader, (context,), 'WINDOW', 'POST_PIXEL')
+
         context.window_manager.modal_handler_add(self)
+
+        if not self.b_popup:
+            self.draw_handle = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_shader, (context,), 'WINDOW', 'POST_PIXEL')
+        else:
+            self.draw_handle = None
+            bpy.ops.hops.adjust_cloth_popup("INVOKE_DEFAULT")
+
         return {'RUNNING_MODAL'}
 
     @property
@@ -168,11 +183,18 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
         if not self.frozen:
             mouse_warp(context, event)
 
-        self.form.update(context, event)
+        if self.popover_active:
+            self.draw_ui(context)
+            context.area.tag_redraw()
+            return {'RUNNING_MODAL'}
+
+        if not self.b_popup:
+            self.form.update(context, event)
 
         # Pass
         if self.base_controls.pass_through:
             return {'PASS_THROUGH'}
+
 
         # Confirm Exit
         if self.form_exit:
@@ -188,6 +210,7 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
 
         # Cancel Exit
         if self.base_controls.cancel:
+            self.__class__.operator = None
             self.remove_shader()
             collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
             self.master.run_fade()
@@ -195,7 +218,7 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
             # Stop the animation
             if bpy.context.screen.is_animation_playing:
                 bpy.ops.screen.animation_play()
-            
+
             # Revert mods
             for item, back in zip(self.cloth_mods, self.cloth_back):
                 for name, val in zip(self.param_names.keys(), back):
@@ -240,11 +263,14 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
         # Jump to frame 1
         elif event.type == 'R' and event.value == 'PRESS':
             self.restart()
-        
+
+        elif event.type == 'TAB' and event.value == 'PRESS' and self.b_popup:
+            bpy.ops.hops.adjust_cloth_popup("INVOKE_DEFAULT")
+
         # Freeze
         # elif event.type == 'F' and event.value == 'PRESS':
         #     self.frozen = not self.frozen
-        
+
         # Presets
         # elif event.type in self.numbers and event.value == 'PRESS':
         #     key = self.numpad_map[event.type] if event.type in self.numpad_map else event.type
@@ -254,14 +280,14 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
         #         value_map = self.pressure_presets
 
         #     elif self.active_param == 'shrink_min':
-        #         value_map = self.shrink_presets                
+        #         value_map = self.shrink_presets
 
         #     if value_map:
         #         value  =  value_map[key]
         #         if event.shift:
         #             value *=-1
         #         self.set_params(self.active_param, value)
-        
+
         # # Invert value
         # elif event.type == 'X' and event.value == 'PRESS':
         #     self.change_params(self.active_param , -1, lambda attr, val: attr*val)
@@ -279,7 +305,7 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
                     win_list.append("{:.3f}".format(getattr(self.active_mod.settings, self.active_param)))
                 else:
                     win_list.append("Cloth Adjust")
-                
+
             else:
                 if not self.frozen:
                     win_list.append(self.param_names[self.active_param])
@@ -307,11 +333,14 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
 
             #h_append(["X", "Set value to negative"])
             #h_append(["1 - 5", "Value presets; Shift for negative values"])
+            if self.b_popup:
+                h_append(["TAB", "Settings Popup"])
             h_append(["Ctrl + Space", "Apply mods and Exit"])
             h_append(["R", "Reset timeline"])
             h_append(["S / Shift + Space", "Start/Play Timeline"])
             h_append(["LMB", "Apply / Close"])
             h_append(["RMB", "Cancel"])
+
             # if not self.frozen:
             #     h_append(["Scroll  ", "Cycle Parameter"])
             #     h_append(["Mouse   ", "Adjust Value"])
@@ -331,17 +360,17 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
         row.add_element(form.Label(text="PRESSURE", width=75))
         row.add_element(form.Input(obj=self, attr="pressure", width=75, increment=.1))
         self.form.row_insert(row)
-        
+
         row = self.form.row()
         row.add_element(form.Label(text="SHRINK", width=75))
         row.add_element(form.Input(obj=self, attr="shrink", width=75, increment=.1))
         self.form.row_insert(row)
-        
+
         row = self.form.row()
         row.add_element(form.Label(text="TIMESPAN", width=75))
         row.add_element(form.Input(obj=self, attr="timespan", width=75, increment=.1))
         self.form.row_insert(row)
-        
+
         row = self.form.row()
         row.add_element(form.Label(text="GRAVITY", width=75))
         row.add_element(form.Input(obj=self, attr="gravity", width=75, increment=.1))
@@ -368,7 +397,7 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
 
 
     def build_pinning_menu(self):
-        
+
         v_groups = groups = [v.name for v in self.active_obj.vertex_groups]
 
         v_groups.append('NONE')
@@ -445,11 +474,12 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
                 bpy.ops.object.modifier_apply(modifier=modifier.name)
                 if should_break:
                     break
-        
+
         bpy.ops.hops.display_notification(info=F'Cloth Modifier Applied ')
 
 
     def confirm_exit(self):
+        self.__class__.operator = None
 
         # Stop the animation
         if bpy.context.screen.is_animation_playing:
@@ -478,7 +508,7 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
             mod = item[0]
             mod.show_viewport = False
         bpy.ops.screen.frame_jump(end=False)
-        
+
         for item in self.cloth_mods:
             mod = item[0]
             mod.show_viewport = True
@@ -523,3 +553,119 @@ class HOPS_OT_AdjustClothOperator(bpy.types.Operator):
 
         if not self.frozen:
             draw_modal_frame(context)
+
+def pressure_upd(self, context):
+        op = HOPS_OT_AdjustClothOperator.operator
+        op.active_mod.settings.uniform_pressure_force = self.uniform_pressure_force
+
+        if op.auto_restart:
+            reset_timeline(context)
+
+def shrink_min_upd(self, context):
+        op = HOPS_OT_AdjustClothOperator.operator
+        op.active_mod.settings.shrink_min = self.shrink_min
+
+        if op.auto_restart:
+            reset_timeline(context)
+
+def time_scale_upd(self, context):
+        op = HOPS_OT_AdjustClothOperator.operator
+        op.active_mod.settings.time_scale = self.time_scale
+
+        if op.auto_restart:
+            reset_timeline(context)
+
+def gravity_upd(self, context):
+        op = HOPS_OT_AdjustClothOperator.operator
+        op.active_mod.settings.effector_weights.gravity = self.gravity
+
+        if op.auto_restart:
+            reset_timeline(context)
+
+def vertex_group_mass_upd(self, context):
+        op = HOPS_OT_AdjustClothOperator.operator
+        op.active_mod.settings.vertex_group_mass = self.vertex_group_mass
+
+        if op.auto_restart:
+            reset_timeline(context)
+
+def reset_timeline(context):
+    bpy.ops.screen.frame_jump(end=False)
+    if not context.screen.is_animation_playing:
+        bpy.ops.screen.animation_play()
+
+class HOPS_OT_AdjustClothPopup(bpy.types.Operator):
+    bl_idname = "hops.adjust_cloth_popup"
+    bl_label = "Cloth"
+
+    uniform_pressure_force: bpy.props.FloatProperty(
+        name="Pressure",
+        description="The uniform pressure that is constantly applied to the mesh",
+        update=pressure_upd
+    )
+    shrink_min: bpy.props.FloatProperty(
+        name="Shrink",
+        description="Factor by which to shrink mesh",
+        update=shrink_min_upd,
+        max=1.0
+    )
+    time_scale: bpy.props.FloatProperty(
+        name='Speed',
+        description='Speed of the simulation',
+        update=time_scale_upd,
+        min=0.0
+    )
+    gravity: bpy.props.FloatProperty(
+        name="Gravity",
+        description="Global gravity weight",
+        update=gravity_upd)
+
+    vertex_group_mass: bpy.props.StringProperty(
+        name="Pin Group",
+        description="Vertex group for pinning of vertices",
+        update=vertex_group_mass_upd
+    )
+
+
+    def __del__(self):
+        op = HOPS_OT_AdjustClothOperator.operator
+        if not op: return
+        op.popover_active = False
+
+    def invoke(self, context, event):
+        op = HOPS_OT_AdjustClothOperator.operator
+        if not op: return {'CANCELLED'}
+        op.popover_active = True
+
+        self.uniform_pressure_force = op.active_mod.settings.uniform_pressure_force
+        self.shrink_min = op.active_mod.settings.shrink_min
+        self.time_scale = op.active_mod.settings.time_scale
+        self.gravity = op.active_mod.settings.effector_weights.gravity
+        self.vertex_group_mass = op.active_mod.settings.vertex_group_mass
+
+        return bpy.context.window_manager.invoke_props_dialog(self, width=int(150 * dpi_factor()))
+
+    def execute(self, context):
+        HOPS_OT_AdjustClothOperator.operator.form_exit = True
+        return {'FINISHED'}
+
+    def draw(self, context):
+        op = HOPS_OT_AdjustClothOperator.operator
+        if not op: return
+
+        mod = op.active_mod
+        layout = self.layout
+        layout.row().prop(self, "uniform_pressure_force")
+        layout.row().prop(self, "shrink_min")
+        layout.row().prop(self, "time_scale")
+        layout.row().prop(self, "gravity")
+
+        row = layout.row()
+
+        row.prop(context.scene, 'frame_current', text='')
+        row.operator("screen.animation_play", text="", icon='PAUSE' if context.screen.is_animation_playing else 'PLAY')
+        row.operator("screen.frame_jump", text="", icon='EVENT_R').end = False
+        row.prop(op, "auto_restart", text="", icon='FILE_REFRESH')
+        row.prop(op, "apply_mods_on_exit", text="", icon='CHECKMARK')
+
+        layout.row().prop_search(self, "vertex_group_mass", mod.id_data, "vertex_groups", text="")

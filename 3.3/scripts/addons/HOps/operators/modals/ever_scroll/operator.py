@@ -7,6 +7,8 @@ from .... utility.base_modal_controls import Base_Modal_Controls, confirm_events
 from .... utils.toggle_view3d_panels import collapse_3D_view_panels
 from .... addon.utility import method_handler
 from ... meshtools.applymod import apply_mod
+from .... utils.blender_ui import get_dpi_factor
+from .... ui.hops_helper.mods_data import DATA_PT_modifiers
 
 from . import States, Auto_Scroll, update_local_view, mods_exit_options, turn_on_coll, get_mod_object
 from . mod_tracker import Mod_Tracker
@@ -26,6 +28,11 @@ LMB + CTRL - Child Objects
 LMB + ALT - Smart Apply
 """
 
+def state_update(self, context):
+    op = HOPS_OT_Ever_Scroll_V2.operator
+    if not op: return
+    if op.popup_active:
+        op.set_state(self.b_state, context)
 
 class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
     bl_idname = "hops.ever_scroll_v2"
@@ -43,8 +50,22 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             ("COLL",  "COLL",  "COLL")),
         default="NONE")
 
+    b_state: bpy.props.EnumProperty(
+    name="State",
+    items=(
+        # ("NONE",  "NONE",  "NONE"),
+        ("Modifiers",   "MODIFIERS",   "MOD"),
+        ("Booleans",  "BOOLEANS",  "BOOL"),
+        ("Children", "CHILDREN", "CHILD"),
+        # ("COLL",  "COLL",  "COLL")
+        ),
+        update=state_update,
+    default="Modifiers")
+
     dot_open: bpy.props.BoolProperty(default=False)
 
+    operator = None
+    popup_active = False
 
     def invoke(self, context, event):
 
@@ -74,9 +95,11 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             self.report({'INFO'}, F'Smart Applied')
             return {'FINISHED'}
 
+        self.__class__.operator = self
+
         # States
         self.state = States.BOOL
-        
+
         # Entry
         if self.entry_state == 'NONE':
             # Modifiers
@@ -111,6 +134,8 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         if get_preferences().property.ever_scroll_dot_open == 'DOT':
             self.dot_open = True
 
+        self.popup_style = get_preferences().property.in_tool_popup_style
+
         # Hops Dots
         self.hops_dots_running = False
         self.hops_dots_op_used = False
@@ -126,7 +151,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         # Systems
         self.master = Master(context)
         self.master.only_use_fast_ui = True
-        self.draw_handle_2D = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_2D, (context,), 'WINDOW', 'POST_PIXEL')
+        self.draw_handle_2D = bpy.types.SpaceView3D.draw_handler_add(self.safe_draw_2D, (context,), 'WINDOW', 'POST_PIXEL') if self.popup_style == 'DEFAULT' else None
         self.original_tool_shelf, self.original_n_panel = collapse_3D_view_panels()
         self.base_controls = Base_Modal_Controls(context, event)
 
@@ -145,14 +170,24 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         self.master.receive_event(event=event)
         self.base_controls.update(context, event)
         self.auto_scroll_update(context, event)
-        self.form.update(context, event, return_on_timer=not self.auto_scroll.active)
-        form_active = self.form.active()
+
+        form_active = False
+        if self.popup_style == 'DEFAULT':
+            self.form.update(context, event, return_on_timer=not self.auto_scroll.active)
+            form_active = self.form.active()
 
         # --- Hops Dots --- #
         ret = self.hardflow(context, event)
         if ret: return ret
 
         # --- Base Controls --- #
+
+        if self.popup_active:
+            self.draw_FAS(context)
+            context.area.tag_redraw()
+
+            return {'RUNNING_MODAL'}
+
         if self.base_controls.pass_through:
             if not form_active:
                 return {'PASS_THROUGH'}
@@ -170,17 +205,25 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             return self.exit_action(context, event)
 
         if event.type == 'TAB' and event.value == 'PRESS':
-            if event.shift:
-                self.toggle_state(context)
-            elif self.form.is_dot_open():
-                self.form.close_dot()
+
+            if self.popup_style == 'BLENDER':
+                if event.shift:
+                    self.toggle_state(context)
+                else:
+                    bpy.ops.hops.ever_scroll_v2_popup()
+
             else:
-                self.form.open_dot()
+                if event.shift:
+                    self.toggle_state(context)
+                elif self.form.is_dot_open():
+                    self.form.close_dot()
+                else:
+                    self.form.open_dot()
 
         # --- Actions --- #
         if not form_active and not self.auto_scroll.active:
             self.actions(context, event)
-        
+
         self.draw_FAS(context)
         context.area.tag_redraw()
         return {'RUNNING_MODAL'}
@@ -188,7 +231,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
     # --- ACTIONS --- #
 
     def actions(self, context, event):
-        
+
         scroll = self.base_controls.scroll
 
         # Scrolling
@@ -249,7 +292,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             tracker_data = self.child_tracker.FAS_data()
         elif self.state == States.COLL:
             tracker_data = []
-        
+
         if tracker_data:
             for entry in tracker_data:
                 win_list.append(entry)
@@ -267,7 +310,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             ("TAB",       "Dot UI"),
             ("Shift TAB", "Change Mode"),
             ("Ctrl S",    "Toggle Auto Scroll")]
-        
+
         h_append = help_items["STANDARD"].append
 
         if self.auto_scroll.active:
@@ -348,7 +391,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
 
         # Load Image Group
         form.setup_image_group(img_names=['play', 'pause', 'eyecon_open', 'eyecon_closed'])
-        
+
         def spacer(height=10):
             row = self.form.row()
             row.add_element(form.Spacer(height=height))
@@ -360,17 +403,17 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         row.add_element(form.Spacer(width=30))
         self.auto_scroll_form_label = form.Label(text="", width=60)
         row.add_element(self.auto_scroll_form_label)
-        
+
         self.play_button = form.Button(glob_img_key='play', width=20, tips=["Auto Scroll"], callback=self.toggle_auto_scroll, pos_args=(context,))
-        
+
         row.add_element(self.play_button)
         row.add_element(form.Spacer(width=10))
-        
-        self.exit_button = form.Button(text="✓", shift_text="D", ctrl_text="A", alt_text="X", width=20, tips=self.exit_button_tips_updater(), 
+
+        self.exit_button = form.Button(text="✓", shift_text="D", ctrl_text="A", alt_text="X", width=20, tips=self.exit_button_tips_updater(),
             callback=self.exit_button_func, pos_args=('',), neg_args=('DUPLICATE',),
             ctrl_callback=self.exit_button_func, ctrl_args=('APPLY',),
             alt_callback=self.exit_button_func, alt_args=('CANCEL',))
-        
+
         self.set_exit_button_modifier_key_text()
 
         tips = self.exit_button.tips
@@ -384,7 +427,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         # --- Mods --- #
         row = self.form.row()
         group = self.mod_group(context)
-        
+
         self.mod_box = form.Scroll_Box(width=220, height=self.mods_box_height(), scroll_group=group, view_scroll_enabled=True)
         row.add_element(self.mod_box)
         self.form.row_insert(row, label="MODS", active=True if self.state == States.MOD else False)
@@ -425,7 +468,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             tip = tip if text == mod.name else [mod.name]
             obj = get_mod_object(mod)
             if obj: tip.append(f"Shift Click : Toggle Reveal {obj.name}")
-                
+
             msg, pop_up = popup_generator(self, mod, index + 1)
             if pop_up: tip.append(msg)
 
@@ -438,19 +481,19 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
                 callback=self.mod_tracker.make_selected_active, pos_args=(context, index, False), neg_args=(context, index, True),
                 highlight_hook=self.mod_tracker.highlight, highlight_hook_args=(index,),
                 popup=pop_up, popup_modifier_key='CTRL'))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, text="O", highlight_text="X", tips=["Toggle modifier visibility"],
                 width=20, height=20, use_padding=False,
                 callback=self.mod_tracker.mod_toggle_view, pos_args=(self.obj, mod.name),
                 highlight_hook=self.mod_tracker.mod_show_view_highlight, highlight_hook_args=(self.obj, mod.name)))
-                        
+
             row.add_element(form.Button(
                 scroll_enabled=False, text="R", tips=["Toggle modifier render"],
                 width=20, height=20, use_padding=False,
                 callback=self.mod_tracker.mod_toggle_render, pos_args=(self.obj, mod.name),
                 highlight_hook=self.mod_tracker.mod_show_render_highlight, highlight_hook_args=(self.obj, mod.name)))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, text="✓", tips=["Click : Apply modifier", "Shift Click : Apply modifiers up to"],
                 width=25, height=20, use_padding=False,
@@ -470,7 +513,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         if self.bool_tracker.recursive_active:
             mods = self.bool_tracker.recursive.active_mods()
             for index, mod_name in enumerate(mods):
-                
+
                 text = form.shortened_text(mod_name, width=115, font_size=12)
                 row = group.row()
                 row.add_element(form.Label(text=str(index + 1), width=25, height=20))
@@ -507,7 +550,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
                 row.add_element(form.Label(text=str(text), width=175, height=20))
                 group.row_insert(row)
                 continue
-            
+
             row = group.row()
 
             if self.bool_tracker.has_recursive_mods(mod):
@@ -535,7 +578,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
                 tips.update_args = (mod.name,)
 
             row.add_element(button)
-            
+
             bool_index += 1
 
             row.add_element(form.Button(
@@ -543,14 +586,14 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
                 width=20, height=20, use_padding=False,
                 callback=self.bool_tracker.bool_toggle, pos_args=(self.obj, mod.name),
                 highlight_hook=self.bool_tracker.bool_show_view_highlight, highlight_hook_args=(self.obj, mod.name)))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, tips=["Lock modifier object visibility"],
                 width=20, height=20, use_padding=False,
                 callback=self.bool_tracker.add_selected_to_tracked, pos_args=(self.obj, mod.name),
                 highlight_hook=self.bool_tracker.bool_tracked_highlight, highlight_hook_args=(self.obj, mod.name),
                 glob_img_key='eyecon_closed', glob_img_key_update_func=self.bool_tracker.bool_tracked_img_key_update, glob_img_key_update_args=(self.obj, mod.name)))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, text="✓", tips=["Click : Apply modifier", "Shift Click : Apply modifiers up to"],
                 width=25, height=20, use_padding=False,
@@ -569,19 +612,19 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
             tip = [] if text == child.name else [child.name]
 
             row.add_element(form.Label(text=str(index + 1), width=25, height=20))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, text=text, tips=tip,
                 width=130, height=20, use_padding=False,
                 callback=self.child_tracker.make_selected_active, pos_args=(index,), neg_args=(index,),
                 highlight_hook=self.child_tracker.highlight, highlight_hook_args=(index,)))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, text="X", highlight_text="O", tips=["Toggle visibility"],
                 width=20, height=20, use_padding=False,
                 callback=self.child_tracker.hide_toggle, pos_args=(child,),
                 highlight_hook=self.child_tracker.hide_highlight, highlight_hook_args=(child,)))
-            
+
             row.add_element(form.Button(
                 scroll_enabled=False, text="A", highlight_text="R", tips=["Click : Append / Remove from visibility"],
                 width=25, height=20, use_padding=False,
@@ -758,7 +801,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
                     tip.append("Shift Click : Add to additive")
             else:
                 tip.append("No Object in Modifier")
-                
+
         except: pass
 
         tip.append("Ctrl Click : Popup Menu")
@@ -841,6 +884,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         elif self.state == States.COLL:
             self.coll_tracker.exit_tracker(context, event)
 
+        self.__class__.operator = None
         return {'FINISHED'}
 
 
@@ -848,6 +892,7 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         self.common_exit(context)
         bpy.ops.ed.undo_push()
         bpy.ops.ed.undo()
+        self.__class__.operator = None
         return {'CANCELLED'}
 
     # --- AUTO SCROLL --- #
@@ -886,6 +931,8 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         if self.form.is_dot_open():
             if self.auto_scroll_form_label:
                 self.auto_scroll_form_label.text = self.auto_scroll.display_msg()
+
+        self.time = self.auto_scroll.display_msg()
 
         if self.auto_scroll.sequance_hold:
             if time.time() - self.auto_scroll.sequance_hold_time > 1:
@@ -958,3 +1005,320 @@ class HOPS_OT_Ever_Scroll_V2(bpy.types.Operator):
         self.auto_scroll.draw()
 
 
+class HOPS_OT_Ever_Scroll_V2_Popup(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_popup"
+    bl_label = ""
+    bl_description = ""
+
+    def __del__(self):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return
+        op.popup_active = False
+
+    def execute(self, context):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        if op.state == States.MOD:
+            op.b_state = "Modifiers"
+        elif op.state == States.BOOL:
+            op.b_state = "Booleans"
+        elif op.state == States.CHILD:
+            op.b_state = "Children"
+
+        op.popup_active = True
+
+        return bpy.context.window_manager.invoke_popup(self, width=int(180 * get_dpi_factor(force=False)))
+
+    def draw(self, context):
+        layout = self.layout
+
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return
+
+        if op.form_exit:
+            layout.label(text='Finished')
+            return
+
+        row = layout.row()
+        row.prop(op, "b_state", text='')
+        row.operator("hops.ever_scroll_v2_scroll", text='', icon='PAUSE' if op.auto_scroll.active else 'PLAY')
+
+        if op.state == States.CHILD:
+            row.operator("hops.ever_scroll_v2_finishobj", text='', icon='CHECKMARK')
+        else:
+            row.operator("hops.ever_scroll_v2_finish", text='', icon='CHECKMARK')
+
+        def row_layout(row):
+            # row = row.split(factor=0.10, align=True)
+            # row.alignment = 'LEFT'
+            # row.label(text=str(i + 1))
+            row = row.row(align=True)
+            row.alignment = 'EXPAND'
+
+            return row
+
+        def mod_func(row, mod_name):
+            row.separator()
+            row.operator_context = 'INVOKE_DEFAULT'
+            row.prop(mod, 'show_viewport', text='')
+            row.prop(mod, 'show_render', text='')
+
+            props = row.operator('hops.ever_scroll_v2_modedit', text="", icon='PROPERTIES')
+            props.name = mod_name
+
+            apply = row.operator("hops.ever_scroll_v2_apply", text="", icon='CHECKMARK')
+            apply.mod_name = mod_name
+
+
+
+        if op.state == States.MOD:
+            for i, mod in enumerate(context.active_object.modifiers):
+                row = layout.row(align=True)
+                row = row_layout(row)
+                row.alert = op.mod_tracker.current_mod == mod
+                op_btn = row.operator("hops.ever_scroll_v2_modbtn", text=mod.name)
+                op_btn.index = i
+
+                row = row.row(align=True)
+                row.alert = False
+                mod_func(row, mod.name)
+
+        elif op.state == States.BOOL:
+            for i, mod in enumerate(context.active_object.modifiers):
+                active = op.bool_tracker.current_mod == mod
+                row = layout.row(align=True)
+                row = row_layout(row)
+
+                if mod.type == 'BOOLEAN':
+                    row.alert = active
+                    op_btn = row.operator("hops.ever_scroll_v2_boolbtn", text=mod.name)
+                    op_btn.index = i
+                    row = row.row(align=True)
+                    row.alert = False
+
+                    row.separator()
+                    row.operator_context = 'INVOKE_DEFAULT'
+                    row.prop(mod, 'show_viewport', text='')
+                    obj_vis = row.operator('hops.ever_scroll_v2_boolvisbtn', icon='LOCKED' if op.bool_tracker.bool_tracked_highlight(mod.id_data, mod.name) else 'UNLOCKED')
+                    obj_vis.obj_name = mod.id_data.name
+                    obj_vis.mod_name = mod.name
+
+                    props = row.operator('hops.ever_scroll_v2_modedit', text="", icon='PROPERTIES')
+                    props.name = mod.name
+
+                    apply = row.operator("hops.ever_scroll_v2_apply", text="", icon='CHECKMARK')
+                    apply.mod_name = mod.name
+
+                else:
+                    row.label(text=mod.name)
+                    row.alert = active
+
+        elif op.state == States.CHILD:
+            for i, obj in enumerate(op.child_tracker.children):
+                row = row_layout(layout)
+                row.alert = op.child_tracker.current_obj == obj
+                active = row.operator("hops.ever_scroll_v2_objbtn", text=obj.name)
+                active.index = i
+                row.separator()
+
+                row = row.row(align=True)
+                row.alert = False
+                vis = row.operator("hops.ever_scroll_v2_objvis", text='', icon="HIDE_ON" if obj.hide_get() else "HIDE_OFF")
+                vis.obj_name = obj.name
+                visadd = row.operator("hops.ever_scroll_v2_objvisadd", text='', icon='EVENT_R' if op.child_tracker.tracked_highlight(obj) else 'EVENT_A')
+                visadd.obj_name = obj.name
+
+class HOPS_OT_Ever_Scroll_V2_Scroll(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_scroll"
+    bl_label = "Auto Scroll"
+    bl_description = ""
+
+    def execute(self, context):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        op.toggle_auto_scroll(context)
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_Apply(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_apply"
+    bl_label = "Apply"
+    bl_description = "Click : Apply modifier\nShift Click : Apply modifiers up to"
+
+    mod_name: bpy.props.StringProperty()
+
+    def invoke(self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        if event.shift:
+            op.mod_tracker.apply_mods_form(context, op, self.mod_name, True)
+
+        else:
+            op.mod_tracker.apply_mods_form(context, op, self.mod_name, False)
+
+        return {'FINISHED'}
+
+
+
+class HOPS_OT_Ever_Scroll_V2_Finish(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_finish"
+    bl_label = "Finish"
+    bl_description = """Click : Finalize / Exit
+    Shift Click : Smart Apply Clone
+    Ctrl Click : Apply Visible Modifiers
+    Alt Click : Cancel / Exit"""
+
+    def invoke(self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        val = ''
+        if event.shift:
+            val ='DUPLICATE'
+
+        elif event.ctrl:
+            val = 'CLONE'
+
+        elif event.alt:
+            val = 'CANCEL'
+
+        op.exit_button_func(val)
+
+        op.popup_active = False
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_FinishObj(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_finishobj"
+    bl_label = "Finish"
+    bl_description = """Click : Finalize / Exit"
+    Alt Click : Cancel / Exit"""
+
+    def invoke(self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+        val = ''
+        if event.alt:
+            val = 'CANCEL'
+
+        op.exit_button_func(val)
+        op.popup_active = False
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_ModBtn(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_modbtn"
+    bl_label = ""
+    bl_description = "Reveal Mod object if applicable"
+
+    index: bpy.props.IntProperty()
+
+    def execute (self, context):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+        op.mod_tracker.make_selected_active(context, self.index)
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_BoolBtn(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_boolbtn"
+    bl_label = ""
+    bl_description = "Click: Reveal\nShift + Click: Additive reveal"
+
+    index: bpy.props.IntProperty()
+
+    def invoke (self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        op.bool_tracker.make_selected_active(self.index, event.shift)
+
+
+        return {'FINISHED'}
+class HOPS_OT_Ever_Scroll_V2_BoolVisBtn(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_boolvisbtn"
+    bl_label = ""
+    bl_description = "Lock modifier object visibility"
+
+    obj_name: bpy.props.StringProperty()
+    mod_name: bpy.props.StringProperty()
+
+    def invoke (self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        obj = bpy.data.objects[self.obj_name]
+        op.bool_tracker.add_selected_to_tracked(obj, self.mod_name)
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_ModEdit(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_modedit"
+    bl_label = "Modifier Properties"
+    bl_description = "Edit Modifier Properties"
+
+    name: bpy.props.StringProperty()
+
+    def draw(self, context):
+        obj = context.active_object
+        mod = obj.modifiers[self.name]
+        getattr(DATA_PT_modifiers, mod.type)(DATA_PT_modifiers, self.layout, obj, mod)
+
+
+    def execute (self, context):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        return bpy.context.window_manager.invoke_popup(self, width=int(240 * get_dpi_factor(force=False)))
+
+
+class HOPS_OT_Ever_Scroll_V2_ObjBtn(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_objbtn"
+    bl_label = ""
+    bl_description = "Reveal"
+
+    index: bpy.props.IntProperty()
+
+    def execute(self, context):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        op.child_tracker.make_selected_active(self.index)
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_ObjVis(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_objvis"
+    bl_label = ""
+    bl_description = "Toggle Visibility"
+
+    obj_name: bpy.props.StringProperty()
+
+    def invoke(self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        obj = bpy.data.objects[self.obj_name]
+        op.child_tracker.hide_toggle(obj)
+
+        return {'FINISHED'}
+
+class HOPS_OT_Ever_Scroll_V2_ObjVisAdd(bpy.types.Operator):
+    bl_idname = "hops.ever_scroll_v2_objvisadd"
+    bl_label = ""
+    bl_description = "Click : Append / Remove from visibility"
+
+    obj_name: bpy.props.StringProperty()
+
+    def invoke(self, context, event):
+        op = HOPS_OT_Ever_Scroll_V2.operator
+        if not op: return {'CANCELLED'}
+
+        obj = bpy.data.objects[self.obj_name]
+
+        op.child_tracker.add_to_tracked(obj)
+
+        return {'FINISHED'}

@@ -108,6 +108,7 @@ class BAGAPIE_OT_scatter_remove(Operator):
 
 
         context.object.bagapieList.remove(self.index)
+        
 
         
         # REMOVE UNUSED GROUP INPUT
@@ -144,6 +145,9 @@ class BAGAPIE_OT_scatter_remove(Operator):
                     var -=1
                 else:
                     var += 1
+
+        if len(obj.bagapieList) > 0 and obj.bagapieIndex > 0:
+            obj.bagapieIndex = len(obj.bagapieList)-1
 
         return {'FINISHED'}
 
@@ -535,7 +539,7 @@ def BagaPie_Assets_Check(self,context,obj):
     use_bagapie_assets = False
     for ob in obj:
         try:
-            if "BagaPie" in ob.name:
+            if ob.bagapieList:
                 use_bagapie_assets = True
         except:
             pass
@@ -853,3 +857,12 @@ class Apply_Scatter_OP(Operator):
         
 
         return {'FINISHED'}
+
+classes = [
+    BAGAPIE_OT_scatter_remove,
+    BAGAPIE_OT_scatter,
+    UseProperty,
+    Use_Proxy_On_Assets,
+    Use_Camera_Culling_On_Layer,
+    Apply_Scatter_OP,
+]

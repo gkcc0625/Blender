@@ -10,9 +10,7 @@ class Refresh(bpy.types.Operator):
 
 
     def execute(self, context: bpy.types.Context):
-        if hasattr(context.space_data, 'show_region_ui'):
-            if not context.space_data.show_region_ui:
-                context.space_data.show_region_ui = True
+        utils.sidebar.show()
 
         prefs = utils.addon.prefs()
         names = utils.sidebar.tabs()
@@ -22,11 +20,6 @@ class Refresh(bpy.types.Operator):
 
         if utils.bc.get_module():
             names.add(utils.bc.get_default())
-
-        for tab in prefs.tab_items[:]:
-            if tab.name not in names:
-                index = prefs.tab_items.find(tab.name)
-                prefs.tab_items.remove(index)
 
         for name in names:
             if name not in prefs.tab_items:
@@ -42,5 +35,10 @@ class Refresh(bpy.types.Operator):
                 else:
                     tab.rename = name
 
+        if prefs.tab_items:
+            if prefs.tab_index not in range(len(prefs.tab_items)):
+                prefs.tab_index = 0
+
+        utils.addon.save_userpref()        
         self.report({'INFO'}, f'Found {len(prefs.tab_items)} tabs')
         return {'FINISHED'}

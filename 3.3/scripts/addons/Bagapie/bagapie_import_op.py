@@ -58,3 +58,7 @@ def Assets_Collection(self, context):
     asset_coll = bpy.data.collections['BagaPie_Assets']
 
     return asset_coll
+
+classes = [
+    BAGAPIE_OT_importnodes,
+]

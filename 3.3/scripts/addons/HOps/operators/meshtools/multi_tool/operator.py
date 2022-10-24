@@ -6,16 +6,59 @@ from .dissolve import Dissolve
 from .join import Join
 from .knife import Knife
 
+from bpy.props import EnumProperty
+
+tool_type_items = [
+        ("SELECT", "SELECT", ""),
+        ("SPIN", "SPIN", ""),
+        ("MERGE", "MERGE", ""),
+        ("DISSOLVE", "DISSOLVE", ""),
+        ("JOIN", "JOIN", ""),
+        ("KNIFE", "KNIFE", "")]
+
+#set mode on prop update
+def tool_update(self, context):
+    instance = HOPS_OT_FastMeshEditor.instance
+    if not instance: return
+
+    entry = instance.tool_type
+
+    if entry == 'SELECT':
+        instance.tool = Tool.SELECT
+    elif entry == 'SPIN':
+        instance.tool = Tool.SPIN
+    elif entry == 'MERGE':
+        instance.tool = Tool.MERGE
+    elif entry == 'DISSOLVE':
+        instance.tool = Tool.DISSOLVE
+    elif entry == 'JOIN':
+        instance.tool = Tool.JOIN
+    elif entry == 'KNIFE':
+        instance.tool = Tool.KNIFE
+
+    instance.ensure_selection_change()
+
 
 class HOPS_OT_FastMeshEditor(bpy.types.Operator):
     bl_idname = "hops.fast_mesh_editor"
     bl_label = "Fast mesh editor"
-    bl_description = """Fast Mesh Editor 
+    bl_description = """Fast Mesh Editor
     Quickly do basic edits on the mesh
     Press H for help
     """
     bl_options = {"REGISTER", "UNDO", "BLOCKING"}
     relaunch_tool: StringProperty(default="")
+
+    # operator instance to communicate with popover
+    instance = None
+
+    # prop for popover to draw
+    tool_type: EnumProperty(
+    name="Tool Type",
+    description="",
+    items=tool_type_items,
+    default='SELECT',
+    update=tool_update)
 
     @classmethod
     def poll(cls, context):
@@ -35,6 +78,9 @@ class HOPS_OT_FastMeshEditor(bpy.types.Operator):
         self.tool = Tool.SELECT
         entry = get_preferences().property.multi_tool_entry
         entry = self.relaunch_tool if self.relaunch_tool != "" else entry
+
+        self.tool_type = entry
+        self.__class__.instance = self
 
         if entry == 'SELECT':
             self.tool = Tool.SELECT
@@ -62,7 +108,7 @@ class HOPS_OT_FastMeshEditor(bpy.types.Operator):
         self.setup_tool_data()
 
         # Flow menu
-        self.flow = Flow_Menu()
+        self.flow = Flow_Menu() if get_preferences().property.menu_style_selector == 'DEFAULT' else FlowDummy()
         self.setup_flow_menu()
 
         # Base Systems
@@ -93,7 +139,7 @@ class HOPS_OT_FastMeshEditor(bpy.types.Operator):
 
     def flow_func(self, tool=Tool.SELECT):
         '''Func to switch tools from flow menu.'''
-        
+
         if self.data.locked == False:
             self.tool = tool
             self.ensure_selection_change()
@@ -263,7 +309,7 @@ class HOPS_OT_FastMeshEditor(bpy.types.Operator):
             elif self.tool == Tool.JOIN:
                 win_list.append("TOOL: JOIN")
                 help_items["STANDARD"] = self.join.help()
-                
+
             elif self.tool == Tool.KNIFE:
                 win_list.append("TOOL: KNIFE")
                 help_items["STANDARD"] = self.knife.help()
@@ -298,6 +344,8 @@ class HOPS_OT_FastMeshEditor(bpy.types.Operator):
         collapse_3D_view_panels(self.original_tool_shelf, self.original_n_panel)
         # Tools
         self.tool_shut_downs(context)
+
+        self.__class__.instance = None
 
 
     def tool_shut_downs(self, context):
@@ -416,3 +464,35 @@ class HOPS_OT_FastMeshEditor(bpy.types.Operator):
             self.join.draw_3d(context, self.data, self)
         elif self.tool == Tool.KNIFE:
             self.knife.draw_3d(context, self.data, self)
+
+# mimic Flow object. it's abit less of a headache than if it out
+class FlowDummy:
+    is_open = False
+    def setup_flow_data(self, _): pass
+    def shut_down(self): pass
+    def draw_2D(self): pass
+    def run_updates(self, context, event, enable_tab_open=True):
+        instance = HOPS_OT_FastMeshEditor.instance
+        if not instance: return
+        if not event.value == 'PRESS': return
+        if event.type == 'TAB' and enable_tab_open:
+            bpy.context.window_manager.popover(popup_draw)
+
+        elif event.type == 'SPACE' and (event.shift or event.alt):
+            bpy.context.window_manager.popover(popup_draw)
+
+
+# draw popover
+def popup_draw(self, context):
+    layout = self.layout
+
+    data = HOPS_OT_FastMeshEditor.instance
+    if not data: return {'CANCELLED'}
+
+    layout.label(text= 'Selector')
+    vals = (item[0] for item in tool_type_items)
+
+    for val in vals:
+        row = layout.row()
+        row.scale_y = 2
+        row.prop_enum(data, 'tool_type', val)

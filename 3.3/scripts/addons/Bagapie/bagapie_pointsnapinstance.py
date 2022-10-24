@@ -395,3 +395,8 @@ def Warning(message = "", title = "Message Box", icon = 'INFO'):
         self.layout.label(text=message)
 
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
+classes = [
+    BAGAPIE_OT_pointsnapinstance_remove,
+    BAGAPIE_OT_pointsnapinstance,
+]

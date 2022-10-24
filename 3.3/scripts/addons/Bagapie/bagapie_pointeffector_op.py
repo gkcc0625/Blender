@@ -80,6 +80,8 @@ class BAGAPIE_OT_pointeffector_remove(Operator):
 
         # REMOVE FROM LIST
         context.object.bagapieList.remove(self.index)
+        # if len(obj.bagapieList) <= obj.bagapieIndex and len(obj.bagapieList) > 1:
+        #     obj.bagapieIndex -= 1
 
         return {'FINISHED'}
 
@@ -278,3 +280,8 @@ def Warning(message = "", title = "Message Box", icon = 'INFO'):
         self.layout.label(text=message)
 
     bpy.context.window_manager.popup_menu(draw, title = title, icon = icon)
+
+classes = [
+    BAGAPIE_OT_pointeffector_remove,
+    BAGAPIE_OT_pointeffector,
+]
