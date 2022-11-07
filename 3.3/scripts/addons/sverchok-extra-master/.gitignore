@@ -1,8 +1,0 @@
-__pycache__/
-*.swp
-*.pyc
-htmlcov/
-.coverage
-.idea
-tests/*.log
-tags
